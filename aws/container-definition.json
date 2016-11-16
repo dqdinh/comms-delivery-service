@@ -1,0 +1,14 @@
+[
+  {
+    "name": "monitor-service",
+    "image": "@@AWS_ACCOUNT_ID.dkr.ecr.eu-west-1.amazonaws.com/monitor-service:@@VERSION",
+    "essential": true,
+    "memory": 512,
+    "environment": [
+      {
+        "name": "ENV",
+        "value": "@@ENV"
+      }
+    ]
+  }
+]

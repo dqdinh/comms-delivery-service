@@ -1,0 +1,8 @@
+monitor-service:
+  image: ${AWS_ACCOUNT_ID}.dkr.ecr.eu-west-1.amazonaws.com/monitor-service:0.1-SNAPSHOT
+
+  environment:
+    ENV: LOCAL
+    KAFKA_HOSTS: ${KAFKA_HOSTS}
+    LIBRATO_EMAIL: ${LIBRATO_EMAIL}
+    LIBRATO_TOKEN: ${LIBRATO_TOKEN}
