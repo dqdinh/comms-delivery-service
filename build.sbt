@@ -5,7 +5,7 @@ val testReportsDir = sys.env.getOrElse("CI_REPORTS", "target/reports")
 testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-o", "-u", testReportsDir)
 
 lazy val buildSettings = Seq(
-  name                  := "monitor-service",
+  name                  := "delivery-service",
   organization          := "com.ovoenergy",
   organizationName      := "OVO Energy",
   organizationHomepage  := Some(url("http://www.ovoenergy.com")),
@@ -13,16 +13,8 @@ lazy val buildSettings = Seq(
   scalacOptions         := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 )
 
-val protobufSettings = Seq(
-  PB.protoSources in Compile := Seq(baseDirectory.value / "src/main/resources/protobuf"),
-  PB.targets in Compile := Seq(
-    scalapb.gen() -> (sourceManaged in Compile).value
-  )
-)
-
 lazy val service = (project in file("."))
   .settings(buildSettings)
-  .settings(protobufSettings)
   .settings(libraryDependencies ++= Dependencies.all)
   .withDocker
 

@@ -18,7 +18,7 @@ object DockerPackage {
   )
 
   private lazy val settings = Seq(
-    packageName in Docker := "monitor-service",
+    packageName in Docker := "delivery-service",
     dockerRepository := Some(s"$awsAccountNumber.dkr.ecr.eu-west-1.amazonaws.com"),
     dockerUpdateLatest := false,
     dockerExposedPorts := Seq(8080),
@@ -43,7 +43,7 @@ object DockerPackage {
         .settings(
           dockerConfigTask := {
             import sys.process._
-            "aws s3 sync s3://ovo-comms-platform-config/service-config/uat/monitor-service ./target/src_managed/resources/uat" !
+            "aws s3 sync s3://ovo-comms-platform-config/service-config/uat/delivery-service ./target/src_managed/resources/uat" !
           })
         .settings(
           dockerLoginTask := {
