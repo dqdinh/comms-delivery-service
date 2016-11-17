@@ -11,6 +11,7 @@ object Dependencies {
     "io.circe"                %% "circe-parser"                   % "0.6.0",
     "io.circe"                %% "circe-generic"                  % "0.6.0",
     "me.moocar"                % "logback-gelf"                   % "0.2",
+    "net.cakesolutions"       %% "scala-kafka-client"             % "0.10.0.0",
     "io.logz.logback"          % "logzio-logback-appender"        % "1.0.11",
     "com.ovoenergy"           %% "comms-kafka-messages-internal"  % "0.0.6",
     "org.scalatest"           %% "scalatest"                      % "2.2.6"   % "test"
