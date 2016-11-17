@@ -1,0 +1,9 @@
+package com.ovoenergy.delivery.service.email.mailgun
+
+sealed trait EmailDeliveryError
+case object APIGatewayAuthenticationError extends EmailDeliveryError
+case object APIGatewayInternalServerError extends EmailDeliveryError
+case object APIGatewayBadRequest extends EmailDeliveryError
+case object APIGatewayUnmappedError extends EmailDeliveryError
+case object Exception extends EmailDeliveryError
+
