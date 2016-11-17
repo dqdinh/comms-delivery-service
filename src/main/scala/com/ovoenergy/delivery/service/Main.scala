@@ -25,4 +25,7 @@ object Main extends App
   while (true) {
     Thread.sleep(1000)
   }
+
+
+//  val yo = DeliveryServiceFlow("123", "123", new AvroDeserializer[ComposedEmail] ???)
 }
