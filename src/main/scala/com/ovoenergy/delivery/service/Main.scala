@@ -2,7 +2,7 @@ package com.ovoenergy.delivery.service
 
 import java.time.Clock
 
-import com.ovoenergy.delivery.service.email.mailgun.{MailgunClient, MailgunClientConfiguration}
+import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.UUIDGenerator
@@ -17,7 +17,7 @@ object Main extends App
 
   val config = ConfigFactory.load()
 
-  val mailgunClientConfig = MailgunClientConfiguration(config.getString("mailgun.domain"), config.getString("mailgun.apiKey"))
+  val mailgunClientConfig = MailgunClient.Configuration(config.getString("mailgun.domain"), config.getString("mailgun.apiKey"))
   val mailgunClient = new MailgunClient(mailgunClientConfig, HttpClient.processRequest, UUIDGenerator.generateUUID)
 
   log.info("Delivery Service started")

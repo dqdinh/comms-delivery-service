@@ -6,8 +6,9 @@ import java.time._
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
+import com.ovoenergy.comms.EmailStatus.Queued
 import com.ovoenergy.comms.{ComposedEmail, Metadata}
-import okhttp3.{Protocol, Request, Response}
+import okhttp3._
 import okio.Okio
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -21,7 +22,7 @@ class MailgunClientSpec extends FlatSpec
 
   val mailgunDomain = "jifjfofjosdfjdoisj"
   val mailgunApiKey = "dfsfsfdsfdsfs"
-  val config = MailgunClientConfiguration(mailgunDomain, mailgunApiKey)
+  val config = MailgunClient.Configuration(mailgunDomain, mailgunApiKey)
 
   val gatewayId = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
@@ -68,12 +69,13 @@ class MailgunClientSpec extends FlatSpec
       assertFormData(out, false)
 
       Try[Response] {
-        new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(200).message(successResponse).build()
+        new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(200).body(ResponseBody.create(MediaType.parse("UTF-8"), successResponse)).build()
       }
     }
     new MailgunClient(config, okResponse, () => kafkaId).sendEmail(composedEmailHtmlOnly) match {
       case Right(emailProgressed) =>
-        emailProgressed.gatewayId shouldBe gatewayId
+        emailProgressed.gatewayMessageId shouldBe gatewayId
+        emailProgressed.gateway shouldBe "Mailgun"
         emailProgressed.status shouldBe Queued
         assertMetadata(emailProgressed.metadata)
       case Left(_) => fail()
@@ -93,7 +95,7 @@ class MailgunClientSpec extends FlatSpec
       assertFormData(out, true)
 
       Try[Response] {
-        new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(200).message(successResponse).build()
+        new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(200).body(ResponseBody.create(MediaType.parse("UTF-8"), successResponse)).build()
       }
     }
     new MailgunClient(config, okResponse, () => kafkaId).sendEmail(composedEmailWithText)
@@ -107,14 +109,14 @@ class MailgunClientSpec extends FlatSpec
     }
     new MailgunClient(config, badResponse, () => kafkaId).sendEmail(composedEmail) match {
       case Right(_) => fail()
-      case Left(failed) => failed shouldBe Exception
+      case Left(failed) => failed shouldBe ExceptionOccurred
     }
   }
 
   it should "Generate correct failure for a 'bad request' response from Mailgun API" in {
     val badResponse = (request: Request) => {
       Try[Response] {
-        new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(400).message("""{"message": "Some error message"}""").build()
+        new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(400).body(ResponseBody.create(MediaType.parse("UTF-8"), """{"message": "Some error message"}""")).build()
       }
     }
     new MailgunClient(config, badResponse, () => kafkaId).sendEmail(composedEmail) match {
@@ -127,7 +129,7 @@ class MailgunClientSpec extends FlatSpec
     for (responseCode <- 500 to 511) {
       val badResponse = (request: Request) => {
         Try[Response] {
-          new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(responseCode).build()
+          new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(responseCode).body(ResponseBody.create(MediaType.parse("UTF-8"), "")).build()
         }
       }
       new MailgunClient(config, badResponse, () => kafkaId).sendEmail(composedEmail) match {
@@ -140,7 +142,7 @@ class MailgunClientSpec extends FlatSpec
   it should "Generate correct failure for a 'authorization error' response from Mailgun API" in {
     val badResponse = (request: Request) => {
       Try[Response] {
-        new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(401).build()
+        new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(401).body(ResponseBody.create(MediaType.parse("UTF-8"), "")).build()
       }
     }
     new MailgunClient(config, badResponse, () => kafkaId).sendEmail(composedEmail) match {
@@ -152,23 +154,23 @@ class MailgunClientSpec extends FlatSpec
   it should "Generate correct failure for any other response from Mailgun API" in {
     val badResponse = (request: Request) => {
       Try[Response] {
-        new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(422).build()
+        new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(422).body(ResponseBody.create(MediaType.parse("UTF-8"), "")).build()
       }
     }
     new MailgunClient(config, badResponse, () => kafkaId).sendEmail(composedEmail) match {
       case Right(_) => fail()
-      case Left(failed) => failed shouldBe APIGatewayUnmappedError
+      case Left(failed) => failed shouldBe APIGatewayUnspecifiedError
     }
   }
 
   private def assertMetadata(metadata: Metadata): Unit = {
     metadata.customerId shouldBe customerId
     metadata.canary shouldBe false
-    metadata.friendlyDescription shouldBe friendlyDescription
     metadata.source shouldBe "delivery-service"
     metadata.sourceMetadata.get shouldBe composedEmailMetadata
     metadata.transactionId shouldBe transactionId
     metadata.timestampIso8601 shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+    metadata.friendlyDescription shouldBe friendlyDescription
   }
 
   private def assertFormData(out: ByteArrayOutputStream, textIncluded: Boolean) = {
@@ -182,7 +184,6 @@ class MailgunClientSpec extends FlatSpec
       "\"timestampIso8601\":\"" + dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "\"," +
       "\"customerId\":\"" + customerId + "\"," +
       "\"transactionId\":\"" + transactionId + "\"," +
-      "\"friendlyDescription\":\"" + friendlyDescription + "\"," +
       "\"canary\":false}"
     )
   }
