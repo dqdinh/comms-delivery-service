@@ -11,8 +11,8 @@ import com.ovoenergy.comms.{ComposedEmail, EmailProgressed, Metadata}
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import io.circe.Decoder
-import io.circe.parser._
 import io.circe.generic.auto._
+import io.circe.parser._
 import okhttp3.{Credentials, FormBody, Request, Response}
 
 import scala.util.{Failure, Success, Try}

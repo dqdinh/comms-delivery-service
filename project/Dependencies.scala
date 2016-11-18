@@ -16,7 +16,8 @@ object Dependencies {
     "com.ovoenergy"           %% "comms-kafka-messages-internal"  % "0.0.7",
     "org.typelevel"           %% "cats-core"                      % "0.8.0",
     "com.squareup.okhttp3"     % "okhttp"                         % "3.4.2",
-    "org.scalatest"           %% "scalatest"                      % "2.2.6"   % "test"
+    "org.scalatest" %% "scalatest" % "3.0.1" % Test,
+    "org.scalacheck" %% "scalacheck" % "1.13.4" % Test,
+    "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.4" % Test
   )
-
 }
