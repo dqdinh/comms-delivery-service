@@ -1,8 +1,26 @@
-monitor-service:
-  image: ${AWS_ACCOUNT_ID}.dkr.ecr.eu-west-1.amazonaws.com/monitor-service:0.1-SNAPSHOT
+delivery-service:
+  image: delivery-service
 
   environment:
     ENV: LOCAL
-    KAFKA_HOSTS: ${KAFKA_HOSTS}
+    KAFKA_HOSTS: "localhost:9092"
     LIBRATO_EMAIL: ${LIBRATO_EMAIL}
     LIBRATO_TOKEN: ${LIBRATO_TOKEN}
+
+zookeeper:
+  image: wurstmeister/zookeeper
+  ports:
+    - "2181"
+
+kafka:
+  image: wurstmeister/kafka:0.8.2.0
+  ports:
+    - "9092"
+  links:
+    - zookeeper:zk
+  environment:
+    KAFKA_ZOOKEEPER_CONNECT: zk:2181
+    KAFKA_ADVERTISED_HOST_NAME: localhost
+    KAFKA_CREATE_TOPICS: "composer-service:1:1,comms-orchestrated-email:1:1"
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
