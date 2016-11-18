@@ -17,7 +17,7 @@ object DeliveryServiceEmailFlow extends LoggingWithMDC {
 
   override def loggerName = "DeliveryServiceFlow"
 
-  def apply[T](consumerDeserializer: Deserializer[Try[T]], issueComm: (T) => Future[Done], kafkaConfig: KafkaConfig)
+  def apply[T](consumerDeserializer: Deserializer[Try[T]], issueComm: (T) => Future[Unit], kafkaConfig: KafkaConfig)
               (implicit actorSystem: ActorSystem, materializer: Materializer) = {
 
     implicit val executionContext = actorSystem.dispatcher
@@ -35,11 +35,12 @@ object DeliveryServiceEmailFlow extends LoggingWithMDC {
 
     Consumer
       .committableSource(consumerSettings, Subscriptions.topics(kafkaConfig.emailComposedTopic))
-      .mapAsync(5)(msg => {
+      .mapAsync(1)(msg => {
         msg.record.value match {
-          case Success(comm) => issueComm(comm)
+          case Success(comm) => issueComm(comm).map(_ => msg.committableOffset.commitScaladsl())
           case Failure(ex) =>
             log.error(s"Skipping event: $msg", ex)
+            msg.committableOffset.commitScaladsl()
             Future(Done)
         }
       })

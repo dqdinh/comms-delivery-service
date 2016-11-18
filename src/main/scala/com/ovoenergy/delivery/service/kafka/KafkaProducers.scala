@@ -19,10 +19,10 @@ class KafkaProducers(kafkaConfig: KafkaConfig) {
   private val deiveryFailedProducer       = KafkaProducer(Conf(new StringSerializer, new AvroSerializer[Failed], kafkaConfig.hosts))
 
   val publishDeliveryFailedEvent= (failed: Failed) => {
-    deiveryFailedProducer.send(new ProducerRecord[String, Try[Failed]](kafkaConfig.commFailedTopic, Try(failed))).map(_ => Done)
+    deiveryFailedProducer.send(new ProducerRecord[String, Try[Failed]](kafkaConfig.commFailedTopic, Try(failed))).map(_ => ())
   }
 
   val publishDeliveryProgressedEvent = (progressed: EmailProgressed) => {
-    deliveryProgressedProducer.send(new ProducerRecord[String, Try[EmailProgressed]](kafkaConfig.emailProgressedTopic, Try(progressed))).map(_ => Done)
+    deliveryProgressedProducer.send(new ProducerRecord[String, Try[EmailProgressed]](kafkaConfig.emailProgressedTopic, Try(progressed))).map(_ => ())
   }
 }

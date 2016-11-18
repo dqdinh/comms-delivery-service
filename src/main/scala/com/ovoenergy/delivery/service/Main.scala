@@ -5,7 +5,8 @@ import akka.stream.ActorMaterializer
 import com.ovoenergy.comms.ComposedEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
-import com.ovoenergy.delivery.service.kafka.{DeliveryServiceEmailFlow, EmailDeliveryProcess, KafkaProducers}
+import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
+import com.ovoenergy.delivery.service.kafka.{DeliveryServiceEmailFlow, KafkaProducers}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.typesafe.config.ConfigFactory
 
