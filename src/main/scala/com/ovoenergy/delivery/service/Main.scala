@@ -1,22 +1,34 @@
 package com.ovoenergy.delivery.service
 
+import java.time.Clock
+
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.ovoenergy.comms.ComposedEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
+import com.ovoenergy.delivery.service.http.HttpClient
+import com.ovoenergy.delivery.service.kafka.{DeliveryServiceEmailFlow, KafkaProducers}
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
-import com.ovoenergy.delivery.service.kafka.{DeliveryServiceEmailFlow, KafkaProducers}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
+import com.ovoenergy.delivery.service.Serialization.composedEmailDeserializer
+import com.ovoenergy.delivery.service.util.UUIDGenerator
 import com.typesafe.config.ConfigFactory
 
-object Main extends App with MailgunClient
+object Main extends App
+
 with LoggingWithMDC {
 
   val loggerName = "Main"
 
-  log.info("Delivery Service started")
+  implicit val clock = Clock.systemDefaultZone()
+
   val config = ConfigFactory.load()
+
+  val mailgunClientConfig = MailgunClient.Configuration(config.getString("mailgun.domain"), config.getString("mailgun.apiKey"))
+  val mailgunClient = new MailgunClient(mailgunClientConfig, HttpClient.processRequest, UUIDGenerator.generateUUID)
+
+  log.info("Delivery Service started")
 
   val kafkaConfig = KafkaConfig(
     config.getString("kafka.hosts"),
@@ -32,8 +44,8 @@ with LoggingWithMDC {
 
   val producers = new KafkaProducers(kafkaConfig)
 
-  val emailDeliveryProcesses = new EmailDeliveryProcess(producers.publishDeliveryFailedEvent, producers.publishDeliveryProgressedEvent, sendMail)
+  val emailDeliveryProcesses = new EmailDeliveryProcess(producers.publishDeliveryFailedEvent, producers.publishDeliveryProgressedEvent, mailgunClient.sendEmail)
 
-  DeliveryServiceEmailFlow[ComposedEmail](new AvroDeserializer[ComposedEmail], emailDeliveryProcesses.apply, kafkaConfig)
+  DeliveryServiceEmailFlow[ComposedEmail](composedEmailDeserializer, emailDeliveryProcesses.apply, kafkaConfig)
 
 }

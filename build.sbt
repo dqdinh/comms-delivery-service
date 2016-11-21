@@ -18,6 +18,7 @@ lazy val buildSettings = Seq(
 lazy val service = (project in file("."))
   .settings(buildSettings)
   .settings(resolvers += Resolver.bintrayRepo("ovotech", "maven"))
+  .settings(resolvers += Resolver.bintrayRepo("cakesolutions", "maven"))
   .settings(libraryDependencies ++= Dependencies.all)
   .withDocker
 
