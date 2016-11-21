@@ -7,7 +7,7 @@ import akka.stream.ActorMaterializer
 import com.ovoenergy.comms.ComposedEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
-import com.ovoenergy.delivery.service.kafka.{DeliveryFailedEventPublisher, DeliveryProgressedEventPublisher, DeliveryServiceEmailFlow}
+import com.ovoenergy.delivery.service.kafka.{DeliveryFailedEventPublisher, DeliveryProgressedEventPublisher, DeliveryServiceFlow}
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
@@ -31,8 +31,8 @@ with LoggingWithMDC {
   val mailgunClientConfig = MailgunClient.Configuration(
     config.getString("mailgun.domain"),
     config.getString("mailgun.apiKey"),
-    HttpClient(),
-    UUIDGenerator()
+    HttpClient.apply,
+    UUIDGenerator.apply
   )
 
   log.info("Delivery Service started")
@@ -51,8 +51,8 @@ with LoggingWithMDC {
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = actorSystem.dispatcher
 
-  DeliveryServiceEmailFlow[
-    ComposedEmail](composedEmailDeserializer,
+  DeliveryServiceFlow[ComposedEmail](
+    composedEmailDeserializer,
     EmailDeliveryProcess(
       BlackListed(blackListedEmailAddresses),
       DeliveryFailedEventPublisher(kafkaConfig),

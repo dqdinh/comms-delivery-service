@@ -10,9 +10,9 @@ import org.apache.kafka.common.serialization.StringSerializer
 
 object DeliveryFailedEventPublisher {
 
-  def apply(kafkaConfig: KafkaConfig)(delivertyErr: EmailDeliveryError) = {
+  def apply(kafkaConfig: KafkaConfig)(error: EmailDeliveryError) = {
     val deiveryFailedProducer = KafkaProducer(Conf(new StringSerializer, deliveryErrorSerializer, kafkaConfig.hosts))
-    deiveryFailedProducer.send(new ProducerRecord[String, EmailDeliveryError](kafkaConfig.commFailedTopic, delivertyErr))
+    deiveryFailedProducer.send(new ProducerRecord[String, EmailDeliveryError](kafkaConfig.commFailedTopic, error))
   }
 
 }

@@ -11,7 +11,7 @@ import org.apache.kafka.common.serialization.{Deserializer, StringDeserializer}
 
 import scala.concurrent.Future
 
-object DeliveryServiceEmailFlow extends LoggingWithMDC {
+object DeliveryServiceFlow extends LoggingWithMDC {
 
   override def loggerName = "DeliveryServiceFlow"
 
