@@ -34,13 +34,13 @@ object DeliveryServiceFlow extends LoggingWithMDC {
     Consumer
       .committableSource(consumerSettings, Subscriptions.topics(kafkaConfig.emailComposedTopic))
       .mapAsync(1)(msg => {
-        msg.record.value match {
-          case Some(comm) => issueComm(comm).map(_ => msg.committableOffset.commitScaladsl())
+        val result = msg.record.value match {
+          case Some(comm) => issueComm(comm)
           case None =>
             log.error(s"Skipping event: $msg, failed to parse")
-            msg.committableOffset.commitScaladsl()
-            Future.successful()
+            Future.successful(())
         }
+        result.map(_ => msg.committableOffset.commitScaladsl())
       })
       .to(Sink.ignore.withAttributes(ActorAttributes.supervisionStrategy(decider)))
       .run
