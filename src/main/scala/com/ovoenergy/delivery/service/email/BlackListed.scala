@@ -1,10 +1,10 @@
-package com.ovoenergy.delivery.service.email.mailgun
+package com.ovoenergy.delivery.service.email
 
 import com.ovoenergy.comms.ComposedEmail
 
 object BlackListed {
   
-  def apply(composedEmail: ComposedEmail, blacklist: Seq[String]) = {
+  def apply(blacklist: Seq[String])(composedEmail: ComposedEmail) = {
     blacklist.contains(composedEmail.recipient)
   }
   

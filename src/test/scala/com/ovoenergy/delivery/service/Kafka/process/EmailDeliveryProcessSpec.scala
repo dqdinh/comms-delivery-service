@@ -23,15 +23,15 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
   val successfulEmailProgressedProducer = (f: EmailProgressed) => Future.successful(())
   val successfulEmailFailedProducer     = (f: EmailDeliveryError) => Future.successful(())
 
+  def notBlackListed(composedEmail: ComposedEmail) = true
+
   behavior of "EmailDeliveryProcess"
 
   it should "Handle Successfully sent emails" in {
     forAll(minSuccessful(10)) { (msg: ComposedEmail, progressed: EmailProgressed) =>
       val sendMail = (mail: ComposedEmail) => Right(progressed)
 
-      val emailDeliveryProcess = new EmailDeliveryProcess(successfulEmailFailedProducer, successfulEmailProgressedProducer, sendMail)
-
-      val res: Future[Unit] = emailDeliveryProcess(msg)
+      val res: Future[_] = EmailDeliveryProcess(notBlackListed, successfulEmailFailedProducer, successfulEmailProgressedProducer, sendMail)(msg)
       res.map(_ == Unit)
     }
   }
@@ -40,8 +40,7 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
     forAll(minSuccessful(10)) { (msg: ComposedEmail, deliveryError: EmailDeliveryError) =>
       val sendMail = (mail: ComposedEmail) => Left(deliveryError)
 
-      val emailDeliveryProcess = new EmailDeliveryProcess(successfulEmailFailedProducer, successfulEmailProgressedProducer, sendMail)
-      val res: Future[Unit] = emailDeliveryProcess(msg)
+      val res: Future[_] = EmailDeliveryProcess(notBlackListed, successfulEmailFailedProducer, successfulEmailProgressedProducer, sendMail)(msg)
       res.map(_ == Unit)
     }
   }
@@ -53,8 +52,7 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
     forAll(minSuccessful(2)) { (msg: ComposedEmail, deliveryError: EmailDeliveryError) =>
       val sendMail = (mail: ComposedEmail) => Left(deliveryError)
 
-      val emailDeliveryProcess = new EmailDeliveryProcess(failedlEmailFailedProducer, failedEmailProgressedProducer, sendMail)
-      val res: Future[Unit] = emailDeliveryProcess(msg)
+      val res: Future[_] = EmailDeliveryProcess(notBlackListed, failedlEmailFailedProducer, failedEmailProgressedProducer, sendMail)(msg)
       res.map(_ == Unit)
     }
   }
@@ -62,8 +60,7 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
     forAll(minSuccessful(2)) { (msg: ComposedEmail, progressed: EmailProgressed) =>
       val sendMail = (mail: ComposedEmail) => Right(progressed)
 
-      val emailDeliveryProcess = new EmailDeliveryProcess(failedlEmailFailedProducer, failedEmailProgressedProducer, sendMail)
-      val res: Future[Unit] = emailDeliveryProcess(msg)
+      val res: Future[_] = EmailDeliveryProcess(notBlackListed, failedlEmailFailedProducer, failedEmailProgressedProducer, sendMail)(msg)
       res.map(_ == Unit)
     }
   }

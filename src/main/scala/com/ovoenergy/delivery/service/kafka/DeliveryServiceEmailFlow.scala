@@ -15,7 +15,7 @@ object DeliveryServiceEmailFlow extends LoggingWithMDC {
 
   override def loggerName = "DeliveryServiceFlow"
 
-  def apply[T](consumerDeserializer: Deserializer[Option[T]], issueComm: (T) => Future[Unit], kafkaConfig: KafkaConfig)
+  def apply[T](consumerDeserializer: Deserializer[Option[T]], issueComm: (T) => Future[_], kafkaConfig: KafkaConfig)
               (implicit actorSystem: ActorSystem, materializer: Materializer) = {
 
     implicit val executionContext = actorSystem.dispatcher
@@ -39,7 +39,7 @@ object DeliveryServiceEmailFlow extends LoggingWithMDC {
           case None =>
             log.error(s"Skipping event: $msg, failed to parse")
             msg.committableOffset.commitScaladsl()
-            Future(())
+            Future.successful()
         }
       })
       .to(Sink.ignore.withAttributes(ActorAttributes.supervisionStrategy(decider)))

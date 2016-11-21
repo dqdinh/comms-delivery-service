@@ -8,12 +8,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 
-class EmailDeliveryProcess(isBlackListed: (ComposedEmail) => Boolean,
-                           emailFailedProducer: (EmailDeliveryError) => Future[Unit],
-                           emailProgressedProducer: (EmailProgressed) => Future[Unit],
-                           sendEmail: (ComposedEmail) => Either[EmailDeliveryError, EmailProgressed]) extends LoggingWithMDC {
+object EmailDeliveryProcess extends LoggingWithMDC {
 
-  def apply(composedEmail: ComposedEmail): Future[Unit] = {
+  def apply(isBlackListed: (ComposedEmail) => Boolean,
+            emailFailedProducer: (EmailDeliveryError) => Future[_],
+            emailProgressedProducer: (EmailProgressed) => Future[_],
+            sendEmail: (ComposedEmail) => Either[EmailDeliveryError, EmailProgressed])(composedEmail: ComposedEmail): Future[_] = {
 
     def sendAndProcessComm() = {
       sendEmail(composedEmail) match {
@@ -28,7 +28,7 @@ class EmailDeliveryProcess(isBlackListed: (ComposedEmail) => Boolean,
     } catch {
       case NonFatal(ex) =>
         logError(composedEmail.metadata.transactionId, s"Skipping event", ex)
-        Future(())
+        Future.successful()
     }
   }
 

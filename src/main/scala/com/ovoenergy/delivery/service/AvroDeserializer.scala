@@ -1,7 +1,7 @@
 package com.ovoenergy.delivery.service
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
-import java.util
+import java.util.Map
 
 import com.sksamuel.avro4s._
 import org.apache.kafka.common.serialization.{Deserializer, Serializer}
@@ -11,7 +11,7 @@ import scala.util.Try
 
 class AvroDeserializer[T](implicit schema: SchemaFor[T], record: FromRecord[T]) extends Deserializer[Try[T]] {
 
-  override def configure(configs: util.Map[String, _], isKey: Boolean): Unit = {}
+  override def configure(configs: Map[String, _], isKey: Boolean): Unit = {}
 
   override def close(): Unit = {}
 
@@ -24,7 +24,7 @@ class AvroDeserializer[T](implicit schema: SchemaFor[T], record: FromRecord[T]) 
 
 class AvroSerializer[T](implicit schema: SchemaFor[T], record: ToRecord[T]) extends Serializer[Try[T]] {
 
-  override def configure(configs: util.Map[String, _], isKey: Boolean): Unit = {}
+  override def configure(configs: Map[String, _], isKey: Boolean): Unit = {}
 
   override def close(): Unit = {}
 
