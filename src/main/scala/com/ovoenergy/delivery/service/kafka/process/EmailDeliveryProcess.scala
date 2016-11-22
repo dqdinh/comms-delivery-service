@@ -3,7 +3,7 @@ package com.ovoenergy.delivery.service.kafka.process
 import com.ovoenergy.comms.{ComposedEmail, EmailProgressed}
 import com.ovoenergy.delivery.service.email.mailgun.{BlacklistedEmailAddress, EmailDeliveryError}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
-
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 
@@ -21,13 +21,11 @@ object EmailDeliveryProcess extends LoggingWithMDC {
       }
     }
 
-    try {
-      if (isBlackListed(composedEmail)) emailFailedPublisher(BlacklistedEmailAddress)
+    val result = if (isBlackListed(composedEmail)) emailFailedPublisher(BlacklistedEmailAddress)
       else sendAndProcessComm()
-    } catch {
-      case NonFatal(ex) =>
-        logError(composedEmail.metadata.transactionId, s"Skipping event", ex)
-        Future.successful()
+
+    result.recover{
+      case NonFatal(err) => logWarn(composedEmail.metadata.transactionId, "Skipping event", err)
     }
   }
 
