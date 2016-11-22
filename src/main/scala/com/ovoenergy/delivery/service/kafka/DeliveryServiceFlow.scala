@@ -10,6 +10,7 @@ import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import org.apache.kafka.common.serialization.{Deserializer, StringDeserializer}
 
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 
 object DeliveryServiceFlow extends LoggingWithMDC {
 
@@ -21,7 +22,7 @@ object DeliveryServiceFlow extends LoggingWithMDC {
     implicit val executionContext = actorSystem.dispatcher
 
     val decider: Supervision.Decider = {
-      case e =>
+      case NonFatal(e) =>
         log.error("Restarting due to error", e)
         Supervision.Restart
     }

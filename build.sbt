@@ -7,19 +7,22 @@ val testReportsDir = sys.env.getOrElse("CI_REPORTS", "target/reports")
 testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-o", "-u", testReportsDir)
 
 lazy val buildSettings = Seq(
-  name                  := "delivery-service",
-  organization          := "com.ovoenergy",
-  organizationName      := "OVO Energy",
-  organizationHomepage  := Some(url("http://www.ovoenergy.com")),
-  scalaVersion          := "2.11.8",
-  scalacOptions         := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
+  name                    := "delivery-service",
+  organization            := "com.ovoenergy",
+  organizationName        := "OVO Energy",
+  organizationHomepage    := Some(url("http://www.ovoenergy.com")),
+  scalaVersion            := "2.11.8",
+  scalacOptions           := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 )
 
 lazy val service = (project in file("."))
+  .configs(IntegrationTest)
   .settings(buildSettings)
   .settings(resolvers += Resolver.bintrayRepo("ovotech", "maven"))
   .settings(resolvers += Resolver.bintrayRepo("cakesolutions", "maven"))
   .settings(libraryDependencies ++= Dependencies.all)
+  .settings(Defaults.itSettings: _*)
+  .enablePlugins(DockerComposePlugin)
   .withDocker
 
 
