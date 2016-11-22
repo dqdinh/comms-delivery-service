@@ -8,6 +8,7 @@ import cats.syntax.either._
 import com.google.gson.Gson
 import com.ovoenergy.comms.EmailStatus.Queued
 import com.ovoenergy.comms.{ComposedEmail, EmailProgressed, Metadata}
+import com.ovoenergy.delivery.service.kafka.MetadataUtil
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import io.circe.Decoder
 import io.circe.generic.auto._
@@ -43,7 +44,12 @@ object MailgunClient extends LoggingWithMDC {
       response.code match {
         case Success() =>
           val id = parseResponse[SendEmailSuccessResponse](responseBody).map(_.id).getOrElse("unknown id")
-          Right(EmailProgressed(metadata = buildMetadata(composedEmail), status = Queued, gateway = "Mailgun", gatewayMessageId = id))
+          logInfo(transactionId, s"Email issued to ${composedEmail.recipient}")
+          Right(EmailProgressed(
+            metadata = MetadataUtil(configuration.uuidGenerator, configuration.clock)(composedEmail),
+            status = Queued,
+            gateway = "Mailgun",
+            gatewayMessageId = id))
         case InternalServerError() =>
           val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
           logError(transactionId, s"Error sending email via Mailgun API, Mailgun API internal error: ${response.code} $message")
@@ -71,15 +77,6 @@ object MailgunClient extends LoggingWithMDC {
         .add("v:custom", buildCustomJson(composedEmail.metadata))
 
       composedEmail.textBody.fold(form.build())(textBody => form.add("text", textBody).build())
-    }
-
-    def buildMetadata(composedEmail: ComposedEmail) = {
-      composedEmail.metadata.copy(
-        timestampIso8601 = OffsetDateTime.now(configuration.clock).format(dtf),
-        kafkaMessageId = configuration.uuidGenerator(),
-        source = "delivery-service",
-        sourceMetadata = Some(composedEmail.metadata.copy(sourceMetadata = None))
-      )
     }
 
     def buildCustomJson(metadata: Metadata) = {

@@ -35,6 +35,7 @@ object DeliveryServiceFlow extends LoggingWithMDC {
     Consumer
       .committableSource(consumerSettings, Subscriptions.topics(kafkaConfig.emailComposedTopic))
       .mapAsync(1)(msg => {
+        log.debug(s"Event received $msg")
         val result = msg.record.value match {
           case Some(comm) => issueComm(comm)
           case None =>

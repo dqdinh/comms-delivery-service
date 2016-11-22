@@ -20,8 +20,8 @@ object Serialization {
   val composedEmailSerializer   = avroSerializer[ComposedEmail]
   val composedEmailDeserializer = avroDeserializer[ComposedEmail]
   val emailProgressedSerializer = avroSerializer[EmailProgressed]
-  val deliveryErrorSerializer   = avroSerializer[EmailDeliveryError]
   val failedSerializer          = avroSerializer[Failed]
+  val failedDeserializer          = avroDeserializer[Failed]
 
   private def avroDeserializer[T: SchemaFor: FromRecord: ClassTag]: Deserializer[Option[T]] =
     new Deserializer[Option[T]] {

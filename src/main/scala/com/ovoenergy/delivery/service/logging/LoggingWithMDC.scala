@@ -16,6 +16,10 @@ trait LoggingWithMDC {
     log(transactionId, () => log.info(message))
   }
 
+  def logWarn(transactionId: String, message: String): Unit = {
+    log(transactionId, () => log.warn(message))
+  }
+
   def logError(transactionId: String, message: String): Unit = {
     log(transactionId, () => log.error(message))
   }

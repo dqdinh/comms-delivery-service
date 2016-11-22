@@ -57,6 +57,8 @@ with LoggingWithMDC {
       BlackListed(blackListedEmailAddresses),
       DeliveryFailedEventPublisher(kafkaConfig),
       DeliveryProgressedEventPublisher(kafkaConfig),
+      UUIDGenerator.apply,
+      clock,
       MailgunClient(mailgunClientConfig)),
     kafkaConfig)
 
