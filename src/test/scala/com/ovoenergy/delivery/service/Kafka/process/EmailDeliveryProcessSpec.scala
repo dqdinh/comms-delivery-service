@@ -2,66 +2,84 @@ package com.ovoenergy.delivery.service.Kafka.process
 
 import java.util.UUID
 
-import com.ovoenergy.comms.{ComposedEmail, EmailProgressed, Failed}
+import akka.Done
+import com.ovoenergy.comms.{ComposedEmail, EmailProgressed}
 import com.ovoenergy.delivery.service.email.mailgun.EmailDeliveryError
 import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
 import org.scalacheck.Arbitrary
-import org.scalacheck.Shapeless._
 import org.scalatest._
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.prop._
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 
-class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks with MockitoSugar {
 
   implicit def arbUUID: Arbitrary[UUID] = Arbitrary {
     UUID.randomUUID()
   }
 
-  val successfulEmailProgressedProducer = (f: EmailProgressed) => Future.successful(())
-  val successfulEmailFailedProducer     = (f: EmailDeliveryError) => Future.successful(())
+  def isBlackListed(composedEmail: ComposedEmail) = false
 
-  def notBlackListed(composedEmail: ComposedEmail) = true
+  val emailProgressed = mock[EmailProgressed]
+  val emailComposed   = mock[ComposedEmail]
+  val deliveryError   = mock[EmailDeliveryError]
+  val emailSentRes    = mock[Done]
+  val emailFailedRes  = mock[Done]
+
+  val successfulEmailProgressedProducer = (f: EmailProgressed) => Future.successful(emailSentRes)
+  val successfulEmailFailedProducer     = (f: EmailDeliveryError) => Future.successful(emailFailedRes)
 
   behavior of "EmailDeliveryProcess"
 
   it should "Handle Successfully sent emails" in {
-    forAll(minSuccessful(10)) { (msg: ComposedEmail, progressed: EmailProgressed) =>
-      val sendMail = (mail: ComposedEmail) => Right(progressed)
+    val sendMail  = (mail: ComposedEmail) => Right(emailProgressed)
+    val result    = Await.result(EmailDeliveryProcess(isBlackListed, successfulEmailFailedProducer, successfulEmailProgressedProducer, sendMail)(emailComposed), 5 seconds)
 
-      val res: Future[_] = EmailDeliveryProcess(notBlackListed, successfulEmailFailedProducer, successfulEmailProgressedProducer, sendMail)(msg)
-      res.map(_ == Unit)
-    }
+    result should be(emailSentRes)
   }
 
   it should "Handle emails which have failed to send" in {
-    forAll(minSuccessful(10)) { (msg: ComposedEmail, deliveryError: EmailDeliveryError) =>
-      val sendMail = (mail: ComposedEmail) => Left(deliveryError)
+    val sendMail  = (mail: ComposedEmail) => Left(deliveryError)
+    val result    = Await.result(EmailDeliveryProcess(isBlackListed, successfulEmailFailedProducer, successfulEmailProgressedProducer, sendMail)(emailComposed), 5 seconds)
 
-      val res: Future[_] = EmailDeliveryProcess(notBlackListed, successfulEmailFailedProducer, successfulEmailProgressedProducer, sendMail)(msg)
-      res.map(_ == Unit)
-    }
+    result should be(emailFailedRes)
   }
 
-  val failedEmailProgressedProducer = (f: EmailProgressed) => Future.failed(new Exception("Broken"))
-  val failedlEmailFailedProducer    = (f: EmailDeliveryError) => Future.failed(new Exception("Broken"))
+  val emailProgressedPublisher = (f: EmailProgressed) => Future.failed(new Exception("Email progressed exception"))
+  val emailFailedPublisher     = (f: EmailDeliveryError) => Future.failed(new Exception("Email delivery error exception"))
 
   it should "Handle exceptions thrown by emailFailedProducer" in {
-    forAll(minSuccessful(2)) { (msg: ComposedEmail, deliveryError: EmailDeliveryError) =>
-      val sendMail = (mail: ComposedEmail) => Left(deliveryError)
+    val sendMail  = (mail: ComposedEmail) => Left(deliveryError)
+    val res       = EmailDeliveryProcess(isBlackListed, emailFailedPublisher, emailProgressedPublisher, sendMail)(emailComposed)
 
-      val res: Future[_] = EmailDeliveryProcess(notBlackListed, failedlEmailFailedProducer, failedEmailProgressedProducer, sendMail)(msg)
-      res.map(_ == Unit)
+    val thrown = intercept[Exception] {
+      val result = Await.result(res, 5 seconds)
+      result should be(())
     }
+    assert(thrown.getMessage == "Email delivery error exception")
   }
-  it should "Handle exceptions thrown by emailProgressedProducer" in {
-    forAll(minSuccessful(2)) { (msg: ComposedEmail, progressed: EmailProgressed) =>
-      val sendMail = (mail: ComposedEmail) => Right(progressed)
 
-      val res: Future[_] = EmailDeliveryProcess(notBlackListed, failedlEmailFailedProducer, failedEmailProgressedProducer, sendMail)(msg)
-      res.map(_ == Unit)
+  it should "Handle exceptions thrown by emailProgressedProducer" in {
+    val sendMail = (mail: ComposedEmail) => Right(emailProgressed)
+    val res = EmailDeliveryProcess(isBlackListed, emailFailedPublisher, emailProgressedPublisher, sendMail)(emailComposed)
+
+    val thrown = intercept[Exception] {
+      val result = Await.result(res, 5 seconds)
+      result should be(())
     }
+    assert(thrown.getMessage == "Email progressed exception")
+  }
+
+  it should "detect blacklisted emails and not send them" in {
+    def isBlackListed(composedEmail: ComposedEmail) = true
+    val sendMail  = (mail: ComposedEmail) => Right(emailProgressed)
+
+    val result    = Await.result(EmailDeliveryProcess(isBlackListed, successfulEmailFailedProducer, successfulEmailProgressedProducer, sendMail)(emailComposed), 5 seconds)
+    result should be(emailFailedRes)
   }
 }
+
+
