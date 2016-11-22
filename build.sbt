@@ -1,5 +1,7 @@
 import DockerPackage._
 
+name := "delivery-service"
+
 // Make ScalaTest write test reports that CirceCI understands
 val testReportsDir = sys.env.getOrElse("CI_REPORTS", "target/reports")
 testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-o", "-u", testReportsDir)
@@ -16,6 +18,7 @@ lazy val buildSettings = Seq(
 lazy val service = (project in file("."))
   .settings(buildSettings)
   .settings(resolvers += Resolver.bintrayRepo("ovotech", "maven"))
+  .settings(resolvers += Resolver.bintrayRepo("cakesolutions", "maven"))
   .settings(libraryDependencies ++= Dependencies.all)
   .withDocker
 

@@ -11,11 +11,14 @@ object Dependencies {
     "io.circe"                %% "circe-parser"                   % "0.6.0",
     "io.circe"                %% "circe-generic"                  % "0.6.0",
     "me.moocar"                % "logback-gelf"                   % "0.2",
+    "net.cakesolutions"       %% "scala-kafka-client"             % "0.10.0.0",
     "io.logz.logback"          % "logzio-logback-appender"        % "1.0.11",
     "com.ovoenergy"           %% "comms-kafka-messages-internal"  % "0.0.7",
     "org.typelevel"           %% "cats-core"                      % "0.8.0",
     "com.squareup.okhttp3"     % "okhttp"                         % "3.4.2",
-    "org.scalatest"           %% "scalatest"                      % "2.2.6"   % "test"
+    "org.mockito"              % "mockito-all"                    % "1.10.19",
+    "org.scalatest"           %% "scalatest" % "3.0.1" % Test,
+    "org.scalacheck"          %% "scalacheck" % "1.13.4" % Test,
+    "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.4" % Test
   )
-
 }

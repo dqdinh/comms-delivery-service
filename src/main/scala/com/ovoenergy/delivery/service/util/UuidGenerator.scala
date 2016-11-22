@@ -4,6 +4,6 @@ import java.util.UUID
 
 object UUIDGenerator {
 
-  val generateUUID = () => {UUID.randomUUID}
+  def apply() = {UUID.randomUUID}
 
 }
