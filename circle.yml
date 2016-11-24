@@ -17,6 +17,7 @@ dependencies:
 test:
   post:
     - sbt docker:publishLocal
+    - sbt dockerComposeTest
 
 deployment:
   uat_and_prd:

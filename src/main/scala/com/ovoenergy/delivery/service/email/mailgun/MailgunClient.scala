@@ -19,7 +19,7 @@ import scala.util.{Failure, Success, Try}
 
 object MailgunClient extends LoggingWithMDC {
 
-  case class Configuration(domain: String, apiKey: String, httpClient: (Request) => Try[Response], uuidGenerator: () => UUID)(implicit val clock: Clock)
+  case class Configuration(host: String, domain: String, apiKey: String, httpClient: (Request) => Try[Response], uuidGenerator: () => UUID)(implicit val clock: Clock)
 
   case class CustomFormData(timestampIso8601: String, customerId: String, transactionId: String, canary: Boolean)
 
@@ -90,16 +90,14 @@ object MailgunClient extends LoggingWithMDC {
     def parseResponse[T: Decoder](body: String): Either[Exception, T] = {
       parse(body) match {
         case Right(json) => json.as[T]
-        case Left(ex) =>
-          logError(transactionId, s"Error parsing Mailgun response: $body", ex)
-          Left(ex)
+        case Left(ex) => Left(ex)
       }
     }
 
     val credentials = Credentials.basic("api", configuration.apiKey)
     val request = new Request.Builder()
       .header("Authorization", credentials)
-      .url(s"https://api.mailgun.net/v3/${configuration.domain}/messages")
+      .url(s"${configuration.host}/v3/${configuration.domain}/messages")
       .post(buildSendEmailForm(composedEmail))
       .build()
 

@@ -22,6 +22,7 @@ class MailgunClientSpec extends FlatSpec
 
   val mailgunDomain = "jifjfofjosdfjdoisj"
   val mailgunApiKey = "dfsfsfdsfdsfs"
+  val mailgunHost = "https://api.mailgun.net"
 
   val gatewayId = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
@@ -72,7 +73,7 @@ class MailgunClientSpec extends FlatSpec
       }
     }
 
-    val config = MailgunClient.Configuration(mailgunDomain, mailgunApiKey, okResponse, () => kafkaId)
+    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, okResponse, () => kafkaId)
     MailgunClient(config)(composedEmailHtmlOnly) match {
       case Right(emailProgressed) =>
         emailProgressed.gatewayMessageId shouldBe gatewayId
@@ -99,7 +100,7 @@ class MailgunClientSpec extends FlatSpec
         new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(200).body(ResponseBody.create(MediaType.parse("UTF-8"), successResponse)).build()
       }
     }
-    val config = MailgunClient.Configuration(mailgunDomain, mailgunApiKey, okResponse, () => kafkaId)
+    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, okResponse, () => kafkaId)
     MailgunClient(config)(composedEmailWithText)
   }
 
@@ -109,7 +110,7 @@ class MailgunClientSpec extends FlatSpec
         throw new IllegalStateException("I am blown up")
       }
     }
-    val config = MailgunClient.Configuration(mailgunDomain, mailgunApiKey, badResponse, () => kafkaId)
+    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, badResponse, () => kafkaId)
     MailgunClient(config)(composedEmail) match {
       case Right(_) => fail()
       case Left(failed) => failed shouldBe ExceptionOccurred
@@ -122,7 +123,7 @@ class MailgunClientSpec extends FlatSpec
         new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(400).body(ResponseBody.create(MediaType.parse("UTF-8"), """{"message": "Some error message"}""")).build()
       }
     }
-    val config = MailgunClient.Configuration(mailgunDomain, mailgunApiKey, badResponse, () => kafkaId)
+    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, badResponse, () => kafkaId)
     MailgunClient(config)(composedEmail) match {
       case Right(_) => fail()
       case Left(failed) => failed shouldBe APIGatewayBadRequest
@@ -136,7 +137,7 @@ class MailgunClientSpec extends FlatSpec
           new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(responseCode).body(ResponseBody.create(MediaType.parse("UTF-8"), "")).build()
         }
       }
-      val config = MailgunClient.Configuration(mailgunDomain, mailgunApiKey, badResponse, () => kafkaId)
+      val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, badResponse, () => kafkaId)
       MailgunClient(config)(composedEmail) match {
         case Right(_) => fail()
         case Left(failed) => failed shouldBe APIGatewayInternalServerError
@@ -150,7 +151,7 @@ class MailgunClientSpec extends FlatSpec
         new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(401).body(ResponseBody.create(MediaType.parse("UTF-8"), "")).build()
       }
     }
-    val config = MailgunClient.Configuration(mailgunDomain, mailgunApiKey, badResponse, () => kafkaId)
+    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, badResponse, () => kafkaId)
     MailgunClient(config)(composedEmail) match {
       case Right(_) => fail()
       case Left(failed) => failed shouldBe APIGatewayAuthenticationError
@@ -163,7 +164,7 @@ class MailgunClientSpec extends FlatSpec
         new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(422).body(ResponseBody.create(MediaType.parse("UTF-8"), "")).build()
       }
     }
-    val config = MailgunClient.Configuration(mailgunDomain, mailgunApiKey, badResponse, () => kafkaId)
+    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, badResponse, () => kafkaId)
     MailgunClient(config)(composedEmail) match {
       case Right(_) => fail()
       case Left(failed) => failed shouldBe APIGatewayUnspecifiedError

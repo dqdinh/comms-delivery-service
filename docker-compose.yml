@@ -6,13 +6,16 @@ services:
     image: ${AWS_ACCOUNT_ID}.dkr.ecr.eu-west-1.amazonaws.com/delivery-service:0.1-SNAPSHOT
     depends_on:
       - kafka
+      - api.mailgun.net
     links:
       - kafka
+      - api.mailgun.net
     environment:
       ENV: LOCAL
       KAFKA_HOSTS: kafka:29092
       MAILGUN_DOMAIN: "mailgun@email.com"
       MAILGUN_API_KEY: "my_super_secret_api_key"
+      MAILGUN_HOST: "http://api.mailgun.net:1080"
 
   zookeeper:
     image: confluentinc/cp-zookeeper:3.1.1
@@ -32,3 +35,9 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://192.168.1.64:29092
     depends_on:
       - zookeeper
+
+  api.mailgun.net:
+    image: jamesdbloom/mockserver
+    ports:
+      - "1080:1080"
+    #command: java -Dfile.encoding=UTF-8 -Dmockserver.logLevel=INFO -jar /opt/mockserver/mockserver-netty-jar-with-dependencies.jar -serverPort 443 -proxyPort 1090

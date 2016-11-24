@@ -17,10 +17,11 @@ object Serialization {
 
   val log = LoggerFactory.getLogger(getClass)
 
-  val composedEmailSerializer   = avroSerializer[ComposedEmail]
-  val composedEmailDeserializer = avroDeserializer[ComposedEmail]
-  val emailProgressedSerializer = avroSerializer[EmailProgressed]
-  val failedSerializer          = avroSerializer[Failed]
+  val composedEmailSerializer     = avroSerializer[ComposedEmail]
+  val composedEmailDeserializer   = avroDeserializer[ComposedEmail]
+  val emailProgressedSerializer   = avroSerializer[EmailProgressed]
+  val emailProgressedDeserializer = avroDeserializer[EmailProgressed]
+  val failedSerializer            = avroSerializer[Failed]
   val failedDeserializer          = avroDeserializer[Failed]
 
   private def avroDeserializer[T: SchemaFor: FromRecord: ClassTag]: Deserializer[Option[T]] =

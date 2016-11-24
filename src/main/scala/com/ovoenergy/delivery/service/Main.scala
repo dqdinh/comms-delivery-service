@@ -5,14 +5,14 @@ import java.time.Clock
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.ovoenergy.comms.ComposedEmail
-import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
-import com.ovoenergy.delivery.service.http.HttpClient
-import com.ovoenergy.delivery.service.kafka.{DeliveryFailedEventPublisher, DeliveryProgressedEventPublisher, DeliveryServiceFlow}
-import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
-import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
-import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.Serialization.composedEmailDeserializer
 import com.ovoenergy.delivery.service.email.BlackListed
+import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
+import com.ovoenergy.delivery.service.http.HttpClient
+import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
+import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
+import com.ovoenergy.delivery.service.kafka.{DeliveryFailedEventPublisher, DeliveryProgressedEventPublisher, DeliveryServiceFlow}
+import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.UUIDGenerator
 import com.typesafe.config.ConfigFactory
 
@@ -29,6 +29,7 @@ with LoggingWithMDC {
   val config = ConfigFactory.load()
 
   val mailgunClientConfig = MailgunClient.Configuration(
+    config.getString("mailgun.host"),
     config.getString("mailgun.domain"),
     config.getString("mailgun.apiKey"),
     HttpClient.apply,
