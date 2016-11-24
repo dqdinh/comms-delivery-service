@@ -10,6 +10,7 @@ import com.ovoenergy.comms.ComposedEmail
 import com.ovoenergy.comms.EmailStatus.Queued
 import com.ovoenergy.delivery.service.Serialization._
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.model.HttpRequest.request
@@ -133,12 +134,8 @@ class ServiceTestIT extends FlatSpec
     if (!AdminUtils.topicExists(zkUtils, failedTopic)) AdminUtils.createTopic(zkUtils, failedTopic, 1, 1)
     if (!AdminUtils.topicExists(zkUtils, emailProgressedTopic)) AdminUtils.createTopic(zkUtils, emailProgressedTopic, 1, 1)
 
-    commFailedConsumer.subscribe(Seq(failedTopic).asJava)
-    emailProgressedConsumer.subscribe(Seq(emailProgressedTopic).asJava)
-
-    //Poll, helps topics stabilize
-    commFailedConsumer.poll(1000)
-    emailProgressedConsumer.poll(1000)
+    commFailedConsumer.assign(Seq(new TopicPartition(failedTopic,0)).asJava)
+    emailProgressedConsumer.assign(Seq(new TopicPartition(emailProgressedTopic,0)).asJava)
   }
 
   def create401MailgunResponse() {

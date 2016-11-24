@@ -24,4 +24,12 @@ lazy val service = (project in file("."))
   .enablePlugins(DockerComposePlugin)
   .withDocker
 
+lazy val ipAddress: String = {
+  val addr = "./get_ip_address.sh".!!.trim
+  println(s"My IP address appears to be $addr")
+  addr
+}
+
+variablesForSubstitution := Map("IP_ADDRESS" -> ipAddress)
+
 
