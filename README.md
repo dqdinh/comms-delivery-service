@@ -4,7 +4,7 @@
 
 Service listens to communication composed events, issuing the communication to the relevant gateway for delivery. 
 
-Only composes emails for now. At some point in the future it will support other channels, e.g. SMS, push.
+Only sends emails for now. At some point in the future it will support other channels, e.g. SMS, push.
 
 ## Gateways
 
