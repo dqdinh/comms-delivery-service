@@ -120,20 +120,20 @@ class ServiceTestIT extends FlatSpec
 
     val zkUtils = ZkUtils(zookeeperHosts, 30000, 5000, isZkSecurityEnabled = false)
 
+    //Wait until kafka calls are not erroring and the service has created the composedEmailTopic
     val timeout = 10.seconds.fromNow
-    var kafkaNotStarted = true
-    while (timeout.hasTimeLeft && kafkaNotStarted) {
+    var notStarted = true
+    while (timeout.hasTimeLeft && notStarted) {
       try {
-        AdminUtils.topicExists(zkUtils, failedTopic)
-        kafkaNotStarted = false
+        notStarted = !AdminUtils.topicExists(zkUtils, composedEmailTopic)
       } catch {
         case NonFatal(ex) => Thread.sleep(100)
       }
     }
-    if (kafkaNotStarted) fail("Kafka did not start within 10 seconds")
+    if (notStarted) fail("Services did not start within 10 seconds")
+
     if (!AdminUtils.topicExists(zkUtils, failedTopic)) AdminUtils.createTopic(zkUtils, failedTopic, 1, 1)
     if (!AdminUtils.topicExists(zkUtils, emailProgressedTopic)) AdminUtils.createTopic(zkUtils, emailProgressedTopic, 1, 1)
-
     commFailedConsumer.assign(Seq(new TopicPartition(failedTopic,0)).asJava)
     emailProgressedConsumer.assign(Seq(new TopicPartition(emailProgressedTopic,0)).asJava)
   }

@@ -48,15 +48,13 @@ object EmailDeliveryProcess extends LoggingWithMDC {
       Failed(metadata, errorReasonMappings.getOrElse(emailDeliveryError, "Unknown error"))
     }
 
-    try {
-      val result = if (isBlackListed(composedEmail)) {
-        logWarn(transactionId, s"Email addressed is blacklisted: ${composedEmail.recipient}")
-        emailFailedPublisher(buildFailedEvent(BlacklistedEmailAddress))
-      }
-      else sendAndProcessComm()
+    val result = if (isBlackListed(composedEmail)) {
+      logWarn(transactionId, s"Email addressed is blacklisted: ${composedEmail.recipient}")
+      emailFailedPublisher(buildFailedEvent(BlacklistedEmailAddress))
+    } else sendAndProcessComm()
 
     result.recover{
-      case NonFatal(err) => logWarn(composedEmail.metadata.transactionId, "Skipping event", err)
+      case NonFatal(err) => logWarn(transactionId, "Skipping event", err)
     }
   }
 

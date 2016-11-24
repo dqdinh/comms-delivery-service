@@ -75,24 +75,14 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
 
   it should "Handle exceptions thrown by emailFailedProducer" in {
     val sendMail  = (mail: ComposedEmail) => Left(deliveryError)
-    val res       = EmailDeliveryProcess(isBlackListed, emailFailedPublisher, emailProgressedPublisher, kafkaIdGenerator, clock, sendMail)(emailComposed)
-
-    val thrown = intercept[Exception] {
-      val result = Await.result(res, 5 seconds)
-      result should be(())
-    }
-    assert(thrown.getMessage == "Email delivery error exception")
+    val result       = Await.result(EmailDeliveryProcess(isBlackListed, emailFailedPublisher, emailProgressedPublisher, kafkaIdGenerator, clock, sendMail)(emailComposed), 5 seconds)
+    result shouldBe (())
   }
 
   it should "Handle exceptions thrown by emailProgressedProducer" in {
     val sendMail = (mail: ComposedEmail) => Right(emailProgressed)
-    val res = EmailDeliveryProcess(isBlackListed, emailFailedPublisher, emailProgressedPublisher, kafkaIdGenerator, clock, sendMail)(emailComposed)
-
-    val thrown = intercept[Exception] {
-      val result = Await.result(res, 5 seconds)
-      result should be(())
-    }
-    assert(thrown.getMessage == "Email progressed exception")
+    val result = Await.result(EmailDeliveryProcess(isBlackListed, emailFailedPublisher, emailProgressedPublisher, kafkaIdGenerator, clock, sendMail)(emailComposed), 5 seconds)
+    result shouldBe (())
   }
 
   it should "detect blacklisted emails and not send them" in {
