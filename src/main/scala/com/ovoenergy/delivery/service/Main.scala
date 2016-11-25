@@ -17,6 +17,7 @@ import com.ovoenergy.delivery.service.util.UUIDGenerator
 import com.typesafe.config.ConfigFactory
 
 import scala.collection.JavaConversions.asScalaBuffer
+import scala.io.Source
 
 object Main extends App
 
@@ -63,4 +64,9 @@ with LoggingWithMDC {
       MailgunClient(mailgunClientConfig)),
     kafkaConfig)
 
+  for (line <- Source.fromFile("./banner.txt").getLines) {
+    println(line)
+  }
+
+  log.info("Delivery Service started")
 }
