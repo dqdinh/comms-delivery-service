@@ -15,6 +15,8 @@ lazy val buildSettings = Seq(
   scalacOptions           := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 )
 
+
+
 lazy val service = (project in file("."))
   .settings(buildSettings)
   .settings(resolvers += Resolver.bintrayRepo("ovotech", "maven"))
