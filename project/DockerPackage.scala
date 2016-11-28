@@ -24,6 +24,7 @@ object DockerPackage {
     dockerExposedPorts := Seq(8080),
     dockerBaseImage := "alpine",
     dockerCommands := dockerCommands.value.head +: setupAlpine ++: dockerCommands.value.tail,
+    mappings in Universal += file("./banner.txt")      ->  "./banner.txt",
     mappings in Universal += file("src/main/resources/application.conf")      ->  "conf/local/application.conf",
     mappings in Universal += file("src/main/resources/logback.xml")           ->  "conf/local/logback.xml",
     mappings in Universal += file("target/src_managed/resources/uat/application.conf")  ->  "conf/uat/application.conf",

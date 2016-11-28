@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets
 import java.util.Map
 
 import com.ovoenergy.comms.{ComposedEmail, EmailProgressed, Failed}
-import com.ovoenergy.delivery.service.email.mailgun.EmailDeliveryError
 import com.sksamuel.avro4s._
 import org.apache.kafka.common.serialization.{Deserializer, Serializer}
 import org.slf4j.LoggerFactory
@@ -17,11 +16,12 @@ object Serialization {
 
   val log = LoggerFactory.getLogger(getClass)
 
-  val composedEmailSerializer   = avroSerializer[ComposedEmail]
-  val composedEmailDeserializer = avroDeserializer[ComposedEmail]
-  val emailProgressedSerializer = avroSerializer[EmailProgressed]
-  val deliveryErrorSerializer   = avroSerializer[EmailDeliveryError]
-  val failedSerializer          = avroSerializer[Failed]
+  val composedEmailSerializer     = avroSerializer[ComposedEmail]
+  val composedEmailDeserializer   = avroDeserializer[ComposedEmail]
+  val emailProgressedSerializer   = avroSerializer[EmailProgressed]
+  val emailProgressedDeserializer = avroDeserializer[EmailProgressed]
+  val failedSerializer            = avroSerializer[Failed]
+  val failedDeserializer          = avroDeserializer[Failed]
 
   private def avroDeserializer[T: SchemaFor: FromRecord: ClassTag]: Deserializer[Option[T]] =
     new Deserializer[Option[T]] {
