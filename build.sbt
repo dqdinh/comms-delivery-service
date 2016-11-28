@@ -21,6 +21,7 @@ lazy val service = (project in file("."))
   .settings(resolvers += Resolver.bintrayRepo("cakesolutions", "maven"))
   .settings(libraryDependencies ++= Dependencies.all)
   .settings(testTagsToExecute := "DockerComposeTag")
+  .settings(dockerImageCreationTask := (publishLocal in Docker).value)
   .enablePlugins(DockerComposePlugin)
   .withDocker
 

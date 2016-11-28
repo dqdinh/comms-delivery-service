@@ -61,17 +61,16 @@ class ServiceTestIT extends FlatSpec
       createTopicsAndSubscribe()
       create401MailgunResponse()
 
-      forAll(minSuccessful(1)) { (msg: ComposedEmail) =>
-        val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, msg))
-        whenReady(future) {
-          case _ =>
-            val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
-            failedEvents.size shouldBe 1
-            failedEvents.foreach(record => {
-              val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
-              failed.reason shouldBe "Error authenticating with the Email Gateway"
-            })
-        }
+      val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
+      val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+      whenReady(future) {
+        case _ =>
+          val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
+          failedEvents.size shouldBe 1
+          failedEvents.foreach(record => {
+            val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
+            failed.reason shouldBe "Error authenticating with the Email Gateway"
+          })
       }
     }
 
@@ -79,17 +78,16 @@ class ServiceTestIT extends FlatSpec
       createTopicsAndSubscribe()
       create400MailgunResponse()
 
-      forAll(minSuccessful(1)) { (msg: ComposedEmail) =>
-        val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, msg))
-        whenReady(future) {
-          case _ =>
-            val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
-            failedEvents.size shouldBe 1
-            failedEvents.foreach(record => {
-              val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
-              failed.reason shouldBe "The Email Gateway did not like our request"
-            })
-        }
+      val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
+      val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+      whenReady(future) {
+        case _ =>
+          val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
+          failedEvents.size shouldBe 1
+          failedEvents.foreach(record => {
+            val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
+            failed.reason shouldBe "The Email Gateway did not like our request"
+          })
       }
     }
 
@@ -97,19 +95,18 @@ class ServiceTestIT extends FlatSpec
     createTopicsAndSubscribe()
     createOKMailgunResponse()
 
-    forAll(minSuccessful(1)) { (msg: ComposedEmail) =>
-      val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, msg))
-      whenReady(future) {
-        case _ =>
-          val emailProgressedEvents = emailProgressedConsumer.poll(30000).records(emailProgressedTopic).asScala.toList
-          emailProgressedEvents.size shouldBe 1
-          emailProgressedEvents.foreach(record => {
-            val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
-            emailProgressed.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
-            emailProgressed.gateway shouldBe "Mailgun"
-            emailProgressed.status shouldBe Queued
-          })
-      }
+    val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
+    val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+    whenReady(future) {
+      case _ =>
+        val emailProgressedEvents = emailProgressedConsumer.poll(30000).records(emailProgressedTopic).asScala.toList
+        emailProgressedEvents.size shouldBe 1
+        emailProgressedEvents.foreach(record => {
+          val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
+          emailProgressed.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
+          emailProgressed.gateway shouldBe "Mailgun"
+          emailProgressed.status shouldBe Queued
+        })
     }
   }
 

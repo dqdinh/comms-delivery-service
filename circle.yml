@@ -19,8 +19,8 @@ dependencies:
     - "project/target/resolution-cache"
 
 test:
-  post:
-    - sbt docker:publishLocal
+  override:
+    - sbt test
     - sbt dockerComposeTest
 
 deployment:
