@@ -10,8 +10,7 @@ checkout:
     - git submodule update --init --remote
 
 dependencies:
-  pre:
-    - sudo pip install docker-compose
+  # CircleCi will magically install and cache pip dependencies in requirements.txt
   # Cache the resolution-cache and build streams to speed things up
   cache_directories:
     - "~/.sbt"

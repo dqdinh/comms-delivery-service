@@ -1,6 +1,5 @@
 package com.ovoenergy.delivery.service
 
-import java.time.LocalDateTime
 import java.util.UUID
 
 import cakesolutions.kafka.KafkaConsumer.{Conf => KafkaConsumerConf}
@@ -16,8 +15,8 @@ import org.mockserver.client.server.MockServerClient
 import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse.response
 import org.scalacheck.Arbitrary
-import org.scalacheck.Shapeless._
 import org.scalatest._
+import org.scalacheck.Shapeless._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
@@ -30,7 +29,6 @@ class ServiceTestIT extends FlatSpec
   with Matchers
   with GeneratorDrivenPropertyChecks
   with ScalaFutures
-  with BeforeAndAfterAll
   with OneInstancePerTest {
 
   object DockerComposeTag extends Tag("DockerComposeTag")
@@ -113,6 +111,7 @@ class ServiceTestIT extends FlatSpec
   def createTopicsAndSubscribe() {
     import _root_.kafka.admin.AdminUtils
     import _root_.kafka.utils.ZkUtils
+
     import scala.concurrent.duration._
 
     val zkUtils = ZkUtils(zookeeperHosts, 30000, 5000, isZkSecurityEnabled = false)
@@ -127,6 +126,7 @@ class ServiceTestIT extends FlatSpec
         case NonFatal(ex) => Thread.sleep(100)
       }
     }
+    Thread.sleep(3000L)
     if (notStarted) fail("Services did not start within 10 seconds")
 
     if (!AdminUtils.topicExists(zkUtils, failedTopic)) AdminUtils.createTopic(zkUtils, failedTopic, 1, 1)
