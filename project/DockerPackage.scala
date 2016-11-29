@@ -24,6 +24,7 @@ object DockerPackage {
     dockerExposedPorts := Seq(8080),
     dockerBaseImage := "alpine",
     dockerCommands := dockerCommands.value.head +: setupAlpine ++: dockerCommands.value.tail,
+    mappings in Universal += file("./banner.txt")      ->  "./banner.txt",
     mappings in Universal += file("src/main/resources/application.conf")  ->  "conf/local/application.conf",
     mappings in Universal += file("src/main/resources/logback.xml")       ->  "conf/local/logback.xml",
     mappings in Universal += file("target/credstash/uat.conf")            ->  "conf/uat/application.conf",
@@ -44,8 +45,9 @@ object DockerPackage {
           dockerLoginTask := {
             import sys.process._
             "aws --region eu-west-1 ecr get-login" #| "bash" !
-          })
-        .settings(publish in Docker <<= (publish in Docker).dependsOn(dockerLoginTask, credstashPopulateConfig)
+          },
+          (publishLocal in Docker)  := (publishLocal in Docker).dependsOn(credstashPopulateConfig).value,
+          (publish in Docker) := (publish in Docker).dependsOn(dockerLoginTask).value
         )
     }
   }

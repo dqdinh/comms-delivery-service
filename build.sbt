@@ -15,8 +15,6 @@ lazy val buildSettings = Seq(
   scalacOptions           := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 )
 
-
-
 lazy val service = (project in file("."))
   .settings(buildSettings)
   .settings(resolvers += Resolver.bintrayRepo("ovotech", "maven"))
@@ -24,6 +22,8 @@ lazy val service = (project in file("."))
   .settings(libraryDependencies ++= Dependencies.all)
   .settings(testTagsToExecute := "DockerComposeTag")
   .settings(dockerImageCreationTask := (publishLocal in Docker).value)
+  .settings(credstashInputDir := file("conf"))
+  .settings(variablesForSubstitution := Map("IP_ADDRESS" -> ipAddress))
   .enablePlugins(DockerComposePlugin)
   .withDocker
 
@@ -33,8 +33,8 @@ lazy val ipAddress: String = {
   addr
 }
 
-credstashInputDir := file("conf")
 
-variablesForSubstitution := Map("IP_ADDRESS" -> ipAddress)
+
+
 
 
