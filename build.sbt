@@ -33,6 +33,8 @@ lazy val ipAddress: String = {
   addr
 }
 
+credstashInputDir := file("conf")
+
 variablesForSubstitution := Map("IP_ADDRESS" -> ipAddress)
 
 
