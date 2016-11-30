@@ -6,9 +6,8 @@ import java.util.UUID
 
 import cats.syntax.either._
 import com.google.gson.Gson
-import com.ovoenergy.comms.EmailStatus.Queued
-import com.ovoenergy.comms.{ComposedEmail, EmailProgressed, Metadata}
-import com.ovoenergy.delivery.service.kafka.MetadataUtil
+import com.ovoenergy.comms.model.EmailStatus.Queued
+import com.ovoenergy.comms.model.{ComposedEmail, EmailProgressed, Metadata}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import io.circe.Decoder
 import io.circe.generic.auto._
@@ -19,9 +18,9 @@ import scala.util.{Failure, Success, Try}
 
 object MailgunClient extends LoggingWithMDC {
 
-  case class Configuration(host: String, domain: String, apiKey: String, httpClient: (Request) => Try[Response], uuidGenerator: () => UUID)(implicit val clock: Clock)
+  case class Configuration(host: String, domain: String, apiKey: String, httpClient: (Request) => Try[Response])(implicit val clock: Clock)
 
-  case class CustomFormData(timestampIso8601: String, customerId: String, transactionId: String, canary: Boolean)
+  case class CustomFormData(createdAt: String, customerId: String, traceToken: String, canary: Boolean)
 
   val loggerName = "MailgunClient"
   val dtf = DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -30,7 +29,7 @@ object MailgunClient extends LoggingWithMDC {
     case class SendEmailSuccessResponse(id: String, message: String)
     case class SendEmailFailureResponse(message: String)
 
-    val transactionId = composedEmail.metadata.transactionId
+    val traceToken = composedEmail.metadata.traceToken
 
     def mapResponseToEither(response: Response, composedEmail: ComposedEmail) = {
       class Contains(r: Range) {
@@ -44,26 +43,26 @@ object MailgunClient extends LoggingWithMDC {
       response.code match {
         case Success() =>
           val id = parseResponse[SendEmailSuccessResponse](responseBody).map(_.id).getOrElse("unknown id")
-          logInfo(transactionId, s"Email issued to ${composedEmail.recipient}")
+          logInfo(traceToken, s"Email issued to ${composedEmail.recipient}")
           Right(EmailProgressed(
-            metadata = MetadataUtil(configuration.uuidGenerator, configuration.clock)(composedEmail),
+            metadata = Metadata.fromSourceMetadata("delivery-service", composedEmail.metadata).copy(createdAt = OffsetDateTime.now(configuration.clock).toString),
             status = Queued,
             gateway = "Mailgun",
             gatewayMessageId = id))
         case InternalServerError() =>
           val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
-          logError(transactionId, s"Error sending email via Mailgun API, Mailgun API internal error: ${response.code} $message")
+          logError(traceToken, s"Error sending email via Mailgun API, Mailgun API internal error: ${response.code} $message")
           Left(APIGatewayInternalServerError)
         case 401 =>
-          logError(transactionId, "Error sending email via Mailgun API, authorization with Mailgun API failed")
+          logError(traceToken, "Error sending email via Mailgun API, authorization with Mailgun API failed")
           Left(APIGatewayAuthenticationError)
         case 400 =>
           val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
-          logError(transactionId, s"Error sending email via Mailgun API, Bad request $message")
+          logError(traceToken, s"Error sending email via Mailgun API, Bad request $message")
           Left(APIGatewayBadRequest)
         case _ =>
           val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
-          logError(transactionId, s"Error sending email via Mailgun API, response code: ${response.code} $message")
+          logError(traceToken, s"Error sending email via Mailgun API, response code: ${response.code} $message")
           Left(APIGatewayUnspecifiedError)
       }
     }
@@ -81,9 +80,9 @@ object MailgunClient extends LoggingWithMDC {
 
     def buildCustomJson(metadata: Metadata) = {
       new Gson().toJson(CustomFormData(
-        timestampIso8601 = OffsetDateTime.now(configuration.clock).format(dtf),
+        createdAt = OffsetDateTime.now(configuration.clock).format(dtf),
         customerId = metadata.customerId,
-        transactionId = metadata.transactionId,
+        traceToken = metadata.traceToken,
         canary = metadata.canary))
     }
 
@@ -104,7 +103,7 @@ object MailgunClient extends LoggingWithMDC {
     configuration.httpClient(request) match {
       case Success(response) => mapResponseToEither(response, composedEmail)
       case Failure(ex) =>
-        logError(transactionId, "Error sending email via Mailgun API", ex)
+        logError(traceToken, "Error sending email via Mailgun API", ex)
         Left(ExceptionOccurred)
     }
   }

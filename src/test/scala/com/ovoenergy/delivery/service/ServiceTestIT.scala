@@ -1,22 +1,21 @@
 package com.ovoenergy.delivery.service
 
-import java.util.UUID
-
 import cakesolutions.kafka.KafkaConsumer.{Conf => KafkaConsumerConf}
 import cakesolutions.kafka.KafkaProducer.{Conf => KafkaProducerConf}
 import cakesolutions.kafka.{KafkaConsumer, KafkaProducer}
-import com.ovoenergy.comms.ComposedEmail
-import com.ovoenergy.comms.EmailStatus.Queued
-import com.ovoenergy.delivery.service.Serialization._
+import com.ovoenergy.comms.model.{ComposedEmail, EmailProgressed, Failed}
+import com.ovoenergy.comms.model.EmailStatus.Queued
+import com.ovoenergy.comms.serialisation.Serialisation._
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.model.HttpRequest.request
+import com.ovoenergy.comms.serialisation.Serialisation._
 import org.mockserver.model.HttpResponse.response
-import org.scalacheck.Arbitrary
-import org.scalatest._
 import org.scalacheck.Shapeless._
+import org.scalacheck.Arbitrary
+import org.scalatest.{Failed => _, _}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
@@ -33,19 +32,15 @@ class ServiceTestIT extends FlatSpec
 
   object DockerComposeTag extends Tag("DockerComposeTag")
 
-  implicit def arbUUID: Arbitrary[UUID] = Arbitrary {
-    UUID.randomUUID()
-  }
-
   implicit val config: PatienceConfig = PatienceConfig(Span(60, Seconds))
 
   val kafkaHosts = "localhost:29092"
   val zookeeperHosts = "localhost:32181"
 
   val consumerGroup = Random.nextString(10)
-  val composedEmailProducer = KafkaProducer(KafkaProducerConf(new StringSerializer, composedEmailSerializer, kafkaHosts))
-  val commFailedConsumer = KafkaConsumer(KafkaConsumerConf(new StringDeserializer, failedDeserializer, kafkaHosts, consumerGroup))
-  val emailProgressedConsumer = KafkaConsumer(KafkaConsumerConf(new StringDeserializer, emailProgressedDeserializer, kafkaHosts, consumerGroup))
+  val composedEmailProducer = KafkaProducer(KafkaProducerConf(new StringSerializer, avroSerializer[ComposedEmail], kafkaHosts))
+  val commFailedConsumer = KafkaConsumer(KafkaConsumerConf(new StringDeserializer, avroDeserializer[Failed], kafkaHosts, consumerGroup))
+  val emailProgressedConsumer = KafkaConsumer(KafkaConsumerConf(new StringDeserializer, avroDeserializer[EmailProgressed], kafkaHosts, consumerGroup))
 
   val failedTopic = "comms.failed"
   val composedEmailTopic = "comms.composed.email"
