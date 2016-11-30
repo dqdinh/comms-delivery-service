@@ -45,7 +45,8 @@ object MailgunClient extends LoggingWithMDC {
           val id = parseResponse[SendEmailSuccessResponse](responseBody).map(_.id).getOrElse("unknown id")
           logInfo(traceToken, s"Email issued to ${composedEmail.recipient}")
           Right(EmailProgressed(
-            metadata = Metadata.fromSourceMetadata("delivery-service", composedEmail.metadata).copy(createdAt = OffsetDateTime.now(configuration.clock).toString),
+            metadata = Metadata.fromSourceMetadata("delivery-service", composedEmail.metadata)
+              .copy(createdAt = OffsetDateTime.now(configuration.clock).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
             status = Queued,
             gateway = "Mailgun",
             gatewayMessageId = id))
