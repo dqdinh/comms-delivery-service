@@ -1,5 +1,3 @@
-import DockerPackage._
-
 name := "delivery-service"
 
 // Make ScalaTest write test reports that CirceCI understands
@@ -24,8 +22,7 @@ lazy val service = (project in file("."))
   .settings(dockerImageCreationTask := (publishLocal in Docker).value)
   .settings(credstashInputDir := file("conf"))
   .settings(variablesForSubstitution := Map("IP_ADDRESS" -> ipAddress))
-  .enablePlugins(DockerComposePlugin)
-  .withDocker
+  .enablePlugins(JavaServerAppPackaging, DockerPlugin, DockerComposePlugin)
 
 lazy val ipAddress: String = {
   val addr = "./get_ip_address.sh".!!.trim
