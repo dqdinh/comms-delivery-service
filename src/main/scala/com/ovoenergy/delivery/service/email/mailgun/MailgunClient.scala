@@ -8,7 +8,6 @@ import cats.syntax.either._
 import com.google.gson.Gson
 import com.ovoenergy.comms.model.EmailStatus.Queued
 import com.ovoenergy.comms.model.{ComposedEmail, EmailProgressed, Metadata}
-import com.ovoenergy.delivery.service.kafka.MetadataUtil
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import io.circe.Decoder
 import io.circe.generic.auto._
@@ -46,7 +45,7 @@ object MailgunClient extends LoggingWithMDC {
           val id = parseResponse[SendEmailSuccessResponse](responseBody).map(_.id).getOrElse("unknown id")
           logInfo(transactionId, s"Email issued to ${composedEmail.recipient}")
           Right(EmailProgressed(
-            metadata = MetadataUtil(configuration.uuidGenerator, configuration.clock)(composedEmail),
+            metadata = Metadata.fromSourceMetadata("delivery-service", composedEmail.metadata),
             status = Queued,
             gateway = "Mailgun",
             gatewayMessageId = id))

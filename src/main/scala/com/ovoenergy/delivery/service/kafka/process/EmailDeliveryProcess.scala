@@ -5,7 +5,6 @@ import java.util.UUID
 
 import com.ovoenergy.comms.model._
 import com.ovoenergy.delivery.service.email.mailgun._
-import com.ovoenergy.delivery.service.kafka.MetadataUtil
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -45,7 +44,7 @@ object EmailDeliveryProcess extends LoggingWithMDC {
     }
 
     def buildFailedEvent(emailDeliveryError: EmailDeliveryError) = {
-      val metadata = MetadataUtil(uuidGenerator, clock)(composedEmail)
+      val metadata = Metadata.fromSourceMetadata("delivery-service", composedEmail.metadata)
       Failed(metadata, errorReasonMappings.getOrElse(emailDeliveryError, "Unknown error"))
     }
 
