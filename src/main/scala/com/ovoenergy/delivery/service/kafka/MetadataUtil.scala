@@ -4,10 +4,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{Clock, OffsetDateTime}
 import java.util.UUID
 
-import com.ovoenergy.comms.{ComposedEmail, Metadata}
-import okhttp3.{Request, Response}
-
-import scala.util.Try
+import com.ovoenergy.comms.model.{ComposedEmail, Metadata}
 
 object MetadataUtil {
 
@@ -15,8 +12,8 @@ object MetadataUtil {
 
   def apply(uuidGenerator: () => UUID, clock: Clock)(composedEmail: ComposedEmail): Metadata = {
     composedEmail.metadata.copy(
-      timestampIso8601 = OffsetDateTime.now(clock).format(dtf),
-      kafkaMessageId = uuidGenerator(),
+      createdAt = OffsetDateTime.now(clock).format(dtf),
+      eventId = uuidGenerator().toString,
       source = "delivery-service",
       sourceMetadata = Some(composedEmail.metadata.copy(sourceMetadata = None))
     )

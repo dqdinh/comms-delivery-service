@@ -6,8 +6,8 @@ import java.time._
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-import com.ovoenergy.comms.EmailStatus.Queued
-import com.ovoenergy.comms.{ComposedEmail, Metadata}
+import com.ovoenergy.comms.model.EmailStatus.Queued
+import com.ovoenergy.comms.model.{ComposedEmail, Metadata}
 import okhttp3._
 import okio.Okio
 import org.scalatest.{FlatSpec, Matchers}
@@ -27,7 +27,7 @@ class MailgunClientSpec extends FlatSpec
   val gatewayId = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
 
-  val transactionId = "fpwfj2i0jr02jr2j0"
+  val traceToken = "fpwfj2i0jr02jr2j0"
   val timestamp = "2019-01-01T12:34:44.222Z"
   val customerId = "GT-CUS-994332344"
   val friendlyDescription = "The customer did something cool and wants to know"
@@ -41,10 +41,10 @@ class MailgunClientSpec extends FlatSpec
   val mailgunResponseMessage = "Queued. Thank you."
 
   val composedEmailMetadata = Metadata(
-    timestampIso8601 = timestamp,
-    kafkaMessageId = UUID.randomUUID(),
+    createdAt = timestamp,
+    eventId = UUID.randomUUID().toString,
     customerId = customerId,
-    transactionId = transactionId,
+    traceToken = traceToken,
     friendlyDescription = friendlyDescription,
     source = "tests",
     sourceMetadata = None,
@@ -176,8 +176,8 @@ class MailgunClientSpec extends FlatSpec
     metadata.canary shouldBe false
     metadata.source shouldBe "delivery-service"
     metadata.sourceMetadata.get shouldBe composedEmailMetadata
-    metadata.transactionId shouldBe transactionId
-    metadata.timestampIso8601 shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+    metadata.traceToken shouldBe traceToken
+    metadata.createdAt shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
     metadata.friendlyDescription shouldBe friendlyDescription
   }
 
@@ -191,7 +191,7 @@ class MailgunClientSpec extends FlatSpec
     formData should contain("v:custom={" +
       "\"timestampIso8601\":\"" + dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "\"," +
       "\"customerId\":\"" + customerId + "\"," +
-      "\"transactionId\":\"" + transactionId + "\"," +
+      "\"transactionId\":\"" + traceToken + "\"," +
       "\"canary\":false}"
     )
   }

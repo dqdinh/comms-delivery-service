@@ -3,10 +3,11 @@ package com.ovoenergy.delivery.service.kafka.process
 import java.time.Clock
 import java.util.UUID
 
-import com.ovoenergy.comms.{ComposedEmail, EmailProgressed, Failed}
+import com.ovoenergy.comms.model._
 import com.ovoenergy.delivery.service.email.mailgun._
 import com.ovoenergy.delivery.service.kafka.MetadataUtil
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.control.NonFatal
@@ -29,7 +30,7 @@ object EmailDeliveryProcess extends LoggingWithMDC {
             clock: Clock,
             sendEmail: (ComposedEmail) => Either[EmailDeliveryError, EmailProgressed])(composedEmail: ComposedEmail): Future[_] = {
 
-    val transactionId = composedEmail.metadata.transactionId
+    val transactionId = composedEmail.metadata.traceToken
 
     def sendAndProcessComm() = {
       sendEmail(composedEmail) match {

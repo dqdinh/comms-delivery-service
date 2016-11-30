@@ -2,7 +2,7 @@ package com.ovoenergy.delivery.service.kafka
 
 import cakesolutions.kafka.KafkaProducer
 import cakesolutions.kafka.KafkaProducer.Conf
-import com.ovoenergy.comms.Failed
+import com.ovoenergy.comms.model.Failed
 import com.ovoenergy.delivery.service.Serialization._
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import org.apache.kafka.clients.producer.ProducerRecord

@@ -4,7 +4,7 @@ import java.time.{Clock, OffsetDateTime, ZoneId}
 import java.util.UUID
 
 import akka.Done
-import com.ovoenergy.comms.{ComposedEmail, EmailProgressed, Metadata}
+import com.ovoenergy.comms.model.{ComposedEmail, EmailProgressed, Metadata, Failed}
 import com.ovoenergy.delivery.service.email.mailgun.EmailDeliveryError
 import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
 import org.scalacheck.Arbitrary
@@ -30,16 +30,16 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
 
   def isBlackListed(composedEmail: ComposedEmail) = false
 
-  val transactionId = "fpwfj2i0jr02jr2j0"
-  val timestamp = "2019-01-01T12:34:44.222Z"
+  val traceToken = "fpwfj2i0jr02jr2j0"
+  val createdAt = "2019-01-01T12:34:44.222Z"
   val customerId = "GT-CUS-994332344"
   val friendlyDescription = "The customer did something cool and wants to know"
 
   val metadata = Metadata(
-    timestampIso8601 = timestamp,
-    kafkaMessageId = UUID.randomUUID(),
+    createdAt = createdAt,
+    eventId = UUID.randomUUID().toString,
     customerId = customerId,
-    transactionId = transactionId,
+    traceToken = traceToken,
     friendlyDescription = friendlyDescription,
     source = "tests",
     sourceMetadata = None,
@@ -52,7 +52,7 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
   val emailSentRes    = mock[Done]
 
   val successfulEmailProgressedProducer = (f: EmailProgressed) => Future.successful(emailSentRes)
-  val successfulEmailFailedProducer     = (f: com.ovoenergy.comms.Failed) => Future.successful(com.ovoenergy.comms.Failed(metadata, ""))
+  val successfulEmailFailedProducer     = (f: Failed) => Future.successful(Failed(metadata, ""))
 
   behavior of "EmailDeliveryProcess"
 
@@ -67,11 +67,11 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
     val sendMail  = (mail: ComposedEmail) => Left(deliveryError)
     val result    = Await.result(EmailDeliveryProcess(isBlackListed, successfulEmailFailedProducer, successfulEmailProgressedProducer, kafkaIdGenerator, clock, sendMail)(emailComposed), 5 seconds)
 
-    result should be(com.ovoenergy.comms.Failed(metadata, ""))
+    result should be(Failed(metadata, ""))
   }
 
   val emailProgressedPublisher = (f: EmailProgressed) => Future.failed(new Exception("Email progressed exception"))
-  val emailFailedPublisher     = (f: com.ovoenergy.comms.Failed) => Future.failed(new Exception("Email delivery error exception"))
+  val emailFailedPublisher     = (f: Failed) => Future.failed(new Exception("Email delivery error exception"))
 
   it should "Handle exceptions thrown by emailFailedProducer" in {
     val sendMail  = (mail: ComposedEmail) => Left(deliveryError)
@@ -90,7 +90,7 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
     val sendMail  = (mail: ComposedEmail) => Right(emailProgressed)
 
     val result    = Await.result(EmailDeliveryProcess(isBlackListed, successfulEmailFailedProducer, successfulEmailProgressedProducer, kafkaIdGenerator, clock, sendMail)(emailComposed), 5 seconds)
-    result should be(com.ovoenergy.comms.Failed(metadata, ""))
+    result should be(Failed(metadata, ""))
   }
 }
 

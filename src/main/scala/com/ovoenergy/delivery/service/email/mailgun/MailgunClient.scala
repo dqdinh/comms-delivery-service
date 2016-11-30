@@ -6,8 +6,8 @@ import java.util.UUID
 
 import cats.syntax.either._
 import com.google.gson.Gson
-import com.ovoenergy.comms.EmailStatus.Queued
-import com.ovoenergy.comms.{ComposedEmail, EmailProgressed, Metadata}
+import com.ovoenergy.comms.model.EmailStatus.Queued
+import com.ovoenergy.comms.model.{ComposedEmail, EmailProgressed, Metadata}
 import com.ovoenergy.delivery.service.kafka.MetadataUtil
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import io.circe.Decoder
@@ -30,7 +30,7 @@ object MailgunClient extends LoggingWithMDC {
     case class SendEmailSuccessResponse(id: String, message: String)
     case class SendEmailFailureResponse(message: String)
 
-    val transactionId = composedEmail.metadata.transactionId
+    val transactionId = composedEmail.metadata.traceToken
 
     def mapResponseToEither(response: Response, composedEmail: ComposedEmail) = {
       class Contains(r: Range) {
@@ -83,7 +83,7 @@ object MailgunClient extends LoggingWithMDC {
       new Gson().toJson(CustomFormData(
         timestampIso8601 = OffsetDateTime.now(configuration.clock).format(dtf),
         customerId = metadata.customerId,
-        transactionId = metadata.transactionId,
+        transactionId = metadata.traceToken,
         canary = metadata.canary))
     }
 

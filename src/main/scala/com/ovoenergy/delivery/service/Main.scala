@@ -4,7 +4,7 @@ import java.time.Clock
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import com.ovoenergy.comms.ComposedEmail
+import com.ovoenergy.comms.model.ComposedEmail
 import com.ovoenergy.delivery.service.Serialization.composedEmailDeserializer
 import com.ovoenergy.delivery.service.email.BlackListed
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient

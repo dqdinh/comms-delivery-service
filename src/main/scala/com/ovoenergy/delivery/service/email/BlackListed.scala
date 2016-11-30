@@ -1,6 +1,6 @@
 package com.ovoenergy.delivery.service.email
 
-import com.ovoenergy.comms.ComposedEmail
+import com.ovoenergy.comms.model.ComposedEmail
 
 object BlackListed {
   
