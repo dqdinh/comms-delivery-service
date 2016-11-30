@@ -5,7 +5,7 @@ import java.time.Clock
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.ovoenergy.comms.model.ComposedEmail
-import com.ovoenergy.delivery.service.Serialization.composedEmailDeserializer
+import com.ovoenergy.comms.serialisation.Serialisation._
 import com.ovoenergy.delivery.service.email.BlackListed
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
@@ -33,8 +33,7 @@ with LoggingWithMDC {
     config.getString("mailgun.host"),
     config.getString("mailgun.domain"),
     config.getString("mailgun.apiKey"),
-    HttpClient.apply,
-    UUIDGenerator.apply
+    HttpClient.apply
   )
 
   log.info("Delivery Service started")
@@ -54,7 +53,7 @@ with LoggingWithMDC {
   implicit val executionContext = actorSystem.dispatcher
 
   DeliveryServiceFlow[ComposedEmail](
-    composedEmailDeserializer,
+    avroDeserializer[ComposedEmail],
     EmailDeliveryProcess(
       BlackListed(blackListedEmailAddresses),
       DeliveryFailedEventPublisher(kafkaConfig),
