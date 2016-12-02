@@ -4,11 +4,6 @@ machine:
   services:
     - docker
 
-checkout:
-  post:
-    - git submodule sync
-    - git submodule update --init --remote
-
 dependencies:
   # CircleCi will magically install and cache pip dependencies in requirements.txt
   # Cache the resolution-cache and build streams to speed things up
@@ -27,10 +22,11 @@ deployment:
     branch: master
     owner: ovotech
     commands:
-      - ci_scripts/publish_docker_image.sh
-      - ci_scripts/deploy_to_ecs.sh -s delivery-service UAT aws/container-definition.json
-      - ci_scripts/send_librato_deployment_event.sh
-      - ci_scripts/comment_on_last_merged_pr.sh
+      - git clone git@github.com:ovotech/comms-ci-scripts
+      - comms-ci-scripts/publish_docker_image.sh
+      - comms-ci-scripts/deploy_to_ecs.sh -s delivery-service UAT aws/container-definition.json
+      - comms-ci-scripts/send_librato_deployment_event.sh
+      - comms-ci-scripts/comment_on_last_merged_pr.sh
 
 experimental:
   notify:
