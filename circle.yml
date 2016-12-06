@@ -11,8 +11,6 @@ dependencies:
     - "~/.sbt"
     - "target/resolution-cache"
     - "project/target/resolution-cache"
-    - "comms-e2e-tests/target/resolution-cache"
-    - "comms-e2e-tests/project/target/resolution-cache"
 
 test:
   override:
