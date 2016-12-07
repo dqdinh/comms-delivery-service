@@ -1,13 +1,13 @@
 <configuration>
     <shutdownHook class="ch.qos.logback.core.hook.DelayingShutdownHook"/>
     <appender name="LogzioLogbackAppender" class="io.logz.logback.LogzioLogbackAppender">
-        <token>@@{uat.logzio_token}</token>
+        <token>@@{prd.logzio_token}</token>
         <logzioType>java</logzioType>
         <addHostname>true</addHostname>
         <additionalFields>service=delivery-service;environment=${ENV}</additionalFields>
     </appender>
     <appender name="GELF UDP APPENDER" class="me.moocar.logbackgelf.GelfUDPAppender">
-        <remoteHost>@@{uat.graylog_host}</remoteHost>
+        <remoteHost>@@{prd.graylog_host}</remoteHost>
         <port>12201</port>
         <encoder class="me.moocar.logbackgelf.GZIPEncoder">
             <layout class="me.moocar.logbackgelf.GelfLayout">
