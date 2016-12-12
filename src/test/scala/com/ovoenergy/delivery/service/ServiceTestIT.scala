@@ -96,7 +96,7 @@ class ServiceTestIT extends FlatSpec
         emailProgressedEvents.size shouldBe 1
         emailProgressedEvents.foreach(record => {
           val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
-          emailProgressed.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
+          emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
           emailProgressed.gateway shouldBe "Mailgun"
           emailProgressed.status shouldBe Queued
         })

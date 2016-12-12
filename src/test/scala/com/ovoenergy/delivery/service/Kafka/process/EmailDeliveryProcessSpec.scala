@@ -4,11 +4,11 @@ import java.time.{Clock, OffsetDateTime, ZoneId}
 import java.util.UUID
 
 import akka.Done
-import com.ovoenergy.comms.model.{ComposedEmail, EmailProgressed, Metadata, Failed}
+import com.ovoenergy.comms.model._
 import com.ovoenergy.delivery.service.email.mailgun.EmailDeliveryError
 import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
 import org.scalacheck.Arbitrary
-import org.scalatest._
+import org.scalatest.{Failed => _, _}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.prop._
 
@@ -34,6 +34,7 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
   val createdAt = "2019-01-01T12:34:44.222Z"
   val customerId = "GT-CUS-994332344"
   val friendlyDescription = "The customer did something cool and wants to know"
+  val commManifest = CommManifest(CommType.Service, "Plain old email", "1.0")
 
   val metadata = Metadata(
     createdAt = createdAt,
@@ -43,6 +44,7 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
     friendlyDescription = friendlyDescription,
     source = "tests",
     sourceMetadata = None,
+    commManifest = commManifest,
     canary = false)
 
   val emailProgressed = mock[EmailProgressed]
