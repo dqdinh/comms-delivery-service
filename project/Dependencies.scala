@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies {
 
-  val kafkaMessagesVersion = "0.0.12"
+  val kafkaMessagesVersion = "0.0.14"
 
   def all() = Seq(
     "com.typesafe.akka"           %% "akka-stream-kafka"              % "0.12",

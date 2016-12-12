@@ -7,7 +7,7 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 import com.ovoenergy.comms.model.EmailStatus.Queued
-import com.ovoenergy.comms.model.{ComposedEmail, Metadata}
+import com.ovoenergy.comms.model.{CommManifest, CommType, ComposedEmail, Metadata}
 import okhttp3._
 import okio.Okio
 import org.scalatest.{FlatSpec, Matchers}
@@ -39,6 +39,7 @@ class MailgunClientSpec extends FlatSpec
 
   val mailgunResponseId = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
   val mailgunResponseMessage = "Queued. Thank you."
+  val commManifest = CommManifest(CommType.Service, "Plain old email", "1.0")
 
   val composedEmailMetadata = Metadata(
     createdAt = createdAt,
@@ -48,6 +49,7 @@ class MailgunClientSpec extends FlatSpec
     friendlyDescription = friendlyDescription,
     source = "tests",
     sourceMetadata = None,
+    commManifest = commManifest,
     canary = false)
 
   val kafkaId = UUID.randomUUID()
@@ -76,7 +78,7 @@ class MailgunClientSpec extends FlatSpec
     val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, okResponse)
     MailgunClient(config)(composedEmailHtmlOnly) match {
       case Right(emailProgressed) =>
-        emailProgressed.gatewayMessageId shouldBe gatewayId
+        emailProgressed.gatewayMessageId shouldBe Some(gatewayId)
         emailProgressed.gateway shouldBe "Mailgun"
         emailProgressed.status shouldBe Queued
         assertMetadata(emailProgressed.metadata)
