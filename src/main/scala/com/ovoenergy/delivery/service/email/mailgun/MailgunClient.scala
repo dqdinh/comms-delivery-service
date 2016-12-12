@@ -1,17 +1,19 @@
 package com.ovoenergy.delivery.service.email.mailgun
 
+import java.lang.reflect.Type
 import java.time.format.DateTimeFormatter
 import java.time.{Clock, OffsetDateTime}
-import java.util.UUID
 
 import cats.syntax.either._
-import com.google.gson.Gson
+import com.google.gson._
 import com.ovoenergy.comms.model.EmailStatus.Queued
-import com.ovoenergy.comms.model.{ComposedEmail, EmailProgressed, Metadata}
+import com.ovoenergy.comms.model._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
-import io.circe.Decoder
+import io.circe.syntax._
 import io.circe.generic.auto._
+import io.circe.generic.extras.semiauto.deriveEnumerationEncoder
 import io.circe.parser._
+import io.circe.{Decoder, Encoder, Json}
 import okhttp3.{Credentials, FormBody, Request, Response}
 
 import scala.util.{Failure, Success, Try}
@@ -20,10 +22,12 @@ object MailgunClient extends LoggingWithMDC {
 
   case class Configuration(host: String, domain: String, apiKey: String, httpClient: (Request) => Try[Response])(implicit val clock: Clock)
 
-  case class CustomFormData(createdAt: String, customerId: String, traceToken: String, canary: Boolean)
+  case class CustomFormData(createdAt: String, customerId: String, traceToken: String, canary: Boolean, commManifest: CommManifest)
 
   val loggerName = "MailgunClient"
   val dtf = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+
+  implicit val encoder: Encoder[CommType] = deriveEnumerationEncoder[CommType]
 
   def apply(configuration: Configuration)(composedEmail: ComposedEmail): Either[EmailDeliveryError, EmailProgressed] = {
     case class SendEmailSuccessResponse(id: String, message: String)
@@ -79,12 +83,14 @@ object MailgunClient extends LoggingWithMDC {
       composedEmail.textBody.fold(form.build())(textBody => form.add("text", textBody).build())
     }
 
-    def buildCustomJson(metadata: Metadata) = {
-      new Gson().toJson(CustomFormData(
+    def buildCustomJson(metadata: Metadata): String = {
+      CustomFormData(
         createdAt = OffsetDateTime.now(configuration.clock).format(dtf),
         customerId = metadata.customerId,
         traceToken = metadata.traceToken,
-        canary = metadata.canary))
+        canary = metadata.canary,
+        commManifest = metadata.commManifest
+      ).asJson.noSpaces.toString()
     }
 
     def parseResponse[T: Decoder](body: String): Either[Exception, T] = {

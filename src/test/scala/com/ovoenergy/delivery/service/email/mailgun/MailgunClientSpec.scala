@@ -8,17 +8,25 @@ import java.util.UUID
 
 import com.ovoenergy.comms.model.EmailStatus.Queued
 import com.ovoenergy.comms.model.{CommManifest, CommType, ComposedEmail, Metadata}
+import com.ovoenergy.delivery.service.email.mailgun.MailgunClient.CustomFormData
+import io.circe.generic.extras.semiauto._
+import io.circe.parser._
+import io.circe.generic.auto._
+import io.circe.{Decoder, Error}
 import okhttp3._
 import okio.Okio
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.util.Try
+import scala.util.matching.Regex
 
 class MailgunClientSpec extends FlatSpec
   with Matchers {
 
   val dateTime = OffsetDateTime.now()
+
   implicit val clock = Clock.fixed(dateTime.toInstant, ZoneId.of("UTC"))
+  implicit val decoder: Decoder[CommType] = deriveEnumerationDecoder[CommType]
 
   val mailgunDomain = "jifjfofjosdfjdoisj"
   val mailgunApiKey = "dfsfsfdsfdsfs"
@@ -185,17 +193,34 @@ class MailgunClientSpec extends FlatSpec
 
   private def assertFormData(out: ByteArrayOutputStream, textIncluded: Boolean) = {
     val formData = out.toString("UTF-8").split("&").map(formEntry => URLDecoder.decode(formEntry, "UTF-8"))
+
     formData should contain(s"from=$from")
     formData should contain(s"to=$to")
     formData should contain(s"subject=$subject")
     formData should contain(s"html=$htmlBody")
     if (textIncluded) formData should contain(s"text=$textBody")
-    formData should contain("v:custom={" +
-      "\"createdAt\":\"" + dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "\"," +
-      "\"customerId\":\"" + customerId + "\"," +
-      "\"traceToken\":\"" + traceToken + "\"," +
-      "\"canary\":false}"
-    )
-  }
 
+    val customData = formData.find(_.contains("v:custom")).getOrElse(fail)
+
+    val regex: Regex = "v:custom=(.*)".r
+    val data = customData match {
+      case regex(customJson) => decode[CustomFormData](customJson)
+      case _                 => fail
+    }
+
+    data match {
+      case Left(error) => fail
+      case Right(customJson) => {
+        val commManifestRes = customJson.commManifest
+
+        customJson.createdAt      shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        customJson.customerId     shouldBe customerId
+        customJson.traceToken     shouldBe traceToken
+        customJson.canary         shouldBe false
+        commManifestRes.commType  shouldBe commManifest.commType
+        commManifestRes.name      shouldBe commManifest.name
+        commManifestRes.version   shouldBe commManifest.version
+      }
+    }
+  }
 }
