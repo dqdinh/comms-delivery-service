@@ -1,19 +1,17 @@
 package com.ovoenergy.delivery.service.email.mailgun
 
-import java.lang.reflect.Type
 import java.time.format.DateTimeFormatter
 import java.time.{Clock, OffsetDateTime}
 
 import cats.syntax.either._
-import com.google.gson._
 import com.ovoenergy.comms.model.EmailStatus.Queued
 import com.ovoenergy.comms.model._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
-import io.circe.syntax._
 import io.circe.generic.auto._
 import io.circe.generic.extras.semiauto.deriveEnumerationEncoder
 import io.circe.parser._
-import io.circe.{Decoder, Encoder, Json}
+import io.circe.syntax._
+import io.circe.{Decoder, Encoder}
 import okhttp3.{Credentials, FormBody, Request, Response}
 
 import scala.util.{Failure, Success, Try}
@@ -90,7 +88,7 @@ object MailgunClient extends LoggingWithMDC {
         traceToken = metadata.traceToken,
         canary = metadata.canary,
         commManifest = metadata.commManifest
-      ).asJson.noSpaces.toString()
+      ).asJson.noSpaces
     }
 
     def parseResponse[T: Decoder](body: String): Either[Exception, T] = {

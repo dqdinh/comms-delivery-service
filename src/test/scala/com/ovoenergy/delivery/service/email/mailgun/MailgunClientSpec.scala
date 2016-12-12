@@ -200,13 +200,11 @@ class MailgunClientSpec extends FlatSpec
     formData should contain(s"html=$htmlBody")
     if (textIncluded) formData should contain(s"text=$textBody")
 
-    val customData = formData.find(_.contains("v:custom")).getOrElse(fail)
-
     val regex: Regex = "v:custom=(.*)".r
-    val data = customData match {
+
+    val data = formData.collectFirst {
       case regex(customJson) => decode[CustomFormData](customJson)
-      case _                 => fail
-    }
+    }.getOrElse(fail)
 
     data match {
       case Left(error) => fail
