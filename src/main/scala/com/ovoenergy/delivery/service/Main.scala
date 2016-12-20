@@ -11,7 +11,7 @@ import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
-import com.ovoenergy.delivery.service.kafka.{DeliveryFailedEventPublisher, DeliveryProgressedEventPublisher, DeliveryServiceFlow}
+import com.ovoenergy.delivery.service.kafka.{DeliveryFailedEventPublisher, DeliveryProgressedEventPublisher, DeliveryServiceGraph}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.UUIDGenerator
 import com.typesafe.config.ConfigFactory
@@ -52,7 +52,7 @@ with LoggingWithMDC {
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = actorSystem.dispatcher
 
-  val control = DeliveryServiceFlow[ComposedEmail](
+  val graph = DeliveryServiceGraph[ComposedEmail](
     avroDeserializer[ComposedEmail],
     EmailDeliveryProcess(
       BlackListed(blackListedEmailAddresses),
@@ -66,6 +66,8 @@ with LoggingWithMDC {
   for (line <- Source.fromFile("./banner.txt").getLines) {
     println(line)
   }
+
+  val control = graph.run()
 
   log.info("Delivery Service started")
   

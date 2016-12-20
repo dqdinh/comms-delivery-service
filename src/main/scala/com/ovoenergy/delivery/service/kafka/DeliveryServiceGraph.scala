@@ -12,7 +12,7 @@ import org.apache.kafka.common.serialization.{Deserializer, StringDeserializer}
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 
-object DeliveryServiceFlow extends LoggingWithMDC {
+object DeliveryServiceGraph extends LoggingWithMDC {
 
   override def loggerName = "DeliveryServiceFlow"
 
@@ -23,8 +23,8 @@ object DeliveryServiceFlow extends LoggingWithMDC {
 
     val decider: Supervision.Decider = {
       case NonFatal(e) =>
-        log.error("Restarting due to error", e)
-        Supervision.Restart
+        log.error("Stopping due to error", e)
+        Supervision.Stop
     }
 
     val consumerSettings =
@@ -32,7 +32,7 @@ object DeliveryServiceFlow extends LoggingWithMDC {
         .withBootstrapServers(kafkaConfig.hosts)
         .withGroupId(kafkaConfig.groupId)
 
-    Consumer
+    val source = Consumer
       .committableSource(consumerSettings, Subscriptions.topics(kafkaConfig.emailComposedTopic))
       .mapAsync(1)(msg => {
         log.debug(s"Event received $msg")
@@ -43,8 +43,10 @@ object DeliveryServiceFlow extends LoggingWithMDC {
             Future.successful(())
         }
         result.map(_ => msg.committableOffset.commitScaladsl())
-      })
-      .to(Sink.ignore.withAttributes(ActorAttributes.supervisionStrategy(decider)))
-      .run
+      }).withAttributes(ActorAttributes.supervisionStrategy(decider))
+
+    val sink = Sink.ignore.withAttributes(ActorAttributes.supervisionStrategy(decider))
+
+    source.to(sink)
   }
 }
