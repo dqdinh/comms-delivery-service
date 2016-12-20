@@ -52,7 +52,7 @@ with LoggingWithMDC {
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = actorSystem.dispatcher
 
-  DeliveryServiceFlow[ComposedEmail](
+  val control = DeliveryServiceFlow[ComposedEmail](
     avroDeserializer[ComposedEmail],
     EmailDeliveryProcess(
       BlackListed(blackListedEmailAddresses),
@@ -68,4 +68,9 @@ with LoggingWithMDC {
   }
 
   log.info("Delivery Service started")
+  
+  control.isShutdown.foreach { _ =>
+    log.error("ARGH! The Kafka source has shut down. Killing the JVM and nuking from orbit.")
+    System.exit(1)
+  }
 }
