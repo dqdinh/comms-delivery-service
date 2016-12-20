@@ -11,7 +11,7 @@ import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
-import com.ovoenergy.delivery.service.kafka.{DeliveryFailedEventPublisher, DeliveryProgressedEventPublisher, DeliveryServiceFlow}
+import com.ovoenergy.delivery.service.kafka.{DeliveryFailedEventPublisher, DeliveryProgressedEventPublisher, DeliveryServiceGraph}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.UUIDGenerator
 import com.typesafe.config.ConfigFactory
@@ -52,7 +52,7 @@ with LoggingWithMDC {
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = actorSystem.dispatcher
 
-  DeliveryServiceFlow[ComposedEmail](
+  val graph = DeliveryServiceGraph[ComposedEmail](
     avroDeserializer[ComposedEmail],
     EmailDeliveryProcess(
       BlackListed(blackListedEmailAddresses),
@@ -67,5 +67,12 @@ with LoggingWithMDC {
     println(line)
   }
 
+  val control = graph.run()
+
   log.info("Delivery Service started")
+  
+  control.isShutdown.foreach { _ =>
+    log.error("ARGH! The Kafka source has shut down. Killing the JVM and nuking from orbit.")
+    System.exit(1)
+  }
 }
