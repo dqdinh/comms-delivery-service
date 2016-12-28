@@ -1,4 +1,4 @@
-package com.ovoenergy.delivery.service.Kafka.process
+package com.ovoenergy.delivery.service.kafka.process
 
 import java.time.{Clock, OffsetDateTime, ZoneId}
 import java.util.UUID
@@ -6,7 +6,6 @@ import java.util.UUID
 import akka.Done
 import com.ovoenergy.comms.model._
 import com.ovoenergy.delivery.service.email.mailgun.EmailDeliveryError
-import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
 import org.scalacheck.Arbitrary
 import org.scalatest.{Failed => _, _}
 import org.scalatest.mockito.MockitoSugar
