@@ -12,7 +12,10 @@ import scala.concurrent.Future
 object DeliveryFailedEventPublisher {
 
   def apply(kafkaConfig: KafkaConfig): Failed => Future[RecordMetadata] = {
-    val producer = KafkaProducer(Conf(new StringSerializer, avroSerializer[Failed], kafkaConfig.hosts))
+    // This is only lazy for the sake of the service tests.
+    // We need to construct the producer after the topic has been created,
+    // otherwise the tests randomly fail.
+    lazy val producer = KafkaProducer(Conf(new StringSerializer, avroSerializer[Failed], kafkaConfig.hosts))
 
     (failed: Failed) => {
       producer.send(new ProducerRecord[String, Failed](
