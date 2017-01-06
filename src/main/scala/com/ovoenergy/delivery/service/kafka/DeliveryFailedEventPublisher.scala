@@ -16,7 +16,6 @@ object DeliveryFailedEventPublisher {
     // We need to construct the producer after the topic has been created,
     // otherwise the tests randomly fail.
     lazy val producer = KafkaProducer(Conf(new StringSerializer, avroSerializer[Failed], kafkaConfig.hosts))
-
     (failed: Failed) => {
       producer.send(new ProducerRecord[String, Failed](
         kafkaConfig.commFailedTopic, 
