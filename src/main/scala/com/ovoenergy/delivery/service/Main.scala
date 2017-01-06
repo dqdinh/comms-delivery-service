@@ -1,6 +1,7 @@
 package com.ovoenergy.delivery.service
 
-import java.time.Clock
+import java.time.{Clock, Duration}
+import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -13,10 +14,14 @@ import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
 import com.ovoenergy.delivery.service.kafka.{DeliveryFailedEventPublisher, DeliveryProgressedEventPublisher, DeliveryServiceGraph}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
-import com.ovoenergy.delivery.service.util.UUIDGenerator
+import com.ovoenergy.delivery.service.util.Retry.RetryConfig
+import com.ovoenergy.delivery.service.util.{Retry, UUIDGenerator}
 import com.typesafe.config.ConfigFactory
+import eu.timepit.refined._
+import eu.timepit.refined.numeric.Positive
 
 import scala.collection.JavaConversions.asScalaBuffer
+import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
 
 object Main extends App
@@ -27,16 +32,28 @@ with LoggingWithMDC {
 
   implicit val clock = Clock.systemDefaultZone()
 
+  private implicit class RichDuration(val duration: Duration) extends AnyVal {
+    def toFiniteDuration: FiniteDuration = FiniteDuration.apply(duration.toNanos, TimeUnit.NANOSECONDS)
+  }
+
   val config = ConfigFactory.load()
 
-  val mailgunClientConfig = MailgunClient.Configuration(
-    config.getString("mailgun.host"),
-    config.getString("mailgun.domain"),
-    config.getString("mailgun.apiKey"),
-    HttpClient.apply
-  )
-
-  log.info("Delivery Service started")
+  val mailgunClientConfig = {
+    val retryConfig = {
+      val attempts = config.getInt("mailgun.attempts")
+      RetryConfig(
+        attempts = refineV[Positive](attempts).right.getOrElse(sys.error(s"mailgun.attempts must be positive but was $attempts")),
+        backoff = Retry.Backoff.constantDelay(config.getDuration("mailgun.interval").toFiniteDuration)
+      )
+    }
+    MailgunClient.Configuration(
+      config.getString("mailgun.host"),
+      config.getString("mailgun.domain"),
+      config.getString("mailgun.apiKey"),
+      HttpClient.apply,
+      retryConfig
+    )
+  }
 
   val kafkaConfig = KafkaConfig(
     config.getString("kafka.hosts"),

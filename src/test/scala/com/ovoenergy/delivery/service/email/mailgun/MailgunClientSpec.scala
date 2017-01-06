@@ -9,6 +9,10 @@ import java.util.UUID
 import com.ovoenergy.comms.model.EmailStatus.Queued
 import com.ovoenergy.comms.model.{CommManifest, CommType, ComposedEmail, Metadata}
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient.CustomFormData
+import com.ovoenergy.delivery.service.util.Retry
+import com.ovoenergy.delivery.service.util.Retry.RetryConfig
+import eu.timepit.refined._
+import eu.timepit.refined.numeric.Positive
 import io.circe.generic.extras.semiauto._
 import io.circe.parser._
 import io.circe.generic.auto._
@@ -83,7 +87,7 @@ class MailgunClientSpec extends FlatSpec
       }
     }
 
-    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, okResponse)
+    val config = buildConfig(okResponse)
     MailgunClient(config)(composedEmailHtmlOnly) match {
       case Right(emailProgressed) =>
         emailProgressed.gatewayMessageId shouldBe Some(gatewayId)
@@ -110,7 +114,7 @@ class MailgunClientSpec extends FlatSpec
         new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(200).body(ResponseBody.create(MediaType.parse("UTF-8"), successResponse)).build()
       }
     }
-    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, okResponse)
+    val config = buildConfig(okResponse)
     MailgunClient(config)(composedEmailWithText)
   }
 
@@ -120,7 +124,7 @@ class MailgunClientSpec extends FlatSpec
         throw new IllegalStateException("I am blown up")
       }
     }
-    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, badResponse)
+    val config = buildConfig(badResponse)
     MailgunClient(config)(composedEmail) match {
       case Right(_) => fail()
       case Left(failed) => failed shouldBe ExceptionOccurred
@@ -133,7 +137,7 @@ class MailgunClientSpec extends FlatSpec
         new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(400).body(ResponseBody.create(MediaType.parse("UTF-8"), """{"message": "Some error message"}""")).build()
       }
     }
-    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, badResponse)
+    val config = buildConfig(badResponse)
     MailgunClient(config)(composedEmail) match {
       case Right(_) => fail()
       case Left(failed) => failed shouldBe APIGatewayBadRequest
@@ -147,7 +151,7 @@ class MailgunClientSpec extends FlatSpec
           new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(responseCode).body(ResponseBody.create(MediaType.parse("UTF-8"), "")).build()
         }
       }
-      val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, badResponse)
+      val config = buildConfig(badResponse)
       MailgunClient(config)(composedEmail) match {
         case Right(_) => fail()
         case Left(failed) => failed shouldBe APIGatewayInternalServerError
@@ -161,7 +165,7 @@ class MailgunClientSpec extends FlatSpec
         new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(401).body(ResponseBody.create(MediaType.parse("UTF-8"), "")).build()
       }
     }
-    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, badResponse)
+    val config = buildConfig(badResponse)
     MailgunClient(config)(composedEmail) match {
       case Right(_) => fail()
       case Left(failed) => failed shouldBe APIGatewayAuthenticationError
@@ -174,12 +178,20 @@ class MailgunClientSpec extends FlatSpec
         new Response.Builder().protocol(Protocol.HTTP_1_1).request(request).code(422).body(ResponseBody.create(MediaType.parse("UTF-8"), "")).build()
       }
     }
-    val config = MailgunClient.Configuration(mailgunHost, mailgunDomain, mailgunApiKey, badResponse)
+    val config = buildConfig(badResponse)
     MailgunClient(config)(composedEmail) match {
       case Right(_) => fail()
       case Left(failed) => failed shouldBe APIGatewayUnspecifiedError
     }
   }
+
+  private def buildConfig(httpClient: Request => Try[Response]) = MailgunClient.Configuration(
+    mailgunHost,
+    mailgunDomain,
+    mailgunApiKey,
+    httpClient,
+    RetryConfig(refineMV[Positive](1), Retry.Backoff.retryImmediately)
+  )
 
   private def assertMetadata(metadata: Metadata): Unit = {
     metadata.customerId shouldBe customerId
