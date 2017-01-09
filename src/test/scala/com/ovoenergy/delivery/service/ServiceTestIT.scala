@@ -12,6 +12,7 @@ import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializ
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.model.HttpRequest.request
 import com.ovoenergy.comms.serialisation.Serialisation._
+import org.mockserver.matchers.Times
 import org.mockserver.model.HttpResponse.response
 import org.scalacheck.Shapeless._
 import org.scalacheck.Arbitrary
@@ -50,39 +51,37 @@ class ServiceTestIT extends FlatSpec
 
   behavior of "producer"
 
-    it should "create Failed event when authentication fails with Mailgun" taggedAs DockerComposeTag in {
-      createTopicsAndSubscribe()
-      create401MailgunResponse()
+  it should "create Failed event when authentication fails with Mailgun" taggedAs DockerComposeTag in {
+    createTopicsAndSubscribe()
+    create401MailgunResponse()
 
-      val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
-      val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
-      whenReady(future) {
-        case _ =>
-          val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
-          failedEvents.size shouldBe 1
-          failedEvents.foreach(record => {
-            val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
-            failed.reason shouldBe "Error authenticating with the Email Gateway"
-          })
-      }
+    val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
+    val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+    whenReady(future) { _ =>
+      val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
+      failedEvents.size shouldBe 1
+      failedEvents.foreach(record => {
+        val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
+        failed.reason shouldBe "Error authenticating with the Email Gateway"
+      })
     }
+  }
 
-    it should "create Failed event when get bad request from Mailgun" taggedAs DockerComposeTag in {
-      createTopicsAndSubscribe()
-      create400MailgunResponse()
+  it should "create Failed event when get bad request from Mailgun" taggedAs DockerComposeTag in {
+    createTopicsAndSubscribe()
+    create400MailgunResponse()
 
-      val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
-      val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
-      whenReady(future) {
-        case _ =>
-          val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
-          failedEvents.size shouldBe 1
-          failedEvents.foreach(record => {
-            val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
-            failed.reason shouldBe "The Email Gateway did not like our request"
-          })
-      }
+    val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
+    val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+    whenReady(future) { _ =>
+      val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
+      failedEvents.size shouldBe 1
+      failedEvents.foreach(record => {
+        val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
+        failed.reason shouldBe "The Email Gateway did not like our request"
+      })
     }
+  }
 
   it should "create EmailProgress event when get OK from Mailgun" taggedAs DockerComposeTag in {
     createTopicsAndSubscribe()
@@ -90,16 +89,33 @@ class ServiceTestIT extends FlatSpec
 
     val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
     val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
-    whenReady(future) {
-      case _ =>
-        val emailProgressedEvents = emailProgressedConsumer.poll(30000).records(emailProgressedTopic).asScala.toList
-        emailProgressedEvents.size shouldBe 1
-        emailProgressedEvents.foreach(record => {
-          val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
-          emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
-          emailProgressed.gateway shouldBe "Mailgun"
-          emailProgressed.status shouldBe Queued
-        })
+    whenReady(future) { _ =>
+      val emailProgressedEvents = emailProgressedConsumer.poll(30000).records(emailProgressedTopic).asScala.toList
+      emailProgressedEvents.size shouldBe 1
+      emailProgressedEvents.foreach(record => {
+        val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
+        emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
+        emailProgressed.gateway shouldBe "Mailgun"
+        emailProgressed.status shouldBe Queued
+      })
+    }
+  }
+
+  it should "retry when Mailgun returns an error response" taggedAs DockerComposeTag in {
+    createTopicsAndSubscribe()
+    createFlakyMailgunResponse()
+
+    val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
+    val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+    whenReady(future) { _ =>
+      val emailProgressedEvents = emailProgressedConsumer.poll(30000).records(emailProgressedTopic).asScala.toList
+      emailProgressedEvents.size shouldBe 1
+      emailProgressedEvents.foreach(record => {
+        val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
+        emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
+        emailProgressed.gateway shouldBe "Mailgun"
+        emailProgressed.status shouldBe Queued
+      })
     }
   }
 
@@ -156,6 +172,27 @@ class ServiceTestIT extends FlatSpec
 
   def createOKMailgunResponse() {
     mockServerClient.reset()
+    mockServerClient.when(
+      request()
+        .withMethod("POST")
+        .withPath(s"/v3/mailgun@email.com/messages")
+    ).respond(
+      response("""{"message": "Email queued", "id": "ABCDEFGHIJKL1234"}""")
+        .withStatusCode(200)
+    )
+  }
+
+  def createFlakyMailgunResponse() {
+    mockServerClient.reset()
+    mockServerClient.when(
+      request()
+        .withMethod("POST")
+        .withPath(s"/v3/mailgun@email.com/messages"),
+      Times.exactly(3)
+    ).respond(
+      response("""{"message": "uh oh"}""")
+        .withStatusCode(500)
+    )
     mockServerClient.when(
       request()
         .withMethod("POST")

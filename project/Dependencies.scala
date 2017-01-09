@@ -19,6 +19,7 @@ object Dependencies {
     "com.ovoenergy"               %% "comms-kafka-serialisation"      % kafkaMessagesVersion,
     "org.typelevel"               %% "cats-core"                      % "0.8.0",
     "com.squareup.okhttp3"         % "okhttp"                         % "3.4.2",
+    "eu.timepit"                  %% "refined"                        % "0.6.1",
     "org.mockito"                  % "mockito-all"                    % "1.10.19"     %   Test,
     "com.github.alexarchambault"  %% "scalacheck-shapeless_1.13"      % "1.1.4"       %   Test,
     "org.scalatest"               %% "scalatest"                      % "3.0.1"       %   Test,
