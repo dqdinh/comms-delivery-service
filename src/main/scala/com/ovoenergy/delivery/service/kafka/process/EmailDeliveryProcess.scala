@@ -3,6 +3,7 @@ package com.ovoenergy.delivery.service.kafka.process
 import java.time.Clock
 import java.util.UUID
 
+import com.ovoenergy.comms.model.ErrorCode.{EmailAddressBlacklisted, EmailGatewayError}
 import com.ovoenergy.comms.model._
 import com.ovoenergy.delivery.service.email.mailgun._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
@@ -34,7 +35,7 @@ object EmailDeliveryProcess extends LoggingWithMDC {
     def sendAndProcessComm() = {
       sendEmail(composedEmail) match {
         case Left(failed)      =>
-          val failedEvent = buildFailedEvent(failed)
+          val failedEvent = buildFailedEvent(failed, EmailGatewayError)
           logDebug(traceToken, s"Issuing failed event $failed")
           emailFailedPublisher(failedEvent)
         case Right(progressed) =>
@@ -43,14 +44,14 @@ object EmailDeliveryProcess extends LoggingWithMDC {
       }
     }
 
-    def buildFailedEvent(emailDeliveryError: EmailDeliveryError) = {
+    def buildFailedEvent(emailDeliveryError: EmailDeliveryError, errorCode: ErrorCode) = {
       val metadata = Metadata.fromSourceMetadata("delivery-service", composedEmail.metadata)
-      Failed(metadata, errorReasonMappings.getOrElse(emailDeliveryError, "Unknown error"))
+      Failed(metadata, errorReasonMappings.getOrElse(emailDeliveryError, "Unknown error"), errorCode)
     }
 
     val result = if (isBlackListed(composedEmail)) {
       logWarn(traceToken, s"Email addressed is blacklisted: ${composedEmail.recipient}")
-      emailFailedPublisher(buildFailedEvent(BlacklistedEmailAddress))
+      emailFailedPublisher(buildFailedEvent(BlacklistedEmailAddress, EmailAddressBlacklisted))
     } else sendAndProcessComm()
 
     result.recover{

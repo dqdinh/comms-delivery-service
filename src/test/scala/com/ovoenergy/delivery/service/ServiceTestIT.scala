@@ -3,7 +3,7 @@ package com.ovoenergy.delivery.service
 import cakesolutions.kafka.KafkaConsumer.{Conf => KafkaConsumerConf}
 import cakesolutions.kafka.KafkaProducer.{Conf => KafkaProducerConf}
 import cakesolutions.kafka.{KafkaConsumer, KafkaProducer}
-import com.ovoenergy.comms.model.{ComposedEmail, EmailProgressed, Failed}
+import com.ovoenergy.comms.model.{ComposedEmail, EmailProgressed, ErrorCode, Failed}
 import com.ovoenergy.comms.model.EmailStatus.Queued
 import com.ovoenergy.comms.serialisation.Serialisation._
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -79,6 +79,7 @@ class ServiceTestIT extends FlatSpec
       failedEvents.foreach(record => {
         val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
         failed.reason shouldBe "The Email Gateway did not like our request"
+        failed.errorCode  shouldBe ErrorCode.EmailGatewayError
       })
     }
   }
