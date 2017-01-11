@@ -42,7 +42,7 @@ object DeliveryServiceGraph extends LoggingWithMDC {
             log.error(s"Skipping event: $msg, failed to parse")
             Future.successful(())
         }
-        result.map(_ => msg.committableOffset.commitScaladsl())
+        result.flatMap(_ => msg.committableOffset.commitScaladsl())
       }).withAttributes(ActorAttributes.supervisionStrategy(decider))
 
     val sink = Sink.ignore.withAttributes(ActorAttributes.supervisionStrategy(decider))
