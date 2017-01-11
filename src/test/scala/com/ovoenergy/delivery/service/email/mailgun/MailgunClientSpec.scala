@@ -7,7 +7,7 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 import com.ovoenergy.comms.model.EmailStatus.Queued
-import com.ovoenergy.comms.model.{CommManifest, CommType, ComposedEmail, Metadata}
+import com.ovoenergy.comms.model._
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient.CustomFormData
 import com.ovoenergy.delivery.service.util.Retry
 import com.ovoenergy.delivery.service.util.Retry.RetryConfig
@@ -40,6 +40,7 @@ class MailgunClientSpec extends FlatSpec
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
 
   val traceToken = "fpwfj2i0jr02jr2j0"
+  val internalTraceToken = "faasdpwfj2i0jr02jr2j0"
   val createdAt = "2019-01-01T12:34:44.222Z"
   val customerId = "GT-CUS-994332344"
   val friendlyDescription = "The customer did something cool and wants to know"
@@ -52,6 +53,7 @@ class MailgunClientSpec extends FlatSpec
   val mailgunResponseId = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
   val mailgunResponseMessage = "Queued. Thank you."
   val commManifest = CommManifest(CommType.Service, "Plain old email", "1.0")
+  val source = "myTrigger"
 
   val composedEmailMetadata = Metadata(
     createdAt = createdAt,
@@ -62,16 +64,19 @@ class MailgunClientSpec extends FlatSpec
     source = "tests",
     sourceMetadata = None,
     commManifest = commManifest,
-    canary = false)
+    canary = false,
+    triggerSource=source)
+
+  val internalMetaData = InternalMetadata(internalTraceToken)
 
   val kafkaId = UUID.randomUUID()
 
-  val composedEmail = ComposedEmail(composedEmailMetadata, from, to, subject, htmlBody, Some(textBody))
+  val composedEmail = ComposedEmail(composedEmailMetadata, internalMetaData, from, to, subject, htmlBody, Some(textBody))
 
   behavior of "The Mailgun Client"
 
   it should "Send correct request to Mailgun API when only HTML present" in {
-    val composedEmailHtmlOnly = ComposedEmail(composedEmailMetadata, from, to, subject, htmlBody, None)
+    val composedEmailHtmlOnly = ComposedEmail(composedEmailMetadata, internalMetaData, from, to, subject, htmlBody, None)
     val okResponse = (request: Request) => {
       request.header("Authorization") shouldBe "Basic YXBpOmRmc2ZzZmRzZmRzZnM="
       request.url.toString shouldBe s"https://api.mailgun.net/v3/$mailgunDomain/messages"
@@ -99,7 +104,7 @@ class MailgunClientSpec extends FlatSpec
   }
 
   it should "Send correct request to Mailgun API when both text and HTML present" in {
-    val composedEmailWithText = ComposedEmail(composedEmailMetadata, from, to, subject, htmlBody, Some(textBody))
+    val composedEmailWithText = ComposedEmail(composedEmailMetadata, internalMetaData, from, to, subject, htmlBody, Some(textBody))
     val okResponse = (request: Request) => {
       request.header("Authorization") shouldBe "Basic YXBpOmRmc2ZzZmRzZmRzZnM="
       request.url.toString shouldBe s"https://api.mailgun.net/v3/$mailgunDomain/messages"

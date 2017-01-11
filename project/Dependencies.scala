@@ -15,7 +15,7 @@ object Dependencies {
     "me.moocar"                    % "logback-gelf"                   % "0.2",
     "net.cakesolutions"           %% "scala-kafka-client"             % "0.10.0.0",
     "io.logz.logback"              % "logzio-logback-appender"        % "1.0.11",
-    "com.ovoenergy"               %% "comms-kafka-messages"           % "0.0.27",
+    "com.ovoenergy"               %% "comms-kafka-messages"           % "0.0.29",
     "com.ovoenergy"               %% "comms-kafka-serialisation"      % "1.0",
     "org.typelevel"               %% "cats-core"                      % "0.8.0",
     "com.squareup.okhttp3"         % "okhttp"                         % "3.4.2",
@@ -25,6 +25,6 @@ object Dependencies {
     "org.scalatest"               %% "scalatest"                      % "3.0.1"       %   Test,
     "org.scalacheck"              %% "scalacheck"                     % "1.13.4"      %   Test,
     "org.apache.kafka"            %% "kafka"                          % "0.10.0.1"    %   Test,
-    "org.mock-server" % "mockserver-client-java" % "3.10.4" % Test
+    "org.mock-server"             % "mockserver-client-java"          % "3.10.4"      %   Test
   )
 }

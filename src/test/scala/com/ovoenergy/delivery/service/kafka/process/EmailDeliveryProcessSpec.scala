@@ -31,10 +31,12 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
   def isBlackListed(composedEmail: ComposedEmail) = false
 
   val traceToken = "fpwfj2i0jr02jr2j0"
+  val internalTraceToken = "faasdpwfj2i0jr02jr2j0"
   val createdAt = "2019-01-01T12:34:44.222Z"
   val customerId = "GT-CUS-994332344"
   val friendlyDescription = "The customer did something cool and wants to know"
   val commManifest = CommManifest(CommType.Service, "Plain old email", "1.0")
+  val source = "myTrigger"
 
   val metadata = Metadata(
     createdAt = createdAt,
@@ -45,16 +47,19 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
     source = "tests",
     sourceMetadata = None,
     commManifest = commManifest,
-    canary = false)
+    canary = false,
+    triggerSource = source)
+
+  val internalMetaData = InternalMetadata(internalTraceToken)
 
   val emailProgressed = mock[EmailProgressed]
-  val emailComposed   = ComposedEmail(metadata, "", "", "", "", None)
+  val emailComposed   = ComposedEmail(metadata, internalMetaData, "", "", "", "", None)
 
   val deliveryError   = mock[EmailDeliveryError]
   val emailSentRes    = mock[Done]
 
   val successfulEmailProgressedProducer = (f: EmailProgressed) => Future.successful(emailSentRes)
-  val successfulEmailFailedProducer     = (f: Failed) => Future.successful(Failed(metadata, "", f.errorCode))
+  val successfulEmailFailedProducer     = (f: Failed) => Future.successful(Failed(metadata, internalMetaData,  "", f.errorCode))
 
   behavior of "EmailDeliveryProcess"
 
@@ -69,7 +74,7 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
     val sendMail  = (mail: ComposedEmail) => Left(deliveryError)
     val result    = Await.result(EmailDeliveryProcess(isBlackListed, successfulEmailFailedProducer, successfulEmailProgressedProducer, kafkaIdGenerator, clock, sendMail)(emailComposed), 5 seconds)
 
-    result should be(Failed(metadata, "", EmailGatewayError))
+    result should be(Failed(metadata, internalMetaData, "", EmailGatewayError))
   }
 
   val emailProgressedPublisher = (f: EmailProgressed) => Future.failed(new Exception("Email progressed exception"))
@@ -92,7 +97,7 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
     val sendMail  = (mail: ComposedEmail) => Right(emailProgressed)
 
     val result    = Await.result(EmailDeliveryProcess(isBlackListed, successfulEmailFailedProducer, successfulEmailProgressedProducer, kafkaIdGenerator, clock, sendMail)(emailComposed), 5 seconds)
-    result should be(Failed(metadata, "", EmailAddressBlacklisted))
+    result should be(Failed(metadata, internalMetaData, "", EmailAddressBlacklisted))
   }
 }
 

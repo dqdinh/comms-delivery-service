@@ -104,7 +104,8 @@ object MailgunClient extends LoggingWithMDC {
             .copy(createdAt = OffsetDateTime.now(clock).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
           status = Queued,
           gateway = "Mailgun",
-          gatewayMessageId = Some(id)))
+          gatewayMessageId = Some(id),
+          internalMetadata = composedEmail.internalMetadata))
       case InternalServerError() =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
         logError(traceToken, s"Error sending email via Mailgun API, Mailgun API internal error: ${response.code} $message")
