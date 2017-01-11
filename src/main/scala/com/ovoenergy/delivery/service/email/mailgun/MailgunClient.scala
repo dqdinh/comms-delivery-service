@@ -28,7 +28,7 @@ object MailgunClient extends LoggingWithMDC {
                             retryConfig: RetryConfig
                           )(implicit val clock: Clock)
 
-  case class CustomFormData(createdAt: String, customerId: String, traceToken: String, canary: Boolean, commManifest: CommManifest)
+  case class CustomFormData(createdAt: String, customerId: String, traceToken: String, canary: Boolean, commManifest: CommManifest, internalTraceToken: String)
 
   val loggerName = "MailgunClient"
   val dtf = DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -65,18 +65,19 @@ object MailgunClient extends LoggingWithMDC {
       .add("to", composedEmail.recipient)
       .add("subject", composedEmail.subject)
       .add("html", composedEmail.htmlBody)
-      .add("v:custom", buildCustomJson(composedEmail.metadata))
+      .add("v:custom", buildCustomJson(composedEmail))
 
     composedEmail.textBody.fold(form.build())(textBody => form.add("text", textBody).build())
   }
 
-  private def buildCustomJson(metadata: Metadata)(implicit clock: Clock): String = {
+  private def buildCustomJson(composedEmail: ComposedEmail)(implicit clock: Clock): String = {
     CustomFormData(
       createdAt = OffsetDateTime.now(clock).format(dtf),
-      customerId = metadata.customerId,
-      traceToken = metadata.traceToken,
-      canary = metadata.canary,
-      commManifest = metadata.commManifest
+      customerId = composedEmail.metadata.customerId,
+      traceToken = composedEmail.metadata.traceToken,
+      canary = composedEmail.metadata.canary,
+      commManifest = composedEmail.metadata.commManifest,
+      internalTraceToken = composedEmail.internalMetadata.internalTraceToken
     ).asJson.noSpaces
   }
 
