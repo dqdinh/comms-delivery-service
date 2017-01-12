@@ -46,7 +46,7 @@ object EmailDeliveryProcess extends LoggingWithMDC {
 
     def buildFailedEvent(emailDeliveryError: EmailDeliveryError, errorCode: ErrorCode) = {
       val metadata = Metadata.fromSourceMetadata("delivery-service", composedEmail.metadata)
-      Failed(metadata, errorReasonMappings.getOrElse(emailDeliveryError, "Unknown error"), errorCode)
+      Failed(metadata, composedEmail.internalMetadata, errorReasonMappings.getOrElse(emailDeliveryError, "Unknown error"), errorCode)
     }
 
     val result = if (isBlackListed(composedEmail)) {

@@ -6,11 +6,13 @@ import java.time._
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
+import akka.Done
 import com.ovoenergy.comms.model.EmailStatus.Queued
-import com.ovoenergy.comms.model.{CommManifest, CommType, ComposedEmail, Metadata}
+import com.ovoenergy.comms.model.{Metadata, _}
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient.CustomFormData
 import com.ovoenergy.delivery.service.util.Retry
 import com.ovoenergy.delivery.service.util.Retry.RetryConfig
+import com.sksamuel.avro4s.AvroDoc
 import eu.timepit.refined._
 import eu.timepit.refined.numeric.Positive
 import io.circe.generic.extras.semiauto._
@@ -19,13 +21,15 @@ import io.circe.generic.auto._
 import io.circe.{Decoder, Error}
 import okhttp3._
 import okio.Okio
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalacheck.Shapeless._
+import org.scalacheck._
+import org.scalatest.prop._
+import org.scalatest.{Failed => _, _}
 
 import scala.util.Try
 import scala.util.matching.Regex
 
-class MailgunClientSpec extends FlatSpec
-  with Matchers {
+class MailgunClientSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   val dateTime = OffsetDateTime.now()
 
@@ -35,43 +39,29 @@ class MailgunClientSpec extends FlatSpec
   val mailgunDomain = "jifjfofjosdfjdoisj"
   val mailgunApiKey = "dfsfsfdsfdsfs"
   val mailgunHost = "https://api.mailgun.net"
-
   val gatewayId = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
 
-  val traceToken = "fpwfj2i0jr02jr2j0"
-  val createdAt = "2019-01-01T12:34:44.222Z"
-  val customerId = "GT-CUS-994332344"
-  val friendlyDescription = "The customer did something cool and wants to know"
-  val from = "hello@ovoenergy.com"
-  val to = "me@ovoenergy.com"
-  val subject = "Some email subject"
-  val htmlBody = "<html><head></head><body>Some email content</body></html>"
-  val textBody = "Some email content"
 
-  val mailgunResponseId = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
-  val mailgunResponseMessage = "Queued. Thank you."
-  val commManifest = CommManifest(CommType.Service, "Plain old email", "1.0")
+  implicit def arbUUID: Arbitrary[UUID] = Arbitrary {
+    UUID.randomUUID()
+  }
 
-  val composedEmailMetadata = Metadata(
-    createdAt = createdAt,
-    eventId = UUID.randomUUID().toString,
-    customerId = customerId,
-    traceToken = traceToken,
-    friendlyDescription = friendlyDescription,
-    source = "tests",
-    sourceMetadata = None,
-    commManifest = commManifest,
-    canary = false)
+  private def generate[A](a: Arbitrary[A]) = {
+    a.arbitrary.sample.get
+  }
 
-  val kafkaId = UUID.randomUUID()
-
-  val composedEmail = ComposedEmail(composedEmailMetadata, from, to, subject, htmlBody, Some(textBody))
+  val progressed    = generate(implicitly[Arbitrary[EmailProgressed]])
+  val failed        = generate(implicitly[Arbitrary[Failed]])
+  val composedEmail = generate(implicitly[Arbitrary[ComposedEmail]])
+  val uUID          = generate(implicitly[Arbitrary[UUID]])
+  val emailSentRes  = generate(implicitly[Arbitrary[Done]])
+  val deliveryError = generate(implicitly[Arbitrary[EmailDeliveryError]])
 
   behavior of "The Mailgun Client"
 
   it should "Send correct request to Mailgun API when only HTML present" in {
-    val composedEmailHtmlOnly = ComposedEmail(composedEmailMetadata, from, to, subject, htmlBody, None)
+  val composedNoText = composedEmail.copy(textBody = None)
     val okResponse = (request: Request) => {
       request.header("Authorization") shouldBe "Basic YXBpOmRmc2ZzZmRzZmRzZnM="
       request.url.toString shouldBe s"https://api.mailgun.net/v3/$mailgunDomain/messages"
@@ -88,18 +78,19 @@ class MailgunClientSpec extends FlatSpec
     }
 
     val config = buildConfig(okResponse)
-    MailgunClient(config)(composedEmailHtmlOnly) match {
+    MailgunClient(config)(composedNoText) match {
       case Right(emailProgressed) =>
         emailProgressed.gatewayMessageId shouldBe Some(gatewayId)
         emailProgressed.gateway shouldBe "Mailgun"
+        emailProgressed.internalMetadata shouldBe composedEmail.internalMetadata
         emailProgressed.status shouldBe Queued
         assertMetadata(emailProgressed.metadata)
-      case Left(_) => fail()
+      case Left(_) => {println("FAILED!"); fail()}
     }
   }
-
   it should "Send correct request to Mailgun API when both text and HTML present" in {
-    val composedEmailWithText = ComposedEmail(composedEmailMetadata, from, to, subject, htmlBody, Some(textBody))
+    val textBody = Some("textBody")
+    val composedEmailWithText = composedEmail.copy(textBody = textBody)
     val okResponse = (request: Request) => {
       request.header("Authorization") shouldBe "Basic YXBpOmRmc2ZzZmRzZmRzZnM="
       request.url.toString shouldBe s"https://api.mailgun.net/v3/$mailgunDomain/messages"
@@ -194,29 +185,30 @@ class MailgunClientSpec extends FlatSpec
   )
 
   private def assertMetadata(metadata: Metadata): Unit = {
-    metadata.customerId shouldBe customerId
-    metadata.canary shouldBe false
+    metadata.customerId shouldBe composedEmail.metadata.customerId
+    metadata.canary shouldBe composedEmail.metadata.canary
     metadata.source shouldBe "delivery-service"
-    metadata.sourceMetadata.get shouldBe composedEmailMetadata
-    metadata.traceToken shouldBe traceToken
+    metadata.sourceMetadata.get shouldBe composedEmail.metadata
+    metadata.traceToken shouldBe composedEmail.metadata.traceToken
     metadata.createdAt shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-    metadata.friendlyDescription shouldBe friendlyDescription
+    metadata.friendlyDescription shouldBe composedEmail.metadata.friendlyDescription
   }
 
   private def assertFormData(out: ByteArrayOutputStream, textIncluded: Boolean) = {
     val formData = out.toString("UTF-8").split("&").map(formEntry => URLDecoder.decode(formEntry, "UTF-8"))
 
-    formData should contain(s"from=$from")
-    formData should contain(s"to=$to")
-    formData should contain(s"subject=$subject")
-    formData should contain(s"html=$htmlBody")
-    if (textIncluded) formData should contain(s"text=$textBody")
+    formData should contain(s"from=${composedEmail.sender}")
+    formData should contain(s"to=${composedEmail.recipient}")
+    formData should contain(s"subject=${composedEmail.subject}")
+    formData should contain(s"html=${composedEmail.htmlBody}")
+
+    if (textIncluded) formData should contain(s"text=textBody")
 
     val regex: Regex = "v:custom=(.*)".r
 
     val data = formData.collectFirst {
       case regex(customJson) => decode[CustomFormData](customJson)
-    }.getOrElse(fail)
+    }.getOrElse(fail())
 
     data match {
       case Left(error) => fail
@@ -224,12 +216,12 @@ class MailgunClientSpec extends FlatSpec
         val commManifestRes = customJson.commManifest
 
         customJson.createdAt      shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        customJson.customerId     shouldBe customerId
-        customJson.traceToken     shouldBe traceToken
-        customJson.canary         shouldBe false
-        commManifestRes.commType  shouldBe commManifest.commType
-        commManifestRes.name      shouldBe commManifest.name
-        commManifestRes.version   shouldBe commManifest.version
+        customJson.customerId     shouldBe composedEmail.metadata.customerId
+        customJson.traceToken     shouldBe composedEmail.metadata.traceToken
+        customJson.canary         shouldBe composedEmail.metadata.canary
+        commManifestRes.commType  shouldBe composedEmail.metadata.commManifest.commType
+        commManifestRes.name      shouldBe composedEmail.metadata.commManifest.name
+        commManifestRes.version   shouldBe composedEmail.metadata.commManifest.version
       }
     }
   }
