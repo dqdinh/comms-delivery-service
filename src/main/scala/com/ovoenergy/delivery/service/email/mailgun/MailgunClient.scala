@@ -28,7 +28,7 @@ object MailgunClient extends LoggingWithMDC {
                             retryConfig: RetryConfig
                           )(implicit val clock: Clock)
 
-  case class CustomFormData(createdAt: String, customerId: String, traceToken: String, canary: Boolean, commManifest: CommManifest, internalTraceToken: String)
+  case class CustomFormData(createdAt: String, customerId: String, traceToken: String, canary: Boolean, commManifest: CommManifest, internalTraceToken: String, triggerSource: String)
 
   val loggerName = "MailgunClient"
   val dtf = DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -77,7 +77,8 @@ object MailgunClient extends LoggingWithMDC {
       traceToken = composedEmail.metadata.traceToken,
       canary = composedEmail.metadata.canary,
       commManifest = composedEmail.metadata.commManifest,
-      internalTraceToken = composedEmail.internalMetadata.internalTraceToken
+      internalTraceToken = composedEmail.internalMetadata.internalTraceToken,
+      triggerSource = composedEmail.metadata.triggerSource
     ).asJson.noSpaces
   }
 

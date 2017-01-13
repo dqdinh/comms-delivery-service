@@ -215,13 +215,15 @@ class MailgunClientSpec extends FlatSpec with Matchers with GeneratorDrivenPrope
       case Right(customJson) => {
         val commManifestRes = customJson.commManifest
 
-        customJson.createdAt      shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        customJson.customerId     shouldBe composedEmail.metadata.customerId
-        customJson.traceToken     shouldBe composedEmail.metadata.traceToken
-        customJson.canary         shouldBe composedEmail.metadata.canary
-        commManifestRes.commType  shouldBe composedEmail.metadata.commManifest.commType
-        commManifestRes.name      shouldBe composedEmail.metadata.commManifest.name
-        commManifestRes.version   shouldBe composedEmail.metadata.commManifest.version
+        customJson.createdAt          shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        customJson.customerId         shouldBe composedEmail.metadata.customerId
+        customJson.traceToken         shouldBe composedEmail.metadata.traceToken
+        customJson.canary             shouldBe composedEmail.metadata.canary
+        customJson.internalTraceToken shouldBe composedEmail.internalMetadata.internalTraceToken
+        customJson.triggerSource      shouldBe composedEmail.metadata.triggerSource
+        commManifestRes.commType      shouldBe composedEmail.metadata.commManifest.commType
+        commManifestRes.name          shouldBe composedEmail.metadata.commManifest.name
+        commManifestRes.version       shouldBe composedEmail.metadata.commManifest.version
       }
     }
   }
