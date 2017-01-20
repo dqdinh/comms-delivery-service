@@ -10,7 +10,7 @@ lazy val buildSettings = Seq(
   organizationName        := "OVO Energy",
   organizationHomepage    := Some(url("http://www.ovoenergy.com")),
   scalaVersion            := "2.11.8",
-  scalacOptions           := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
+  scalacOptions           := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-feature")
 )
 
 lazy val service = (project in file("."))

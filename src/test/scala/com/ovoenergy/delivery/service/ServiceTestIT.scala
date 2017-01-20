@@ -55,7 +55,7 @@ class ServiceTestIT extends FlatSpec
     createTopicsAndSubscribe()
     create401MailgunResponse()
 
-    val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
+    val composedEmailEvent = arbitraryComposedEmailEvent
     val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
       val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
@@ -71,7 +71,7 @@ class ServiceTestIT extends FlatSpec
     createTopicsAndSubscribe()
     create400MailgunResponse()
 
-    val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
+    val composedEmailEvent = arbitraryComposedEmailEvent
     val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
       val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
@@ -88,7 +88,7 @@ class ServiceTestIT extends FlatSpec
     createTopicsAndSubscribe()
     createOKMailgunResponse()
 
-    val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
+    val composedEmailEvent = arbitraryComposedEmailEvent
     val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
       val emailProgressedEvents = emailProgressedConsumer.poll(30000).records(emailProgressedTopic).asScala.toList
@@ -106,7 +106,7 @@ class ServiceTestIT extends FlatSpec
     createTopicsAndSubscribe()
     createFlakyMailgunResponse()
 
-    val composedEmailEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
+    val composedEmailEvent = arbitraryComposedEmailEvent
     val future = composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
       val emailProgressedEvents = emailProgressedConsumer.poll(30000).records(emailProgressedTopic).asScala.toList
@@ -204,4 +204,7 @@ class ServiceTestIT extends FlatSpec
     )
   }
 
+  def arbitraryComposedEmailEvent: ComposedEmail =
+    // Make sure the recipient email address is whitelisted
+    Arbitrary.arbitrary[ComposedEmail].sample.get.copy(recipient = "foo@ovoenergy.com")
 }
