@@ -7,7 +7,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.ovoenergy.comms.model.ComposedEmail
 import com.ovoenergy.comms.serialisation.Serialisation._
-import com.ovoenergy.delivery.service.email.BlackListed
+import com.ovoenergy.delivery.service.email.BlackWhiteList
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
@@ -23,6 +23,7 @@ import eu.timepit.refined.numeric.Positive
 import scala.collection.JavaConversions.asScalaBuffer
 import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
+import scala.util.matching.Regex
 
 object Main extends App
 
@@ -63,6 +64,7 @@ with LoggingWithMDC {
     config.getString("kafka.topics.failed")
   )
 
+  val emailWhitelist: Regex = config.getString("email.whitelist").r
   val blackListedEmailAddresses = config.getStringList("email.blacklist")
 
   implicit val actorSystem = ActorSystem("kafka")
@@ -72,7 +74,7 @@ with LoggingWithMDC {
   val graph = DeliveryServiceGraph[ComposedEmail](
     avroDeserializer[ComposedEmail],
     EmailDeliveryProcess(
-      BlackListed(blackListedEmailAddresses),
+      BlackWhiteList.build(emailWhitelist, blackListedEmailAddresses),
       DeliveryFailedEventPublisher(kafkaConfig),
       DeliveryProgressedEventPublisher(kafkaConfig),
       UUIDGenerator.apply,

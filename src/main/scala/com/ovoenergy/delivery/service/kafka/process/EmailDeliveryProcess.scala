@@ -5,6 +5,7 @@ import java.util.UUID
 
 import com.ovoenergy.comms.model.ErrorCode.{EmailAddressBlacklisted, EmailGatewayError}
 import com.ovoenergy.comms.model._
+import com.ovoenergy.delivery.service.email.BlackWhiteList
 import com.ovoenergy.delivery.service.email.mailgun._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 
@@ -20,10 +21,11 @@ object EmailDeliveryProcess extends LoggingWithMDC {
     APIGatewayBadRequest -> "The Email Gateway did not like our request",
     APIGatewayUnspecifiedError -> "An unexpected response was received from the Email Gateway",
     ExceptionOccurred -> "An error occurred in our service trying to send the email",
+    NotWhitelistedEmailAddress -> "The email address was not whitelisted",
     BlacklistedEmailAddress -> "The email address was blacklisted"
   )
 
-  def apply(isBlackListed: (ComposedEmail) => Boolean,
+  def apply(blackWhiteList: (String) => BlackWhiteList.Verdict,
             emailFailedPublisher: (Failed)  => Future[_],
             emailProgressedPublisher: (EmailProgressed) => Future[_],
             uuidGenerator: () => UUID,
@@ -49,10 +51,16 @@ object EmailDeliveryProcess extends LoggingWithMDC {
       Failed(metadata, composedEmail.internalMetadata, errorReasonMappings.getOrElse(emailDeliveryError, "Unknown error"), errorCode)
     }
 
-    val result = if (isBlackListed(composedEmail)) {
-      logWarn(traceToken, s"Email addressed is blacklisted: ${composedEmail.recipient}")
-      emailFailedPublisher(buildFailedEvent(BlacklistedEmailAddress, EmailAddressBlacklisted))
-    } else sendAndProcessComm()
+    val result = blackWhiteList(composedEmail.recipient) match {
+      case BlackWhiteList.OK => 
+        sendAndProcessComm()
+      case BlackWhiteList.NotWhitelisted =>
+        logWarn(traceToken, s"Email addressed is not whitelisted: ${composedEmail.recipient}")
+        emailFailedPublisher(buildFailedEvent(NotWhitelistedEmailAddress, EmailAddressBlacklisted))
+      case BlackWhiteList.Blacklisted =>
+        logWarn(traceToken, s"Email addressed is blacklisted: ${composedEmail.recipient}")
+        emailFailedPublisher(buildFailedEvent(BlacklistedEmailAddress, EmailAddressBlacklisted))
+    }
 
     result.recover{
       case NonFatal(err) => logWarn(traceToken, "Skipping event", err)
