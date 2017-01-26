@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.ovoenergy.comms.model.ComposedEmail
 import com.ovoenergy.comms.serialisation.Serialisation._
+import com.ovoenergy.comms.serialisation.Decoders._
 import com.ovoenergy.delivery.service.email.BlackWhiteList
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
@@ -17,6 +18,7 @@ import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry.RetryConfig
 import com.ovoenergy.delivery.service.util.{Retry, UUIDGenerator}
 import com.typesafe.config.ConfigFactory
+import io.circe.generic.auto._
 import eu.timepit.refined._
 import eu.timepit.refined.numeric.Positive
 
