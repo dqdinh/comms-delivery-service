@@ -12,6 +12,8 @@ import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializ
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.model.HttpRequest.request
 import com.ovoenergy.comms.serialisation.Serialisation._
+import com.ovoenergy.comms.serialisation.Decoders._
+import io.circe.generic.auto._
 import org.mockserver.matchers.Times
 import org.mockserver.model.HttpResponse.response
 import org.scalacheck.Shapeless._
