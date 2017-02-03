@@ -17,12 +17,14 @@ object DeliveryProgressedEventPublisher {
     // otherwise the tests randomly fail.
     lazy val producer = KafkaProducer(Conf(new StringSerializer, avroSerializer[EmailProgressed], kafkaConfig.hosts))
 
-    (progressed: EmailProgressed) => {
-      producer.send(new ProducerRecord[String, EmailProgressed](
-        kafkaConfig.emailProgressedTopic, 
-        progressed.metadata.customerId, 
-        progressed
-      ))
-    }
+    (progressed: EmailProgressed) =>
+      {
+        producer.send(
+          new ProducerRecord[String, EmailProgressed](
+            kafkaConfig.emailProgressedTopic,
+            progressed.metadata.customerId,
+            progressed
+          ))
+      }
   }
 }

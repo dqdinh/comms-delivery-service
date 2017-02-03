@@ -26,5 +26,4 @@ class BlackWhiteListSpec extends FlatSpec with Matchers {
     check("chris@foo.com.com") should be(BlackWhiteList.NotWhitelisted)
   }
 
-
 }

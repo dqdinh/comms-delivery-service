@@ -24,9 +24,7 @@ object Retry {
     * @param onFailure A hook that is called after each failure. Useful for logging.
     * @param f The operation to perform.
     */
-  def retry[A, B](config: RetryConfig,
-                  onFailure: A => Unit)
-                  (f: () => Either[A, B]): Either[Failed[A], Succeeded[B]] = {
+  def retry[A, B](config: RetryConfig, onFailure: A => Unit)(f: () => Either[A, B]): Either[Failed[A], Succeeded[B]] = {
     @tailrec
     def rec(attempt: Int): Either[Failed[A], Succeeded[B]] = {
       f() match {

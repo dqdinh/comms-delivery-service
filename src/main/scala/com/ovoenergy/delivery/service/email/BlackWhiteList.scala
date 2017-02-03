@@ -4,11 +4,11 @@ import com.ovoenergy.comms.model.ComposedEmail
 import scala.util.matching.Regex
 
 object BlackWhiteList {
-  
+
   sealed trait Verdict
-  case object OK extends Verdict
+  case object OK             extends Verdict
   case object NotWhitelisted extends Verdict
-  case object Blacklisted extends Verdict
+  case object Blacklisted    extends Verdict
 
   def build(whitelist: Regex, blacklist: Seq[String]): String => Verdict = {
     val blacklistSet = blacklist.toSet

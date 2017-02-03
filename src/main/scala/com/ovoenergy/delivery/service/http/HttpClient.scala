@@ -9,7 +9,7 @@ object HttpClient {
   private val httpClient = new OkHttpClient()
 
   def apply(request: Request) = {
-      Try(httpClient.newCall(request).execute())
+    Try(httpClient.newCall(request).execute())
   }
 
 }

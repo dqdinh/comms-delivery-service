@@ -4,6 +4,6 @@ import java.util.UUID
 
 object UUIDGenerator {
 
-  def apply() = {UUID.randomUUID}
+  def apply() = { UUID.randomUUID }
 
 }
