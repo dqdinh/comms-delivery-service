@@ -16,8 +16,9 @@ object DeliveryServiceGraph extends LoggingWithMDC {
 
   override def loggerName = "DeliveryServiceFlow"
 
-  def apply[T](consumerDeserializer: Deserializer[Option[T]], issueComm: (T) => Future[_], kafkaConfig: KafkaConfig)
-              (implicit actorSystem: ActorSystem, materializer: Materializer) = {
+  def apply[T](consumerDeserializer: Deserializer[Option[T]], issueComm: (T) => Future[_], kafkaConfig: KafkaConfig)(
+      implicit actorSystem: ActorSystem,
+      materializer: Materializer) = {
 
     implicit val executionContext = actorSystem.dispatcher
 
@@ -43,7 +44,8 @@ object DeliveryServiceGraph extends LoggingWithMDC {
             Future.successful(())
         }
         result.flatMap(_ => msg.committableOffset.commitScaladsl())
-      }).withAttributes(ActorAttributes.supervisionStrategy(decider))
+      })
+      .withAttributes(ActorAttributes.supervisionStrategy(decider))
 
     val sink = Sink.ignore.withAttributes(ActorAttributes.supervisionStrategy(decider))
 

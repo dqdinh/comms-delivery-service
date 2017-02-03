@@ -21,22 +21,28 @@ import scala.util.{Failure, Success, Try}
 object MailgunClient extends LoggingWithMDC {
 
   case class Configuration(
-                            host: String,
-                            domain: String,
-                            apiKey: String,
-                            httpClient: (Request) => Try[Response],
-                            retryConfig: RetryConfig
-                          )(implicit val clock: Clock)
+      host: String,
+      domain: String,
+      apiKey: String,
+      httpClient: (Request) => Try[Response],
+      retryConfig: RetryConfig
+  )(implicit val clock: Clock)
 
-  case class CustomFormData(createdAt: String, customerId: String, traceToken: String, canary: Boolean, commManifest: CommManifest, internalTraceToken: String, triggerSource: String)
+  case class CustomFormData(createdAt: String,
+                            customerId: String,
+                            traceToken: String,
+                            canary: Boolean,
+                            commManifest: CommManifest,
+                            internalTraceToken: String,
+                            triggerSource: String)
 
   val loggerName = "MailgunClient"
-  val dtf = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+  val dtf        = DateTimeFormatter.ISO_OFFSET_DATE_TIME
 
   implicit val encoder: Encoder[CommType] = deriveEnumerationEncoder[CommType]
 
   def apply(configuration: Configuration)(composedEmail: ComposedEmail): Either[EmailDeliveryError, EmailProgressed] = {
-    val traceToken = composedEmail.metadata.traceToken
+    val traceToken     = composedEmail.metadata.traceToken
     implicit val clock = configuration.clock
 
     val credentials = Credentials.basic("api", configuration.apiKey)
@@ -46,14 +52,15 @@ object MailgunClient extends LoggingWithMDC {
       .post(buildSendEmailForm(composedEmail))
       .build()
 
-    val result = Retry.retry[EmailDeliveryError, EmailProgressed](config = configuration.retryConfig, onFailure = _ => ()) { () =>
-      configuration.httpClient(request) match {
-        case Success(response) => mapResponseToEither(response, composedEmail, traceToken)
-        case Failure(ex) =>
-          logError(traceToken, "Error sending email via Mailgun API", ex)
-          Left(ExceptionOccurred)
+    val result =
+      Retry.retry[EmailDeliveryError, EmailProgressed](config = configuration.retryConfig, onFailure = _ => ()) { () =>
+        configuration.httpClient(request) match {
+          case Success(response) => mapResponseToEither(response, composedEmail, traceToken)
+          case Failure(ex) =>
+            logError(traceToken, "Error sending email via Mailgun API", ex)
+            Left(ExceptionOccurred)
+        }
       }
-    }
     result
       .leftMap(failed => failed.finalFailure)
       .map(succeeded => succeeded.result)
@@ -82,17 +89,15 @@ object MailgunClient extends LoggingWithMDC {
     ).asJson.noSpaces
   }
 
-  private def mapResponseToEither(response: Response,
-                                  composedEmail: ComposedEmail,
-                                  traceToken: String)
-                                 (implicit clock: Clock): Either[EmailDeliveryError, EmailProgressed] = {
+  private def mapResponseToEither(response: Response, composedEmail: ComposedEmail, traceToken: String)(
+      implicit clock: Clock): Either[EmailDeliveryError, EmailProgressed] = {
     case class SendEmailSuccessResponse(id: String, message: String)
     case class SendEmailFailureResponse(message: String)
 
     class Contains(r: Range) {
       def unapply(i: Int): Boolean = r contains i
     }
-    val Success = new Contains(200 to 299)
+    val Success             = new Contains(200 to 299)
     val InternalServerError = new Contains(500 to 599)
 
     val responseBody = response.body().string()
@@ -101,16 +106,20 @@ object MailgunClient extends LoggingWithMDC {
       case Success() =>
         val id = parseResponse[SendEmailSuccessResponse](responseBody).map(_.id).getOrElse("unknown id")
         logInfo(traceToken, s"Email issued to ${composedEmail.recipient}")
-        Right(EmailProgressed(
-          metadata = Metadata.fromSourceMetadata("delivery-service", composedEmail.metadata)
-            .copy(createdAt = OffsetDateTime.now(clock).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
-          status = Queued,
-          gateway = "Mailgun",
-          gatewayMessageId = Some(id),
-          internalMetadata = composedEmail.internalMetadata))
+        Right(
+          EmailProgressed(
+            metadata = Metadata
+              .fromSourceMetadata("delivery-service", composedEmail.metadata)
+              .copy(createdAt = OffsetDateTime.now(clock).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
+            status = Queued,
+            gateway = "Mailgun",
+            gatewayMessageId = Some(id),
+            internalMetadata = composedEmail.internalMetadata
+          ))
       case InternalServerError() =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
-        logError(traceToken, s"Error sending email via Mailgun API, Mailgun API internal error: ${response.code} $message")
+        logError(traceToken,
+                 s"Error sending email via Mailgun API, Mailgun API internal error: ${response.code} $message")
         Left(APIGatewayInternalServerError)
       case 401 =>
         logError(traceToken, "Error sending email via Mailgun API, authorization with Mailgun API failed")

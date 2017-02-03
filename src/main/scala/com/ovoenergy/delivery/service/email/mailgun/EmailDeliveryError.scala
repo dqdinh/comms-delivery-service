@@ -8,4 +8,3 @@ case object APIGatewayUnspecifiedError extends EmailDeliveryError
 case object ExceptionOccurred extends EmailDeliveryError
 case object BlacklistedEmailAddress extends EmailDeliveryError
 case object NotWhitelistedEmailAddress extends EmailDeliveryError
-

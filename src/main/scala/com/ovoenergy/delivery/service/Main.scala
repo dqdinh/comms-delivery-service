@@ -13,7 +13,11 @@ import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
-import com.ovoenergy.delivery.service.kafka.{DeliveryFailedEventPublisher, DeliveryProgressedEventPublisher, DeliveryServiceGraph}
+import com.ovoenergy.delivery.service.kafka.{
+  DeliveryFailedEventPublisher,
+  DeliveryProgressedEventPublisher,
+  DeliveryServiceGraph
+}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry.RetryConfig
 import com.ovoenergy.delivery.service.util.{Retry, UUIDGenerator}
@@ -27,9 +31,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
 import scala.util.matching.Regex
 
-object Main extends App
-
-with LoggingWithMDC {
+object Main extends App with LoggingWithMDC {
 
   val loggerName = "Main"
 
@@ -45,7 +47,8 @@ with LoggingWithMDC {
     val retryConfig = {
       val attempts = config.getInt("mailgun.attempts")
       RetryConfig(
-        attempts = refineV[Positive](attempts).right.getOrElse(sys.error(s"mailgun.attempts must be positive but was $attempts")),
+        attempts = refineV[Positive](attempts).right
+          .getOrElse(sys.error(s"mailgun.attempts must be positive but was $attempts")),
         backoff = Retry.Backoff.constantDelay(config.getDuration("mailgun.interval").toFiniteDuration)
       )
     }
@@ -66,11 +69,11 @@ with LoggingWithMDC {
     config.getString("kafka.topics.failed")
   )
 
-  val emailWhitelist: Regex = config.getString("email.whitelist").r
+  val emailWhitelist: Regex     = config.getString("email.whitelist").r
   val blackListedEmailAddresses = config.getStringList("email.blacklist")
 
-  implicit val actorSystem = ActorSystem("kafka")
-  implicit val materializer = ActorMaterializer()
+  implicit val actorSystem      = ActorSystem("kafka")
+  implicit val materializer     = ActorMaterializer()
   implicit val executionContext = actorSystem.dispatcher
 
   val graph = DeliveryServiceGraph[ComposedEmail](
@@ -81,8 +84,10 @@ with LoggingWithMDC {
       DeliveryProgressedEventPublisher(kafkaConfig),
       UUIDGenerator.apply,
       clock,
-      MailgunClient(mailgunClientConfig)),
-    kafkaConfig)
+      MailgunClient(mailgunClientConfig)
+    ),
+    kafkaConfig
+  )
 
   for (line <- Source.fromFile("./banner.txt").getLines) {
     println(line)
@@ -91,7 +96,7 @@ with LoggingWithMDC {
   val control = graph.run()
 
   log.info("Delivery Service started")
-  
+
   control.isShutdown.foreach { _ =>
     log.error("ARGH! The Kafka source has shut down. Killing the JVM and nuking from orbit.")
     System.exit(1)

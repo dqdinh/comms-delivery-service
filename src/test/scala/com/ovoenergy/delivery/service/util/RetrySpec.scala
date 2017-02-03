@@ -10,22 +10,26 @@ class RetrySpec extends FlatSpec with Matchers {
   val onFailure = (_: String) => ()
 
   it should "succeed if the operation succeeds on the first attempt" in {
-    val result = retry(RetryConfig(refineMV[Positive](5), Backoff.retryImmediately), onFailure)(failNtimesThenSucceed(0))
+    val result =
+      retry(RetryConfig(refineMV[Positive](5), Backoff.retryImmediately), onFailure)(failNtimesThenSucceed(0))
     result should be(Right(Retry.Succeeded("yay", 1)))
   }
 
   it should "succeed if the operation fails on the first attempt but succeeds on the second" in {
-    val result = retry(RetryConfig(refineMV[Positive](5), Backoff.retryImmediately), onFailure)(failNtimesThenSucceed(1))
+    val result =
+      retry(RetryConfig(refineMV[Positive](5), Backoff.retryImmediately), onFailure)(failNtimesThenSucceed(1))
     result should be(Right(Retry.Succeeded("yay", 2)))
   }
 
   it should "succeed if the operation succeeds just before we give up" in {
-    val result = retry(RetryConfig(refineMV[Positive](5), Backoff.retryImmediately), onFailure)(failNtimesThenSucceed(4))
+    val result =
+      retry(RetryConfig(refineMV[Positive](5), Backoff.retryImmediately), onFailure)(failNtimesThenSucceed(4))
     result should be(Right(Retry.Succeeded("yay", 5)))
   }
 
   it should "fail if the operation fails on every attempt" in {
-    val result = retry(RetryConfig(refineMV[Positive](5), Backoff.retryImmediately), onFailure)(failNtimesThenSucceed(5))
+    val result =
+      retry(RetryConfig(refineMV[Positive](5), Backoff.retryImmediately), onFailure)(failNtimesThenSucceed(5))
     result should be(Left(Retry.Failed(5, "oops")))
   }
 
@@ -41,13 +45,14 @@ class RetrySpec extends FlatSpec with Matchers {
 
   def failNtimesThenSucceed(n: Int): () => Either[String, String] = {
     var counter = 0
-    () => {
-      if (counter < n) {
-        counter = counter + 1
-        Left("oops")
-      } else
-        Right("yay")
-    }
+    () =>
+      {
+        if (counter < n) {
+          counter = counter + 1
+          Left("oops")
+        } else
+          Right("yay")
+      }
   }
 
 }

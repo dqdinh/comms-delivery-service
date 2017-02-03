@@ -18,25 +18,26 @@ object EmailDeliveryProcess extends LoggingWithMDC {
   val errorReasonMappings = Map[EmailDeliveryError, String](
     APIGatewayAuthenticationError -> "Error authenticating with the Email Gateway",
     APIGatewayInternalServerError -> "The Email Gateway had an error",
-    APIGatewayBadRequest -> "The Email Gateway did not like our request",
-    APIGatewayUnspecifiedError -> "An unexpected response was received from the Email Gateway",
-    ExceptionOccurred -> "An error occurred in our service trying to send the email",
-    NotWhitelistedEmailAddress -> "The email address was not whitelisted",
-    BlacklistedEmailAddress -> "The email address was blacklisted"
+    APIGatewayBadRequest          -> "The Email Gateway did not like our request",
+    APIGatewayUnspecifiedError    -> "An unexpected response was received from the Email Gateway",
+    ExceptionOccurred             -> "An error occurred in our service trying to send the email",
+    NotWhitelistedEmailAddress    -> "The email address was not whitelisted",
+    BlacklistedEmailAddress       -> "The email address was blacklisted"
   )
 
   def apply(blackWhiteList: (String) => BlackWhiteList.Verdict,
-            emailFailedPublisher: (Failed)  => Future[_],
+            emailFailedPublisher: (Failed) => Future[_],
             emailProgressedPublisher: (EmailProgressed) => Future[_],
             uuidGenerator: () => UUID,
             clock: Clock,
-            sendEmail: (ComposedEmail) => Either[EmailDeliveryError, EmailProgressed])(composedEmail: ComposedEmail): Future[_] = {
+            sendEmail: (ComposedEmail) => Either[EmailDeliveryError, EmailProgressed])(
+      composedEmail: ComposedEmail): Future[_] = {
 
     val traceToken = composedEmail.metadata.traceToken
 
     def sendAndProcessComm() = {
       sendEmail(composedEmail) match {
-        case Left(failed)      =>
+        case Left(failed) =>
           val failedEvent = buildFailedEvent(failed, EmailGatewayError)
           logDebug(traceToken, s"Issuing failed event $failed")
           emailFailedPublisher(failedEvent)
@@ -48,11 +49,14 @@ object EmailDeliveryProcess extends LoggingWithMDC {
 
     def buildFailedEvent(emailDeliveryError: EmailDeliveryError, errorCode: ErrorCode) = {
       val metadata = Metadata.fromSourceMetadata("delivery-service", composedEmail.metadata)
-      Failed(metadata, composedEmail.internalMetadata, errorReasonMappings.getOrElse(emailDeliveryError, "Unknown error"), errorCode)
+      Failed(metadata,
+             composedEmail.internalMetadata,
+             errorReasonMappings.getOrElse(emailDeliveryError, "Unknown error"),
+             errorCode)
     }
 
     val result = blackWhiteList(composedEmail.recipient) match {
-      case BlackWhiteList.OK => 
+      case BlackWhiteList.OK =>
         sendAndProcessComm()
       case BlackWhiteList.NotWhitelisted =>
         logWarn(traceToken, s"Email addressed is not whitelisted: ${composedEmail.recipient}")
@@ -62,7 +66,7 @@ object EmailDeliveryProcess extends LoggingWithMDC {
         emailFailedPublisher(buildFailedEvent(BlacklistedEmailAddress, EmailAddressBlacklisted))
     }
 
-    result.recover{
+    result.recover {
       case NonFatal(err) => logWarn(traceToken, "Skipping event", err)
     }
   }
