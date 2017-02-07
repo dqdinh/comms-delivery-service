@@ -1,6 +1,5 @@
-package com.ovoenergy.delivery.service.email
+package com.ovoenergy.delivery.service.validation
 
-import com.ovoenergy.comms.model.ComposedEmail
 import scala.util.matching.Regex
 
 object BlackWhiteList {
