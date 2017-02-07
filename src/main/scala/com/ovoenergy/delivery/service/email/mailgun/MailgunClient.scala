@@ -36,12 +36,12 @@ object MailgunClient extends LoggingWithMDC {
                             internalTraceToken: String,
                             triggerSource: String)
 
-  val dtf = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+  val loggerName = "MailgunClient"
+  val dtf        = DateTimeFormatter.ISO_OFFSET_DATE_TIME
 
   implicit val encoder: Encoder[CommType] = deriveEnumerationEncoder[CommType]
 
-  def sendEmail(configuration: Configuration)(
-      composedEmail: ComposedEmail): Either[EmailDeliveryError, EmailProgressed] = {
+  def apply(configuration: Configuration)(composedEmail: ComposedEmail): Either[EmailDeliveryError, EmailProgressed] = {
     val traceToken     = composedEmail.metadata.traceToken
     implicit val clock = configuration.clock
 

@@ -1,4 +1,4 @@
-package com.ovoenergy.delivery.service.validation
+package com.ovoenergy.delivery.service.email
 
 import org.scalatest._
 
