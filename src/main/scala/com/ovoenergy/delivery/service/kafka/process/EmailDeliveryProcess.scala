@@ -1,13 +1,12 @@
 package com.ovoenergy.delivery.service.kafka.process
 
-import java.time.Clock
 import java.util.UUID
 
-import com.ovoenergy.comms.model.ErrorCode.{EmailAddressBlacklisted, EmailGatewayError}
+import com.ovoenergy.comms.model.ErrorCode.{CommExpired, EmailAddressBlacklisted, EmailGatewayError}
 import com.ovoenergy.comms.model._
-import com.ovoenergy.delivery.service.email.BlackWhiteList
 import com.ovoenergy.delivery.service.email.mailgun._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
+import com.ovoenergy.delivery.service.validation.BlackWhiteList
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -15,61 +14,70 @@ import scala.util.control.NonFatal
 
 object EmailDeliveryProcess extends LoggingWithMDC {
 
-  val errorReasonMappings = Map[EmailDeliveryError, String](
-    APIGatewayAuthenticationError -> "Error authenticating with the Email Gateway",
-    APIGatewayInternalServerError -> "The Email Gateway had an error",
-    APIGatewayBadRequest          -> "The Email Gateway did not like our request",
-    APIGatewayUnspecifiedError    -> "An unexpected response was received from the Email Gateway",
-    ExceptionOccurred             -> "An error occurred in our service trying to send the email",
-    NotWhitelistedEmailAddress    -> "The email address was not whitelisted",
-    BlacklistedEmailAddress       -> "The email address was blacklisted"
-  )
+  // LHS represents sending a Failed event
+  private type Result[A] = Either[Future[_], Future[A]]
 
-  def apply(blackWhiteList: (String) => BlackWhiteList.Verdict,
-            emailFailedPublisher: (Failed) => Future[_],
-            emailProgressedPublisher: (EmailProgressed) => Future[_],
-            uuidGenerator: () => UUID,
-            clock: Clock,
+  private val Proceed: Result[Unit] = Right(Future.successful(()))
+
+  def apply(checkBlackWhiteList: (String) => BlackWhiteList.Verdict,
+            isExpired: Option[String] => Boolean,
+            sendFailedEvent: (Failed) => Future[_],
+            sendEmailProgressedEvent: (EmailProgressed) => Future[_],
+            generateUUID: () => UUID,
             sendEmail: (ComposedEmail) => Either[EmailDeliveryError, EmailProgressed])(
       composedEmail: ComposedEmail): Future[_] = {
 
     val traceToken = composedEmail.metadata.traceToken
 
-    def sendAndProcessComm() = {
+    def deliveryErrorToFailedEvent(emailDeliveryError: EmailDeliveryError, errorCode: ErrorCode) =
+      buildFailedEvent(emailDeliveryError.description, errorCode)
+
+    def buildFailedEvent(reason: String, errorCode: ErrorCode) = {
+      val metadata = Metadata.fromSourceMetadata("delivery-service", composedEmail.metadata)
+      Failed(metadata, composedEmail.internalMetadata, reason, errorCode)
+    }
+
+    def blackWhiteListCheck: Result[Unit] = checkBlackWhiteList(composedEmail.recipient) match {
+      case BlackWhiteList.OK =>
+        Proceed
+      case BlackWhiteList.NotWhitelisted =>
+        logWarn(traceToken, s"Email addressed is not whitelisted: ${composedEmail.recipient}")
+        Left(sendFailedEvent(buildFailedEvent("The email address was not whitelisted", EmailAddressBlacklisted)))
+      case BlackWhiteList.Blacklisted =>
+        logWarn(traceToken, s"Email addressed is blacklisted: ${composedEmail.recipient}")
+        Left(sendFailedEvent(buildFailedEvent("The email address was blacklisted", EmailAddressBlacklisted)))
+    }
+
+    def expiryCheck: Result[Unit] = {
+      if (isExpired(composedEmail.expireAt))
+        Left(sendFailedEvent(buildFailedEvent("Not delivering because the comm has expired", CommExpired)))
+      else
+        Proceed
+    }
+
+    def sendAndProcessComm: Result[_] = {
       sendEmail(composedEmail) match {
         case Left(failed) =>
-          val failedEvent = buildFailedEvent(failed, EmailGatewayError)
+          val failedEvent = deliveryErrorToFailedEvent(failed, EmailGatewayError)
           logDebug(traceToken, s"Issuing failed event $failed")
-          emailFailedPublisher(failedEvent)
+          Left(sendFailedEvent(failedEvent))
         case Right(progressed) =>
           logDebug(traceToken, s"Issuing progressed event $progressed")
-          emailProgressedPublisher(progressed)
+          Right(sendEmailProgressedEvent(progressed))
       }
     }
 
-    def buildFailedEvent(emailDeliveryError: EmailDeliveryError, errorCode: ErrorCode) = {
-      val metadata = Metadata.fromSourceMetadata("delivery-service", composedEmail.metadata)
-      Failed(metadata,
-             composedEmail.internalMetadata,
-             errorReasonMappings.getOrElse(emailDeliveryError, "Unknown error"),
-             errorCode)
-    }
+    import cats.syntax.either._
+    val future: Result[_] =
+      for {
+        _      <- blackWhiteListCheck
+        _      <- expiryCheck
+        result <- sendAndProcessComm
+      } yield result
 
-    val result = blackWhiteList(composedEmail.recipient) match {
-      case BlackWhiteList.OK =>
-        sendAndProcessComm()
-      case BlackWhiteList.NotWhitelisted =>
-        logWarn(traceToken, s"Email addressed is not whitelisted: ${composedEmail.recipient}")
-        emailFailedPublisher(buildFailedEvent(NotWhitelistedEmailAddress, EmailAddressBlacklisted))
-      case BlackWhiteList.Blacklisted =>
-        logWarn(traceToken, s"Email addressed is blacklisted: ${composedEmail.recipient}")
-        emailFailedPublisher(buildFailedEvent(BlacklistedEmailAddress, EmailAddressBlacklisted))
-    }
-
-    result.recover {
+    future.merge.recover {
       case NonFatal(err) => logWarn(traceToken, "Skipping event", err)
     }
   }
 
-  override def loggerName: String = "EmailProcesses"
 }

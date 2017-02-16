@@ -8,19 +8,15 @@ import akka.stream.ActorMaterializer
 import com.ovoenergy.comms.model.ComposedEmail
 import com.ovoenergy.comms.serialisation.Serialisation._
 import com.ovoenergy.comms.serialisation.Decoders._
-import com.ovoenergy.delivery.service.email.BlackWhiteList
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
-import com.ovoenergy.delivery.service.kafka.{
-  DeliveryFailedEventPublisher,
-  DeliveryProgressedEventPublisher,
-  DeliveryServiceGraph
-}
+import com.ovoenergy.delivery.service.kafka.{FailedEventPublisher, EmailProgressedEventPublisher, DeliveryServiceGraph}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry.RetryConfig
 import com.ovoenergy.delivery.service.util.{Retry, UUIDGenerator}
+import com.ovoenergy.delivery.service.validation.{BlackWhiteList, ExpiryCheck}
 import com.typesafe.config.ConfigFactory
 import io.circe.generic.auto._
 import eu.timepit.refined._
@@ -32,8 +28,6 @@ import scala.io.Source
 import scala.util.matching.Regex
 
 object Main extends App with LoggingWithMDC {
-
-  val loggerName = "Main"
 
   implicit val clock = Clock.systemDefaultZone()
 
@@ -80,11 +74,11 @@ object Main extends App with LoggingWithMDC {
     avroDeserializer[ComposedEmail],
     EmailDeliveryProcess(
       BlackWhiteList.build(emailWhitelist, blackListedEmailAddresses),
-      DeliveryFailedEventPublisher(kafkaConfig),
-      DeliveryProgressedEventPublisher(kafkaConfig),
+      ExpiryCheck.isExpired(clock),
+      FailedEventPublisher.build(kafkaConfig),
+      EmailProgressedEventPublisher.build(kafkaConfig),
       UUIDGenerator.apply,
-      clock,
-      MailgunClient(mailgunClientConfig)
+      MailgunClient.sendEmail(mailgunClientConfig)
     ),
     kafkaConfig
   )

@@ -1,12 +1,10 @@
 package com.ovoenergy.delivery.service.kafka.process
 
-import java.time.{Clock, OffsetDateTime, ZoneId}
 import java.util.UUID
 
 import akka.Done
-import com.ovoenergy.comms.model.ErrorCode.EmailAddressBlacklisted
 import com.ovoenergy.comms.model._
-import com.ovoenergy.delivery.service.email.BlackWhiteList
+import com.ovoenergy.delivery.service.validation.BlackWhiteList
 import com.ovoenergy.delivery.service.email.mailgun.EmailDeliveryError
 import org.scalacheck.Shapeless._
 import org.scalacheck._
@@ -19,14 +17,9 @@ import scala.language.postfixOps
 
 class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
-  val dateTime       = OffsetDateTime.now()
-  implicit val clock = Clock.fixed(dateTime.toInstant, ZoneId.of("UTC"))
-
   implicit def arbUUID: Arbitrary[UUID] = Arbitrary {
     UUID.randomUUID()
   }
-
-  def blackWhiteList(recipient: String) = BlackWhiteList.OK
 
   private def generate[A](a: Arbitrary[A]) = {
     a.arbitrary.sample.get
@@ -35,95 +28,103 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
   val progressed    = generate(implicitly[Arbitrary[EmailProgressed]])
   val failed        = generate(implicitly[Arbitrary[Failed]])
   val composedEmail = generate(implicitly[Arbitrary[ComposedEmail]])
-  val uUID          = generate(implicitly[Arbitrary[UUID]])
-  val emailSentRes  = generate(implicitly[Arbitrary[Done]])
+  val uuid          = generate(implicitly[Arbitrary[UUID]])
   val deliveryError = generate(implicitly[Arbitrary[EmailDeliveryError]])
+
+  val blackWhiteListOK                     = (_: String) => BlackWhiteList.OK
+  val generateUUID                         = () => uuid
+  val successfullySendEmail                = (_: ComposedEmail) => Right(progressed)
+  val successfullySendFailedEvent          = (_: Failed) => Future.successful(failed)
+  val successfullySendEmailProgressedEvent = (_: EmailProgressed) => Future.successful(Done)
+  val notExpired                           = (_: Option[String]) => false
 
   behavior of "EmailDeliveryProcess"
 
   it should "Handle Successfully sent emails" in {
-
-    val successfulEmailFailedProducer     = (f: Failed) => Future.successful(failed)
-    val kafkaIdGenerator                  = () => uUID
-    val sendMail                          = (mail: ComposedEmail) => Right(progressed)
-    val successfulEmailProgressedProducer = (f: EmailProgressed) => Future.successful(emailSentRes)
-
     val result = Await.result(
-      EmailDeliveryProcess(blackWhiteList,
-                           successfulEmailFailedProducer,
-                           successfulEmailProgressedProducer,
-                           kafkaIdGenerator,
-                           clock,
-                           sendMail)(composedEmail),
+      EmailDeliveryProcess(blackWhiteListOK,
+                           notExpired,
+                           successfullySendFailedEvent,
+                           successfullySendEmailProgressedEvent,
+                           generateUUID,
+                           successfullySendEmail)(composedEmail),
       5 seconds
     )
-    result should be(emailSentRes)
+    result should be(Done)
   }
 
   it should "Handle emails which have failed to send, generating appropriate error code in failed event" in {
-    val kafkaIdGenerator                  = () => uUID
-    val successfulEmailFailedProducer     = (f: Failed) => Future.successful(failed)
-    val sendMail                          = (mail: ComposedEmail) => Left(deliveryError)
-    val successfulEmailProgressedProducer = (f: EmailProgressed) => Future.successful(emailSentRes)
+    val failToSendEmail = (_: ComposedEmail) => Left(deliveryError)
 
     val result = Await.result(
-      EmailDeliveryProcess(blackWhiteList,
-                           successfulEmailFailedProducer,
-                           successfulEmailProgressedProducer,
-                           kafkaIdGenerator,
-                           clock,
-                           sendMail)(composedEmail),
+      EmailDeliveryProcess(blackWhiteListOK,
+                           notExpired,
+                           successfullySendFailedEvent,
+                           successfullySendEmailProgressedEvent,
+                           generateUUID,
+                           failToSendEmail)(composedEmail),
       5 seconds
     )
     result should be(failed)
   }
 
-  val emailProgressedPublisher = (f: EmailProgressed) => Future.failed(new Exception("Email progressed exception"))
-  val emailFailedPublisher     = (f: Failed) => Future.failed(new Exception("Email delivery error exception"))
+  it should "Handle exceptions thrown when sending a Failed event" in {
+    val failToSendEmail       = (_: ComposedEmail) => Left(deliveryError)
+    val failToSendFailedEvent = (_: Failed) => Future.failed(new Exception("Email delivery error exception"))
 
-  it should "Handle exceptions thrown by emailFailedProducer" in {
-    val sendMail         = (mail: ComposedEmail) => Left(deliveryError)
-    val kafkaIdGenerator = () => uUID
-
-    val result = Await.result(EmailDeliveryProcess(blackWhiteList,
-                                                   emailFailedPublisher,
-                                                   emailProgressedPublisher,
-                                                   kafkaIdGenerator,
-                                                   clock,
-                                                   sendMail)(composedEmail),
-                              5 seconds)
-    result shouldBe (())
+    Await.result(
+      EmailDeliveryProcess(blackWhiteListOK,
+                           notExpired,
+                           failToSendFailedEvent,
+                           successfullySendEmailProgressedEvent,
+                           generateUUID,
+                           failToSendEmail)(composedEmail),
+      5 seconds
+    )
   }
 
   it should "Handle exceptions thrown by emailProgressedProducer" in {
-    val sendMail         = (mail: ComposedEmail) => Right(progressed)
-    val kafkaIdGenerator = () => uUID
-    val result = Await.result(EmailDeliveryProcess(blackWhiteList,
-                                                   emailFailedPublisher,
-                                                   emailProgressedPublisher,
-                                                   kafkaIdGenerator,
-                                                   clock,
-                                                   sendMail)(composedEmail),
-                              5 seconds)
-    result shouldBe (())
+    val failToSendEmailProgressedEvent =
+      (_: EmailProgressed) => Future.failed(new Exception("Email progressed exception"))
+    Await.result(
+      EmailDeliveryProcess(blackWhiteListOK,
+                           notExpired,
+                           successfullySendFailedEvent,
+                           failToSendEmailProgressedEvent,
+                           generateUUID,
+                           successfullySendEmail)(composedEmail),
+      5 seconds
+    )
   }
 
-  it should "detect blacklisted emails and not send them, generating the appropriate error code in failed event" in {
-    val successfulEmailFailedProducer     = (f: Failed) => Future.successful(failed)
-    val kafkaIdGenerator                  = () => uUID
-    def blackWhiteList(recipient: String) = BlackWhiteList.Blacklisted
-    val sendMail                          = (mail: ComposedEmail) => Right(progressed)
-    val successfulEmailProgressedProducer = (f: EmailProgressed) => Future.successful(emailSentRes)
+  it should "not send an email if the recipient address is blacklisted" in {
+    val blacklisted = (_: String) => BlackWhiteList.Blacklisted
 
     val result = Await.result(
-      EmailDeliveryProcess(blackWhiteList,
-                           successfulEmailFailedProducer,
-                           successfulEmailProgressedProducer,
-                           kafkaIdGenerator,
-                           clock,
-                           sendMail)(composedEmail),
+      EmailDeliveryProcess(blacklisted,
+                           notExpired,
+                           successfullySendFailedEvent,
+                           successfullySendEmailProgressedEvent,
+                           generateUUID,
+                           successfullySendEmail)(composedEmail),
       5 seconds
     )
     result should be(failed)
   }
+
+  it should "not send an email if the comm has expired" in {
+    val expired = (_: Option[String]) => true
+
+    val result = Await.result(
+      EmailDeliveryProcess(blackWhiteListOK,
+                           expired,
+                           successfullySendFailedEvent,
+                           successfullySendEmailProgressedEvent,
+                           generateUUID,
+                           successfullySendEmail)(composedEmail),
+      5 seconds
+    )
+    result should be(failed)
+  }
+
 }

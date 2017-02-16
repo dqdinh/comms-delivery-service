@@ -14,8 +14,6 @@ import scala.util.control.NonFatal
 
 object DeliveryServiceGraph extends LoggingWithMDC {
 
-  override def loggerName = "DeliveryServiceFlow"
-
   def apply[T](consumerDeserializer: Deserializer[Option[T]], issueComm: (T) => Future[_], kafkaConfig: KafkaConfig)(
       implicit actorSystem: ActorSystem,
       materializer: Materializer) = {
