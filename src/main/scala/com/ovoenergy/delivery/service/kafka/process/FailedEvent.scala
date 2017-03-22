@@ -10,7 +10,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object FailedEvent extends LoggingWithMDC {
 
-  def send(publishEvent: (Failed) => Future[RecordMetadata])(comm: ComposedEvent, deliveryError: DeliveryError)(implicit ec: ExecutionContext): Future[RecordMetadata] = {
+  def send(publishEvent: (Failed) => Future[RecordMetadata])(comm: ComposedEvent, deliveryError: DeliveryError)(
+      implicit ec: ExecutionContext): Future[RecordMetadata] = {
     val event = Failed(
       metadata = Metadata.fromSourceMetadata("delivery-service", comm.metadata),
       internalMetadata = comm.internalMetadata,
@@ -19,7 +20,8 @@ object FailedEvent extends LoggingWithMDC {
     )
 
     publishEvent(event).map(record => {
-      logInfo(event.metadata.traceToken, s"Publishing Failed event: ${event.errorCode} - ${event.reason} - ${record.partition}/${record.offset}")
+      logInfo(event.metadata.traceToken,
+              s"Publishing Failed event: ${event.errorCode} - ${event.reason} - ${record.partition}/${record.offset}")
       record
     })
   }

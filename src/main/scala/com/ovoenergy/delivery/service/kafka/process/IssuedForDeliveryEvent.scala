@@ -10,7 +10,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object IssuedForDeliveryEvent extends LoggingWithMDC {
 
-  def send(publishEvent: (IssuedForDelivery) => Future[RecordMetadata])(comm: ComposedEvent, gatewayComm: GatewayComm)(implicit ec: ExecutionContext): Future[RecordMetadata] = {
+  def send(publishEvent: (IssuedForDelivery) => Future[RecordMetadata])(comm: ComposedEvent, gatewayComm: GatewayComm)(
+      implicit ec: ExecutionContext): Future[RecordMetadata] = {
     val event = IssuedForDelivery(
       metadata = comm.metadata,
       internalMetadata = comm.internalMetadata,
@@ -20,7 +21,9 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
     )
 
     publishEvent(event).map(record => {
-      logInfo(event.metadata.traceToken, s"Published IssuedForDelivery event: ${event.gateway} - ${event.gatewayMessageId} - ${record.partition}/${record.offset}")
+      logInfo(
+        event.metadata.traceToken,
+        s"Published IssuedForDelivery event: ${event.gateway} - ${event.gatewayMessageId} - ${record.partition}/${record.offset}")
       record
     })
   }

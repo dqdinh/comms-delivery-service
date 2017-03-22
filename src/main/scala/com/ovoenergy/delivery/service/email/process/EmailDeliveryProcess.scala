@@ -4,7 +4,12 @@ import java.time.Clock
 
 import com.ovoenergy.comms.model._
 import com.ovoenergy.delivery.service.domain.GatewayComm
-import com.ovoenergy.delivery.service.domain.{EmailAddressBlacklisted, EmailAddressNotWhitelisted, DeliveryError, Expired}
+import com.ovoenergy.delivery.service.domain.{
+  EmailAddressBlacklisted,
+  EmailAddressNotWhitelisted,
+  DeliveryError,
+  Expired
+}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
 
@@ -12,8 +17,8 @@ object EmailDeliveryProcess extends LoggingWithMDC {
 
   def apply(checkBlackWhiteList: (String) => BlackWhiteList.Verdict,
             isExpired: Option[String] => Boolean,
-            sendEmail: (ComposedEmail) => Either[DeliveryError, GatewayComm])
-           (composedEmail: ComposedEmail): Either[DeliveryError, GatewayComm] = {
+            sendEmail: (ComposedEmail) => Either[DeliveryError, GatewayComm])(
+      composedEmail: ComposedEmail): Either[DeliveryError, GatewayComm] = {
 
     val traceToken = composedEmail.metadata.traceToken
 

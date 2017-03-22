@@ -12,8 +12,9 @@ import scala.concurrent.Future
 
 object Publisher {
 
-  def publishEvent[T: SchemaFor: ToRecord](topic: String)(event: T)(implicit kafkaConfig: KafkaConfig): Future[RecordMetadata] = {
-    val producer  = KafkaProducer(Conf(new StringSerializer, avroSerializer[T], kafkaConfig.hosts))
+  def publishEvent[T: SchemaFor: ToRecord](topic: String)(event: T)(
+      implicit kafkaConfig: KafkaConfig): Future[RecordMetadata] = {
+    val producer = KafkaProducer(Conf(new StringSerializer, avroSerializer[T], kafkaConfig.hosts))
     producer.send(new ProducerRecord[String, T](topic, event))
   }
 }

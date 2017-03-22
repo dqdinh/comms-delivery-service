@@ -27,13 +27,13 @@ class EmailProgressedEventSpec extends FlatSpec with Matchers with GeneratorDriv
     a.arbitrary.sample.get
   }
 
-  private val gatewayComm = generate(implicitly[Arbitrary[GatewayComm]])
+  private val gatewayComm   = generate(implicitly[Arbitrary[GatewayComm]])
   private val composedEmail = generate(implicitly[Arbitrary[ComposedEmail]])
 
   private var emailProgressedEventPublished = Option.empty[EmailProgressed]
   private val publishEvent = (event: EmailProgressed) => {
     emailProgressedEventPublished = Some(event)
-    Future.successful(new RecordMetadata(new TopicPartition("",1), 1l, 1l, 1l, 1l, 1, 1))
+    Future.successful(new RecordMetadata(new TopicPartition("", 1), 1l, 1l, 1l, 1l, 1, 1))
   }
 
   "FailedEvent" should "process failed email" in {

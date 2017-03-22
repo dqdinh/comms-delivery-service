@@ -27,11 +27,11 @@ class FailedEventSpec extends FlatSpec with Matchers with GeneratorDrivenPropert
     a.arbitrary.sample.get
   }
 
-  private val composedEmail = generate(implicitly[Arbitrary[ComposedEmail]])
+  private val composedEmail        = generate(implicitly[Arbitrary[ComposedEmail]])
   private var failedEventPublished = Option.empty[Failed]
   private val publishEvent = (failed: Failed) => {
     failedEventPublished = Some(failed)
-    Future.successful(new RecordMetadata(new TopicPartition("",1), 1l, 1l, 1l, 1l, 1, 1))
+    Future.successful(new RecordMetadata(new TopicPartition("", 1), 1l, 1l, 1l, 1l, 1, 1))
   }
 
   "FailedEvent" should "process failed email" in {

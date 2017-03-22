@@ -63,7 +63,7 @@ object DeliveryServiceGraph extends LoggingWithMDC {
 
     val source = Consumer
       .committableSource(consumerSettings, Subscriptions.topics(consumerTopic))
-      .mapAsync(1)(f = msg => {
+      .mapAsync(1)(msg => {
         log.debug(s"Event received $msg")
         val result = msg.record.value match {
           case Some(composedEvent) =>
