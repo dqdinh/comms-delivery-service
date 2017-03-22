@@ -4,8 +4,9 @@ import java.time.format.DateTimeFormatter
 import java.time.{Clock, OffsetDateTime}
 
 import cats.syntax.either._
-import com.ovoenergy.comms.model.EmailStatus.Queued
+import com.ovoenergy.comms.model.Channel.Email
 import com.ovoenergy.comms.model._
+import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
 import com.ovoenergy.delivery.service.util.Retry.{Failed, RetryConfig, Succeeded}
@@ -40,8 +41,7 @@ object MailgunClient extends LoggingWithMDC {
 
   implicit val encoder: Encoder[CommType] = deriveEnumerationEncoder[CommType]
 
-  def sendEmail(configuration: Configuration)(
-      composedEmail: ComposedEmail): Either[EmailDeliveryError, EmailProgressed] = {
+  def sendEmail(configuration: Configuration)(composedEmail: ComposedEmail): Either[DeliveryError, GatewayComm] = {
     val traceToken     = composedEmail.metadata.traceToken
     implicit val clock = configuration.clock
 
@@ -53,7 +53,7 @@ object MailgunClient extends LoggingWithMDC {
       .build()
 
     val result =
-      Retry.retry[EmailDeliveryError, EmailProgressed](config = configuration.retryConfig, onFailure = _ => ()) { () =>
+      Retry.retry[DeliveryError, GatewayComm](config = configuration.retryConfig, onFailure = _ => ()) { () =>
         configuration.httpClient(request) match {
           case Success(response) => mapResponseToEither(response, composedEmail, traceToken)
           case Failure(ex) =>
@@ -90,7 +90,7 @@ object MailgunClient extends LoggingWithMDC {
   }
 
   private def mapResponseToEither(response: Response, composedEmail: ComposedEmail, traceToken: String)(
-      implicit clock: Clock): Either[EmailDeliveryError, EmailProgressed] = {
+      implicit clock: Clock): Either[DeliveryError, GatewayComm] = {
     case class SendEmailSuccessResponse(id: String, message: String)
     case class SendEmailFailureResponse(message: String)
 
@@ -107,15 +107,12 @@ object MailgunClient extends LoggingWithMDC {
         val id = parseResponse[SendEmailSuccessResponse](responseBody).map(_.id).getOrElse("unknown id")
         logInfo(traceToken, s"Email issued to ${composedEmail.recipient}")
         Right(
-          EmailProgressed(
-            metadata = Metadata
-              .fromSourceMetadata("delivery-service", composedEmail.metadata)
-              .copy(createdAt = OffsetDateTime.now(clock).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
-            status = Queued,
+          GatewayComm(
             gateway = "Mailgun",
-            gatewayMessageId = Some(id),
-            internalMetadata = composedEmail.internalMetadata
-          ))
+            id = id,
+            channel = Email
+          )
+        )
       case InternalServerError() =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
         logError(traceToken,

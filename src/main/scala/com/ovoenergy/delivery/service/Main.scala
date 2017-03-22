@@ -5,17 +5,19 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import com.ovoenergy.comms.model.ComposedEmail
+import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.serialisation.Serialisation._
 import com.ovoenergy.comms.serialisation.Decoders._
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
+import com.ovoenergy.delivery.service.email.process.EmailDeliveryProcess
 import com.ovoenergy.delivery.service.http.HttpClient
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
-import com.ovoenergy.delivery.service.kafka.process.EmailDeliveryProcess
-import com.ovoenergy.delivery.service.kafka.{FailedEventPublisher, EmailProgressedEventPublisher, DeliveryServiceGraph}
+import com.ovoenergy.delivery.service.kafka.process.{FailedEvent, IssuedForDeliveryEvent}
+import com.ovoenergy.delivery.service.kafka.process.email.EmailProgressedEvent
+import com.ovoenergy.delivery.service.kafka.{DeliveryServiceGraph, Publisher}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry.RetryConfig
-import com.ovoenergy.delivery.service.util.{Retry, UUIDGenerator}
+import com.ovoenergy.delivery.service.util.Retry
 import com.ovoenergy.delivery.service.validation.{BlackWhiteList, ExpiryCheck}
 import com.typesafe.config.ConfigFactory
 import io.circe.generic.auto._
@@ -55,13 +57,10 @@ object Main extends App with LoggingWithMDC {
     )
   }
 
-  val kafkaConfig = KafkaConfig(
-    config.getString("kafka.hosts"),
-    config.getString("kafka.group.id"),
-    config.getString("kafka.topics.composed.email"),
-    config.getString("kafka.topics.progressed.email"),
-    config.getString("kafka.topics.failed")
-  )
+  val composedEmailTopic     = config.getString("kafka.topics.composed.email")
+  val progressedEmailTopic   = config.getString("kafka.topics.progressed.email")
+  val failedTopic            = config.getString("kafka.topics.failed")
+  val issuedForDeliveryTopic = config.getString("kafka.topics.issued.for.delivery")
 
   val emailWhitelist: Regex     = config.getString("email.whitelist").r
   val blackListedEmailAddresses = config.getStringList("email.blacklist")
@@ -69,18 +68,28 @@ object Main extends App with LoggingWithMDC {
   implicit val actorSystem      = ActorSystem("kafka")
   implicit val materializer     = ActorMaterializer()
   implicit val executionContext = actorSystem.dispatcher
+  implicit val kafkaConfig = KafkaConfig(
+    config.getString("kafka.hosts"),
+    config.getString("kafka.group.id")
+  )
+
+  val failedPublisher            = Publisher.publishEvent[Failed](failedTopic) _
+  val issuedForDeliveryPublisher = Publisher.publishEvent[IssuedForDelivery](issuedForDeliveryTopic) _
+
+  val emailProgressedPublisher = Publisher.publishEvent[EmailProgressed](progressedEmailTopic) _
 
   val graph = DeliveryServiceGraph[ComposedEmail](
-    avroDeserializer[ComposedEmail],
-    EmailDeliveryProcess(
-      BlackWhiteList.build(emailWhitelist, blackListedEmailAddresses),
-      ExpiryCheck.isExpired(clock),
-      FailedEventPublisher.build(kafkaConfig),
-      EmailProgressedEventPublisher.build(kafkaConfig),
-      UUIDGenerator.apply,
-      MailgunClient.sendEmail(mailgunClientConfig)
+    consumerDeserializer = avroDeserializer[ComposedEmail],
+    issueComm = EmailDeliveryProcess(
+      checkBlackWhiteList = BlackWhiteList.build(emailWhitelist, blackListedEmailAddresses),
+      isExpired = ExpiryCheck.isExpired(clock),
+      sendEmail = MailgunClient.sendEmail(mailgunClientConfig)
     ),
-    kafkaConfig
+    kafkaConfig = kafkaConfig,
+    consumerTopic = composedEmailTopic,
+    sendFailedEvent = FailedEvent.send(failedPublisher),
+    sendCommProgressedEvent = EmailProgressedEvent.send(emailProgressedPublisher),
+    sendIssuedToGatewayEvent = IssuedForDeliveryEvent.send(issuedForDeliveryPublisher)
   )
 
   for (line <- Source.fromFile("./banner.txt").getLines) {
