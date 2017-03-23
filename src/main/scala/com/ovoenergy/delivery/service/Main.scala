@@ -40,7 +40,7 @@ object Main extends App with LoggingWithMDC {
   val config = ConfigFactory.load()
 
   val mailgunClientConfig = {
-    val retryConfig = {
+    val mailgunRetryConfig = {
       val attempts = config.getInt("mailgun.attempts")
       RetryConfig(
         attempts = refineV[Positive](attempts).right
@@ -53,7 +53,19 @@ object Main extends App with LoggingWithMDC {
       config.getString("mailgun.domain"),
       config.getString("mailgun.apiKey"),
       HttpClient.apply,
-      retryConfig
+      mailgunRetryConfig
+    )
+  }
+
+  val kafkaProducerRetryConfig = {
+    val attempts = config.getInt("kafka.producer.retry.attempts")
+    Retry.RetryConfig(
+      attempts = refineV[Positive](attempts).right
+        .getOrElse(sys.error(s"Kafka retry attempts must be positive but was $attempts")),
+      backoff = Retry.Backoff.exponential(
+        config.getDuration("kafka.producer.retry.initialInterval").toFiniteDuration,
+        config.getDouble("kafka.producer.retry.exponent")
+      )
     )
   }
 
@@ -72,6 +84,7 @@ object Main extends App with LoggingWithMDC {
     config.getString("kafka.hosts"),
     config.getString("kafka.group.id")
   )
+  implicit val scheduler = actorSystem.scheduler
 
   val failedPublisher            = Publisher.publishEvent[Failed](failedTopic) _
   val issuedForDeliveryPublisher = Publisher.publishEvent[IssuedForDelivery](issuedForDeliveryTopic) _
@@ -86,6 +99,7 @@ object Main extends App with LoggingWithMDC {
       sendEmail = MailgunClient.sendEmail(mailgunClientConfig)
     ),
     kafkaConfig = kafkaConfig,
+    retryConfig = kafkaProducerRetryConfig,
     consumerTopic = composedEmailTopic,
     sendFailedEvent = FailedEvent.send(failedPublisher),
     sendCommProgressedEvent = EmailProgressedEvent.send(emailProgressedPublisher),
