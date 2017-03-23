@@ -3,7 +3,7 @@ package com.ovoenergy.delivery.service
 import cakesolutions.kafka.KafkaConsumer.{Conf => KafkaConsumerConf}
 import cakesolutions.kafka.KafkaProducer.{Conf => KafkaProducerConf}
 import cakesolutions.kafka.{KafkaConsumer, KafkaProducer}
-import com.ovoenergy.comms.model.{ComposedEmail, EmailProgressed, ErrorCode, Failed}
+import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.EmailStatus.Queued
 import com.ovoenergy.comms.serialisation.Serialisation._
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -48,10 +48,13 @@ class ServiceTestIT
     KafkaConsumerConf(new StringDeserializer, avroDeserializer[Failed], kafkaHosts, consumerGroup))
   val emailProgressedConsumer = KafkaConsumer(
     KafkaConsumerConf(new StringDeserializer, avroDeserializer[EmailProgressed], kafkaHosts, consumerGroup))
+  val issuedForDeliveryConsumer = KafkaConsumer(
+    KafkaConsumerConf(new StringDeserializer, avroDeserializer[IssuedForDelivery], kafkaHosts, consumerGroup))
 
-  val failedTopic          = "comms.failed"
-  val composedEmailTopic   = "comms.composed.email"
-  val emailProgressedTopic = "comms.progressed.email"
+  val failedTopic            = "comms.failed"
+  val composedEmailTopic     = "comms.composed.email"
+  val emailProgressedTopic   = "comms.progressed.email"
+  val issuedForDeliveryTopic = "comms.issued.for.delivery"
 
   val mockServerClient = new MockServerClient("localhost", 1080)
 
@@ -92,7 +95,7 @@ class ServiceTestIT
     }
   }
 
-  it should "create EmailProgress event when get OK from Mailgun" taggedAs DockerComposeTag in {
+  it should "create events when get OK from Mailgun" taggedAs DockerComposeTag in {
     createTopicsAndSubscribe()
     createOKMailgunResponse()
 
@@ -101,12 +104,27 @@ class ServiceTestIT
       composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
       val emailProgressedEvents = emailProgressedConsumer.poll(30000).records(emailProgressedTopic).asScala.toList
+      val issuedForDeliveryEvents =
+        issuedForDeliveryConsumer.poll(30000).records(issuedForDeliveryTopic).asScala.toList
+
       emailProgressedEvents.size shouldBe 1
       emailProgressedEvents.foreach(record => {
         val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
         emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
         emailProgressed.gateway shouldBe "Mailgun"
         emailProgressed.status shouldBe Queued
+        emailProgressed.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
+        emailProgressed.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
+      })
+
+      issuedForDeliveryEvents.size shouldBe 1
+      issuedForDeliveryEvents.foreach(record => {
+        val issuedForDelivery = record.value().getOrElse(fail("No record for ${record.key()}"))
+        issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
+        issuedForDelivery.gateway shouldBe "Mailgun"
+        issuedForDelivery.channel shouldBe Channel.Email
+        issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
+        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
       })
     }
   }
@@ -120,12 +138,25 @@ class ServiceTestIT
       composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
       val emailProgressedEvents = emailProgressedConsumer.poll(30000).records(emailProgressedTopic).asScala.toList
+      val issuedForDeliveryEvents =
+        issuedForDeliveryConsumer.poll(30000).records(issuedForDeliveryTopic).asScala.toList
+
       emailProgressedEvents.size shouldBe 1
       emailProgressedEvents.foreach(record => {
         val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
         emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
         emailProgressed.gateway shouldBe "Mailgun"
         emailProgressed.status shouldBe Queued
+      })
+
+      issuedForDeliveryEvents.size shouldBe 1
+      issuedForDeliveryEvents.foreach(record => {
+        val issuedForDelivery = record.value().getOrElse(fail("No record for ${record.key()}"))
+        issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
+        issuedForDelivery.gateway shouldBe "Mailgun"
+        issuedForDelivery.channel shouldBe Channel.Email
+        issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
+        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
       })
     }
   }
@@ -154,8 +185,13 @@ class ServiceTestIT
     if (!AdminUtils.topicExists(zkUtils, failedTopic)) AdminUtils.createTopic(zkUtils, failedTopic, 1, 1)
     if (!AdminUtils.topicExists(zkUtils, emailProgressedTopic))
       AdminUtils.createTopic(zkUtils, emailProgressedTopic, 1, 1)
+    if (!AdminUtils.topicExists(zkUtils, issuedForDeliveryTopic))
+      AdminUtils.createTopic(zkUtils, issuedForDeliveryTopic, 1, 1)
     commFailedConsumer.assign(Seq(new TopicPartition(failedTopic, 0)).asJava)
     emailProgressedConsumer.assign(Seq(new TopicPartition(emailProgressedTopic, 0)).asJava)
+    issuedForDeliveryConsumer.assign(Seq(new TopicPartition(issuedForDeliveryTopic, 0)).asJava)
+    emailProgressedConsumer.poll(10000).records(emailProgressedTopic)
+    issuedForDeliveryConsumer.poll(10000).records(issuedForDeliveryTopic)
   }
 
   def create401MailgunResponse() {
