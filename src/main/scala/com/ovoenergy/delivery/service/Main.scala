@@ -8,8 +8,8 @@ import akka.stream.ActorMaterializer
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.serialisation.Serialisation._
 import com.ovoenergy.comms.serialisation.Decoders._
+import com.ovoenergy.delivery.service.email.IssueEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
-import com.ovoenergy.delivery.service.email.process.EmailDeliveryProcess
 import com.ovoenergy.delivery.service.http.HttpClient
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.kafka.process.{FailedEvent, IssuedForDeliveryEvent}
@@ -80,7 +80,7 @@ object Main extends App with LoggingWithMDC {
 
   val graph = DeliveryServiceGraph[ComposedEmail](
     consumerDeserializer = avroDeserializer[ComposedEmail],
-    issueComm = EmailDeliveryProcess(
+    issueComm = IssueEmail.issue(
       checkBlackWhiteList = BlackWhiteList.build(emailWhitelist, blackListedEmailAddresses),
       isExpired = ExpiryCheck.isExpired(clock),
       sendEmail = MailgunClient.sendEmail(mailgunClientConfig)

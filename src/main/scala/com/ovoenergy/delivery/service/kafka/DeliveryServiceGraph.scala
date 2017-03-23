@@ -9,6 +9,7 @@ import com.ovoenergy.comms.types.ComposedEvent
 import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.{Deserializer, StringDeserializer}
 
 import scala.concurrent.Future
@@ -61,6 +62,16 @@ object DeliveryServiceGraph extends LoggingWithMDC {
       }
     }
 
+    def consumerRecordToString(consumerRecord: ConsumerRecord[String, Option[T]]) = {
+      s"""
+           | (topic = ${consumerRecord.topic},
+           |  partition = ${consumerRecord.partition},
+           |  offset = ${consumerRecord.offset},
+           |  ${consumerRecord.timestampType} = ${consumerRecord.timestamp},
+           |  key = ${consumerRecord.key})
+         """.stripMargin
+    }
+
     val source = Consumer
       .committableSource(consumerSettings, Subscriptions.topics(consumerTopic))
       .mapAsync(1)(msg => {
@@ -80,7 +91,11 @@ object DeliveryServiceGraph extends LoggingWithMDC {
         }
         result
           .flatMap(_ => msg.committableOffset.commitScaladsl())
-          .recover { case NonFatal(_) => msg.committableOffset.commitScaladsl() }
+          .recover {
+            case NonFatal(e) =>
+              log.warn(s"Unhandled exception processing composed event ${consumerRecordToString(msg.record)} ", e)
+              msg.committableOffset.commitScaladsl()
+          }
       })
       .withAttributes(ActorAttributes.supervisionStrategy(decider))
 

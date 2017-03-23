@@ -1,28 +1,20 @@
-package com.ovoenergy.delivery.service.email.process
-
-import java.time.Clock
+package com.ovoenergy.delivery.service.email
 
 import com.ovoenergy.comms.model._
-import com.ovoenergy.delivery.service.domain.GatewayComm
-import com.ovoenergy.delivery.service.domain.{
-  EmailAddressBlacklisted,
-  EmailAddressNotWhitelisted,
-  DeliveryError,
-  Expired
-}
+import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
 
-object EmailDeliveryProcess extends LoggingWithMDC {
+object IssueEmail extends LoggingWithMDC {
 
-  def apply(checkBlackWhiteList: (String) => BlackWhiteList.Verdict,
+  def issue(checkBlackWhiteList: (String) => BlackWhiteList.Verdict,
             isExpired: Option[String] => Boolean,
             sendEmail: (ComposedEmail) => Either[DeliveryError, GatewayComm])(
       composedEmail: ComposedEmail): Either[DeliveryError, GatewayComm] = {
 
     val traceToken = composedEmail.metadata.traceToken
 
-    def blackWhiteListCheck: Either[DeliveryError, _] = checkBlackWhiteList(composedEmail.recipient) match {
+    def blackWhiteListCheck: Either[DeliveryError, Unit] = checkBlackWhiteList(composedEmail.recipient) match {
       case BlackWhiteList.OK =>
         Right(())
       case BlackWhiteList.NotWhitelisted =>
@@ -33,7 +25,7 @@ object EmailDeliveryProcess extends LoggingWithMDC {
         Left(EmailAddressBlacklisted(composedEmail.recipient))
     }
 
-    def expiryCheck: Either[DeliveryError, _] = {
+    def expiryCheck: Either[DeliveryError, Unit] = {
       if (isExpired(composedEmail.expireAt)) {
         logInfo(traceToken, s"Comm was expired")
         Left(Expired)

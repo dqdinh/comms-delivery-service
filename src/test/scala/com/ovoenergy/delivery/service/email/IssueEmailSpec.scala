@@ -1,4 +1,4 @@
-package com.ovoenergy.delivery.service.email.process
+package com.ovoenergy.delivery.service.email
 
 import java.time.Clock
 import java.util.UUID
@@ -13,7 +13,7 @@ import org.scalatest.prop._
 
 import scala.language.postfixOps
 
-class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+class IssueEmailSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   implicit def arbUUID: Arbitrary[UUID] = Arbitrary {
     UUID.randomUUID()
@@ -37,21 +37,21 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
   behavior of "EmailDeliveryProcess"
 
   it should "Handle Successfully sent emails" in {
-    val result = EmailDeliveryProcess(blackWhiteListOK, notExpired, successfullySendEmail)(composedEmail)
+    val result = IssueEmail.issue(blackWhiteListOK, notExpired, successfullySendEmail)(composedEmail)
     result shouldBe Right(gatewayComm)
   }
 
   it should "Handle emails which have failed to send, generating appropriate error code in failed event" in {
     val failToSendEmail = (_: ComposedEmail) => Left(deliveryError)
 
-    val result = EmailDeliveryProcess(blackWhiteListOK, notExpired, failToSendEmail)(composedEmail)
+    val result = IssueEmail.issue(blackWhiteListOK, notExpired, failToSendEmail)(composedEmail)
     result shouldBe Left(deliveryError)
   }
 
   it should "not send an email if the recipient address is blacklisted" in {
     val blacklisted = (_: String) => BlackWhiteList.Blacklisted
 
-    val result = EmailDeliveryProcess(blacklisted, notExpired, successfullySendEmail)(composedEmail)
+    val result = IssueEmail.issue(blacklisted, notExpired, successfullySendEmail)(composedEmail)
     result shouldBe Left(EmailAddressBlacklisted(composedEmail.recipient))
 
   }
@@ -59,7 +59,7 @@ class EmailDeliveryProcessSpec extends FlatSpec with Matchers with GeneratorDriv
   it should "not send an email if the comm has expired" in {
     val expired = (_: Option[String]) => true
 
-    val result = EmailDeliveryProcess(blackWhiteListOK, expired, successfullySendEmail)(composedEmail)
+    val result = IssueEmail.issue(blackWhiteListOK, expired, successfullySendEmail)(composedEmail)
     result shouldBe Left(Expired)
   }
 
