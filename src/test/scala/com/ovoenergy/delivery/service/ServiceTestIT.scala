@@ -111,7 +111,7 @@ class ServiceTestIT
       emailProgressedEvents.foreach(record => {
         val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
         emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
-        emailProgressed.gateway shouldBe "Mailgun"
+        emailProgressed.gateway shouldBe Gateway.Mailgun
         emailProgressed.status shouldBe Queued
         emailProgressed.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         emailProgressed.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
@@ -121,7 +121,7 @@ class ServiceTestIT
       issuedForDeliveryEvents.foreach(record => {
         val issuedForDelivery = record.value().getOrElse(fail("No record for ${record.key()}"))
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
-        issuedForDelivery.gateway shouldBe "Mailgun"
+        issuedForDelivery.gateway shouldBe Gateway.Mailgun
         issuedForDelivery.channel shouldBe Channel.Email
         issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
@@ -145,7 +145,7 @@ class ServiceTestIT
       emailProgressedEvents.foreach(record => {
         val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
         emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
-        emailProgressed.gateway shouldBe "Mailgun"
+        emailProgressed.gateway shouldBe Gateway.Mailgun
         emailProgressed.status shouldBe Queued
       })
 
@@ -153,7 +153,7 @@ class ServiceTestIT
       issuedForDeliveryEvents.foreach(record => {
         val issuedForDelivery = record.value().getOrElse(fail("No record for ${record.key()}"))
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
-        issuedForDelivery.gateway shouldBe "Mailgun"
+        issuedForDelivery.gateway shouldBe Gateway.Mailgun
         issuedForDelivery.channel shouldBe Channel.Email
         issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken

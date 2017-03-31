@@ -4,7 +4,7 @@ import com.ovoenergy.comms.model._
 
 package object domain {
 
-  case class GatewayComm(gateway: String, id: String, channel: Channel)
+  case class GatewayComm(gateway: Gateway, id: String, channel: Channel)
 
   sealed trait DeliveryError {
     def description: String
