@@ -34,7 +34,7 @@ import scala.util.matching.Regex
 
 class MailgunClientSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 
-  val dateTime = OffsetDateTime.now()
+  val dateTime = OffsetDateTime.now(ZoneId.of("UTC"))
 
   implicit val clock                      = Clock.fixed(dateTime.toInstant, ZoneId.of("UTC"))
   implicit val decoder: Decoder[CommType] = deriveEnumerationDecoder[CommType]
@@ -88,7 +88,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with GeneratorDrivenPrope
     MailgunClient.sendEmail(config)(composedNoText) match {
       case Right(gatewayComm) =>
         gatewayComm.id shouldBe gatewayId
-        gatewayComm.gateway shouldBe "Mailgun"
+        gatewayComm.gateway shouldBe Gateway.Mailgun
         gatewayComm.channel shouldBe Email
       case Left(_) => { println("FAILED!"); fail() }
     }

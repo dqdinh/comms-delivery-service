@@ -108,7 +108,7 @@ object MailgunClient extends LoggingWithMDC {
         logInfo(traceToken, s"Email issued to ${composedEmail.recipient}")
         Right(
           GatewayComm(
-            gateway = "Mailgun",
+            gateway = Gateway.Mailgun,
             id = id,
             channel = Email
           )
