@@ -38,6 +38,7 @@ class IssuedForDeliveryEventSpec extends FlatSpec with Matchers with GeneratorDr
   "FailedEvent" should "process failed email" in {
     IssuedForDeliveryEvent.send(publishEvent)(composedEmail, gatewayComm)
     issuedForDeliveryEventPublished.get.metadata.traceToken shouldBe composedEmail.metadata.traceToken
+    issuedForDeliveryEventPublished.get.metadata.source shouldBe "delivery-service"
     issuedForDeliveryEventPublished.get.gatewayMessageId shouldBe gatewayComm.id
     issuedForDeliveryEventPublished.get.gateway shouldBe gatewayComm.gateway
     issuedForDeliveryEventPublished.get.internalMetadata shouldBe composedEmail.internalMetadata

@@ -37,6 +37,7 @@ class FailedEventSpec extends FlatSpec with Matchers with GeneratorDrivenPropert
   "FailedEvent" should "process failed email" in {
     FailedEvent.send(publishEvent)(composedEmail, APIGatewayUnspecifiedError)
     failedEventPublished.get.metadata.traceToken shouldBe composedEmail.metadata.traceToken
+    failedEventPublished.get.metadata.source shouldBe "delivery-service"
     failedEventPublished.get.errorCode shouldBe APIGatewayUnspecifiedError.errorCode
     failedEventPublished.get.reason shouldBe APIGatewayUnspecifiedError.description
     failedEventPublished.get.internalMetadata shouldBe composedEmail.internalMetadata
