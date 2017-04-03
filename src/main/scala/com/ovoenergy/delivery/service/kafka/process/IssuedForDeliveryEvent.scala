@@ -1,6 +1,6 @@
 package com.ovoenergy.delivery.service.kafka.process
 
-import com.ovoenergy.comms.model.IssuedForDelivery
+import com.ovoenergy.comms.model.{IssuedForDelivery, Metadata}
 import com.ovoenergy.comms.types.ComposedEvent
 import com.ovoenergy.delivery.service.domain.GatewayComm
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
@@ -13,7 +13,7 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
   def send(publishEvent: (IssuedForDelivery) => Future[RecordMetadata])(comm: ComposedEvent, gatewayComm: GatewayComm)(
       implicit ec: ExecutionContext): Future[RecordMetadata] = {
     val event = IssuedForDelivery(
-      metadata = comm.metadata,
+      metadata = Metadata.fromSourceMetadata("delivery-service", comm.metadata),
       internalMetadata = comm.internalMetadata,
       channel = gatewayComm.channel,
       gateway = gatewayComm.gateway,

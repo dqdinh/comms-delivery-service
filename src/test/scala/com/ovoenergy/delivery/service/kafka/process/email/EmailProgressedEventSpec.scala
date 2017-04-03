@@ -39,6 +39,7 @@ class EmailProgressedEventSpec extends FlatSpec with Matchers with GeneratorDriv
   "FailedEvent" should "process failed email" in {
     EmailProgressedEvent.send(publishEvent)(composedEmail, gatewayComm)
     emailProgressedEventPublished.get.metadata.traceToken shouldBe composedEmail.metadata.traceToken
+    emailProgressedEventPublished.get.metadata.source shouldBe "delivery-service"
     emailProgressedEventPublished.get.gatewayMessageId shouldBe Some(gatewayComm.id)
     emailProgressedEventPublished.get.gateway shouldBe gatewayComm.gateway
     emailProgressedEventPublished.get.internalMetadata shouldBe composedEmail.internalMetadata
