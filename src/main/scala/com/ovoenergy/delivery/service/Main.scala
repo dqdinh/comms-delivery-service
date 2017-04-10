@@ -10,13 +10,11 @@ import akka.stream.scaladsl.RunnableGraph
 import com.ovoenergy.comms.model.{ComposedEmail, ComposedSMS, _}
 import com.ovoenergy.comms.serialisation.Decoders._
 import com.ovoenergy.comms.serialisation.Serialisation._
-import com.ovoenergy.delivery.service.domain.GatewayComm
 import com.ovoenergy.delivery.service.email.IssueEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
 import com.ovoenergy.delivery.service.kafka.{DeliveryServiceGraph, Publisher}
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
-import com.ovoenergy.delivery.service.kafka.process.email.EmailProgressedEvent
 import com.ovoenergy.delivery.service.kafka.process.{FailedEvent, IssuedForDeliveryEvent}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.sms.IssueSMS
@@ -28,10 +26,8 @@ import com.typesafe.config.ConfigFactory
 import eu.timepit.refined._
 import eu.timepit.refined.numeric.Positive
 import io.circe.generic.auto._
-import org.apache.kafka.clients.producer.RecordMetadata
 
 import scala.collection.JavaConversions.asScalaBuffer
-import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
 import scala.util.matching.Regex
@@ -98,7 +94,6 @@ object Main extends App with LoggingWithMDC {
 
   val composedEmailTopic     = config.getString("kafka.topics.composed.email")
   val composedSMSTopic       = config.getString("kafka.topics.composed.sms")
-  val progressedEmailTopic   = config.getString("kafka.topics.progressed.email")
   val failedTopic            = config.getString("kafka.topics.failed")
   val issuedForDeliveryTopic = config.getString("kafka.topics.issued.for.delivery")
 
@@ -120,10 +115,6 @@ object Main extends App with LoggingWithMDC {
   val failedPublisher            = Publisher.publishEvent[Failed](failedTopic) _
   val issuedForDeliveryPublisher = Publisher.publishEvent[IssuedForDelivery](issuedForDeliveryTopic) _
 
-  val emailProgressedPublisher = Publisher.publishEvent[EmailProgressed](progressedEmailTopic) _
-
-  val smsProgressedDummyFunction = (c: ComposedSMS, g: GatewayComm) => Future.successful(())
-
   val emailGraph = DeliveryServiceGraph[ComposedEmail](
     consumerDeserializer = avroDeserializer[ComposedEmail],
     issueComm = IssueEmail.issue(
@@ -135,7 +126,6 @@ object Main extends App with LoggingWithMDC {
     retryConfig = kafkaProducerRetryConfig,
     consumerTopic = composedEmailTopic,
     sendFailedEvent = FailedEvent.send(failedPublisher),
-    sendCommProgressedEvent = EmailProgressedEvent.send(emailProgressedPublisher),
     sendIssuedToGatewayEvent = IssuedForDeliveryEvent.send(issuedForDeliveryPublisher)
   )
 
@@ -150,7 +140,6 @@ object Main extends App with LoggingWithMDC {
     retryConfig = kafkaProducerRetryConfig,
     consumerTopic = composedSMSTopic,
     sendFailedEvent = FailedEvent.send(failedPublisher),
-    sendCommProgressedEvent = smsProgressedDummyFunction,
     sendIssuedToGatewayEvent = IssuedForDeliveryEvent.send(issuedForDeliveryPublisher)
   )
 

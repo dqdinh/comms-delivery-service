@@ -75,27 +75,16 @@ class EmailServiceTestIT
     }
   }
 
-  it should "create events when get OK from Mailgun" taggedAs DockerComposeTag in {
+  it should "create IssuedForDelivery event when get OK from Mailgun" taggedAs DockerComposeTag in {
     createOKMailgunResponse()
 
     val composedEmailEvent = arbitraryComposedEmailEvent
     val future =
       composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
-      val emailProgressedEvents = pollForEvents[EmailProgressed](noOfEventsExpected = 1,
-                                                                 consumer = emailProgressedConsumer,
-                                                                 topic = emailProgressedTopic)
       val issuedForDeliveryEvents = pollForEvents[IssuedForDelivery](noOfEventsExpected = 1,
                                                                      consumer = issuedForDeliveryConsumer,
                                                                      topic = issuedForDeliveryTopic)
-
-      emailProgressedEvents.foreach(emailProgressed => {
-        emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
-        emailProgressed.gateway shouldBe Mailgun
-        emailProgressed.status shouldBe Queued
-        emailProgressed.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
-        emailProgressed.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
-      })
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
@@ -114,21 +103,11 @@ class EmailServiceTestIT
     val future =
       composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
-      val emailProgressedEvents = emailProgressedConsumer.poll(30000).records(emailProgressedTopic).asScala.toList
-      val issuedForDeliveryEvents =
-        issuedForDeliveryConsumer.poll(30000).records(issuedForDeliveryTopic).asScala.toList
+      val issuedForDeliveryEvents = pollForEvents[IssuedForDelivery](noOfEventsExpected = 1,
+                                                                     consumer = issuedForDeliveryConsumer,
+                                                                     topic = issuedForDeliveryTopic)
 
-      emailProgressedEvents.size shouldBe 1
-      emailProgressedEvents.foreach(record => {
-        val emailProgressed = record.value().getOrElse(fail(s"No record for ${record.key()}"))
-        emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
-        emailProgressed.gateway shouldBe Mailgun
-        emailProgressed.status shouldBe Queued
-      })
-
-      issuedForDeliveryEvents.size shouldBe 1
-      issuedForDeliveryEvents.foreach(record => {
-        val issuedForDelivery = record.value().getOrElse(fail(s"No record for ${record.key()}"))
+      issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
         issuedForDelivery.gateway shouldBe Mailgun
         issuedForDelivery.channel shouldBe Channel.Email

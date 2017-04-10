@@ -45,8 +45,6 @@ trait KafkaTesting extends Assertions {
   val failedTopic            = "comms.failed"
   val composedEmailTopic     = "comms.composed.email"
   val composedSMSTopic       = "comms.composed.sms"
-  val emailProgressedTopic   = "comms.progressed.email"
-  val smsProgressedTopic     = "comms.progressed.sms"
   val issuedForDeliveryTopic = "comms.issued.for.delivery"
 
   def createTopicsAndSubscribe() {
@@ -78,7 +76,6 @@ trait KafkaTesting extends Assertions {
           !AdminUtils.topicExists(zkUtils, composedEmailTopic) && !AdminUtils.topicExists(zkUtils, composedSMSTopic)
         }
         createTopic(failedTopic, commFailedConsumer)
-        createTopic(emailProgressedTopic, emailProgressedConsumer)
         createTopic(issuedForDeliveryTopic, issuedForDeliveryConsumer)
       } catch {
         case NonFatal(ex) => Thread.sleep(100)

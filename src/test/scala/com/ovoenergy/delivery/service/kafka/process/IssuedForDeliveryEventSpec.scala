@@ -35,7 +35,7 @@ class IssuedForDeliveryEventSpec extends FlatSpec with Matchers with GeneratorDr
     Future.successful(new RecordMetadata(new TopicPartition("", 1), 1l, 1l, 1l, 1l, 1, 1))
   }
 
-  "FailedEvent" should "process failed email" in {
+  "IssuedForDeliveryEvent" should "process an issued email" in {
     IssuedForDeliveryEvent.send(publishEvent)(composedEmail, gatewayComm)
     issuedForDeliveryEventPublished.get.metadata.traceToken shouldBe composedEmail.metadata.traceToken
     issuedForDeliveryEventPublished.get.metadata.source shouldBe "delivery-service"

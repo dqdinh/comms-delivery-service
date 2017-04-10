@@ -26,7 +26,6 @@ object DeliveryServiceGraph extends LoggingWithMDC {
                                 retryConfig: RetryConfig,
                                 consumerTopic: String,
                                 sendFailedEvent: (T, DeliveryError) => Future[_],
-                                sendCommProgressedEvent: (T, GatewayComm) => Future[_],
                                 sendIssuedToGatewayEvent: (T, GatewayComm) => Future[_])(
       implicit actorSystem: ActorSystem,
       materializer: Materializer,
@@ -50,19 +49,17 @@ object DeliveryServiceGraph extends LoggingWithMDC {
         .withGroupId(kafkaConfig.groupId)
 
     def success(composedEvent: T, gatewayComm: GatewayComm) = {
-      val futures = List(
-        sendIssuedToGatewayEvent(composedEvent, gatewayComm),
-        sendCommProgressedEvent(composedEvent, gatewayComm)
-      )
-      Future.sequence(futures).recover {
+      // TODO add retry
+      sendIssuedToGatewayEvent(composedEvent, gatewayComm) recover {
         case NonFatal(e) =>
           logWarn(composedEvent.metadata.traceToken,
-                  "Error raising events for a successful comm, offset will be committed",
+                  "Error raising IssuedForDelivery event for a successful comm, offset will be committed",
                   e)
       }
     }
 
     def failure(composedEvent: T, deliveryError: DeliveryError) =
+      // TODO fix log message
       sendWithRetry(sendFailedEvent(composedEvent, deliveryError),
                     composedEvent,
                     "event for a failed comm, offset will be committed")
