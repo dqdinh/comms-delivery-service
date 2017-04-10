@@ -1,10 +1,10 @@
 package com.ovoenergy.delivery.service.email
 
 import java.time.Clock
-import java.util.UUID
 
 import com.ovoenergy.comms.model._
 import com.ovoenergy.delivery.service.domain.{DeliveryError, EmailAddressBlacklisted, Expired, GatewayComm}
+import com.ovoenergy.delivery.service.util.ArbGenerator
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
 import org.scalacheck._
 import org.scalacheck.Shapeless._
@@ -13,22 +13,13 @@ import org.scalatest.prop._
 
 import scala.language.postfixOps
 
-class IssueEmailSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
-
-  implicit def arbUUID: Arbitrary[UUID] = Arbitrary {
-    UUID.randomUUID()
-  }
-
-  private def generate[A](a: Arbitrary[A]) = {
-    a.arbitrary.sample.get
-  }
+class IssueEmailSpec extends FlatSpec with Matchers with ArbGenerator with GeneratorDrivenPropertyChecks {
 
   private implicit val clock = Clock.systemUTC()
 
-  private val gatewayComm   = generate(implicitly[Arbitrary[GatewayComm]])
-  private val composedEmail = generate(implicitly[Arbitrary[ComposedEmail]])
-  private val uuid          = generate(implicitly[Arbitrary[UUID]])
-  private val deliveryError = generate(implicitly[Arbitrary[DeliveryError]])
+  private val gatewayComm   = generate[GatewayComm]
+  private val composedEmail = generate[ComposedEmail]
+  private val deliveryError = generate[DeliveryError]
 
   private val blackWhiteListOK      = (_: String) => BlackWhiteList.OK
   private val successfullySendEmail = (_: ComposedEmail) => Right(gatewayComm)

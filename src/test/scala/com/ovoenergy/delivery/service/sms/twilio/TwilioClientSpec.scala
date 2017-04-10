@@ -1,9 +1,7 @@
 package com.ovoenergy.delivery.service.sms.twilio
 
 import java.io.ByteArrayOutputStream
-import java.net.URLDecoder
 
-import cats.syntax.either._
 import com.ovoenergy.comms.model.Channel.SMS
 import com.ovoenergy.comms.model.Gateway.Twilio
 import com.ovoenergy.comms.model._
@@ -22,8 +20,6 @@ import scala.util.Try
 
 // Implicits
 import org.scalacheck.Shapeless._
-import org.scalacheck._
-import org.scalatest.prop._
 import org.scalatest.{Failed => _, _}
 
 class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with EitherValues {
@@ -78,8 +74,7 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
       httpClient(validResponse, 200, _ => ())
     )
 
-    val composedNoText = composedSMS
-    val result         = TwilioClient.send(config)(composedSMS)
+    val result = TwilioClient.send(config)(composedSMS)
 
     result shouldBe Right(GatewayComm(Twilio, "1234567890", SMS))
   }
@@ -94,8 +89,7 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
       httpClient(unauthenticatedResponse, 401, _ => ())
     )
 
-    val composedNoText = composedSMS.copy(textBody = "Hi!")
-    val result         = TwilioClient.send(config)(composedSMS)
+    val result = TwilioClient.send(config)(composedSMS)
 
     result shouldBe Left(APIGatewayAuthenticationError(ErrorCode.SMSGatewayError))
   }
@@ -110,8 +104,7 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
       httpClient(badRequestResponse, 400, _ => ())
     )
 
-    val composedNoText = composedSMS.copy(textBody = "Hi!")
-    val result         = TwilioClient.send(config)(composedSMS)
+    val result = TwilioClient.send(config)(composedSMS)
 
     result shouldBe Left(APIGatewayBadRequest(ErrorCode.SMSGatewayError))
   }

@@ -2,7 +2,6 @@ package com.ovoenergy.delivery.service.service
 
 import com.ovoenergy.comms.model.Gateway.Twilio
 import com.ovoenergy.comms.model.{Channel, ComposedSMS, ErrorCode, IssuedForDelivery}
-import com.ovoenergy.delivery.service.domain.{APIGatewayAuthenticationError, APIGatewayBadRequest}
 import com.ovoenergy.delivery.service.service.helpers.KafkaTesting
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.mockserver.client.server.MockServerClient
@@ -14,7 +13,6 @@ import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
-import scala.concurrent.duration._
 import scala.io.Source
 
 //implicits

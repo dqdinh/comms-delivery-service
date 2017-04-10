@@ -4,31 +4,25 @@ import java.io.ByteArrayOutputStream
 import java.net.URLDecoder
 import java.time._
 import java.time.format.DateTimeFormatter
-import java.util.UUID
 
 import akka.Done
 import com.ovoenergy.comms.model.Channel.Email
-import com.ovoenergy.comms.model.EmailStatus.Queued
 import com.ovoenergy.comms.model.ErrorCode.EmailGatewayError
-import com.ovoenergy.comms.model.Gateway.Mailgun
 import com.ovoenergy.comms.model.{Metadata, _}
 import com.ovoenergy.delivery.service.domain._
-import com.ovoenergy.delivery.service.email._
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient.CustomFormData
 import com.ovoenergy.delivery.service.util.{ArbGenerator, Retry}
 import com.ovoenergy.delivery.service.util.Retry.RetryConfig
-import com.sksamuel.avro4s.AvroDoc
 import eu.timepit.refined._
 import eu.timepit.refined.numeric.Positive
 import io.circe.generic.extras.semiauto._
 import io.circe.parser._
 import io.circe.generic.auto._
-import io.circe.{Decoder, Error}
+import io.circe.Decoder
 import okhttp3._
 import okio.Okio
 import org.scalacheck.Shapeless._
 import org.scalacheck._
-import org.scalatest.prop._
 import org.scalatest.{Failed => _, _}
 
 import scala.util.Try
@@ -47,10 +41,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
   val gatewayId       = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
 
-  val progressed    = generate[EmailProgressed]
-  val failed        = generate[Failed]
   val composedEmail = generate[ComposedEmail]
-  val uUID          = generate[UUID]
   val emailSentRes  = generate[Done]
   val deliveryError = generate[DeliveryError]
 

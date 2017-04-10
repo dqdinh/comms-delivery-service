@@ -26,16 +26,22 @@ object DeliveryServiceGraph extends LoggingWithMDC {
                                 retryConfig: RetryConfig,
                                 consumerTopic: String,
                                 sendFailedEvent: (T, DeliveryError) => Future[_],
-                                sendCommProgressedEvent: (T, GatewayComm) => Future[_],
                                 sendIssuedToGatewayEvent: (T, GatewayComm) => Future[_])(
       implicit actorSystem: ActorSystem,
       materializer: Materializer,
       scheduler: Scheduler): RunnableGraph[Consumer.Control] = {
 
-    def sendWithRetry[A](future: Future[A], composedEvent: T, eventErrorDescription: String)(
+    def sendWithRetry[A](future: Future[A], composedEvent: T, errorDescription: String)(
         implicit scheduler: Scheduler) = {
-      Retry.retryAsync(retryConfig, e => logWarn(composedEvent.metadata.traceToken, eventErrorDescription, e))(() =>
-        future)
+      val onFailure         = (e: Throwable) => logWarn(composedEvent.metadata.traceToken, errorDescription, e)
+      val futureWithRetries = Retry.retryAsync(retryConfig, onFailure)(() => future)
+
+      futureWithRetries recover {
+        case NonFatal(e) =>
+          logWarn(composedEvent.metadata.traceToken,
+                  s"$errorDescription even after retrying. Will give up and commit Kafka consumer offset.",
+                  e)
+      }
     }
 
     val decider: Supervision.Decider = {
@@ -50,22 +56,15 @@ object DeliveryServiceGraph extends LoggingWithMDC {
         .withGroupId(kafkaConfig.groupId)
 
     def success(composedEvent: T, gatewayComm: GatewayComm) = {
-      val futures = List(
-        sendIssuedToGatewayEvent(composedEvent, gatewayComm),
-        sendCommProgressedEvent(composedEvent, gatewayComm)
-      )
-      Future.sequence(futures).recover {
-        case NonFatal(e) =>
-          logWarn(composedEvent.metadata.traceToken,
-                  "Error raising events for a successful comm, offset will be committed",
-                  e)
-      }
+      sendWithRetry(sendIssuedToGatewayEvent(composedEvent, gatewayComm),
+                    composedEvent,
+                    "Error raising IssuedForDelivery event for a successful comm")
     }
 
     def failure(composedEvent: T, deliveryError: DeliveryError) =
       sendWithRetry(sendFailedEvent(composedEvent, deliveryError),
                     composedEvent,
-                    "event for a failed comm, offset will be committed")
+                    "Error raising Failed event for a failed comm")
 
     def consumerRecordToString(consumerRecord: ConsumerRecord[String, Option[T]]) = {
       s"""
