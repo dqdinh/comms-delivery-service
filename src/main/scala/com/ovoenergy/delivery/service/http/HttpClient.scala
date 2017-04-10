@@ -1,5 +1,8 @@
 package com.ovoenergy.delivery.service.http
 
+import com.ovoenergy.comms.model.Channel
+import com.ovoenergy.delivery.service.domain.DeliveryError
+import io.circe.Decoder
 import okhttp3._
 
 import scala.util.Try

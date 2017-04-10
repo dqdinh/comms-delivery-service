@@ -1,84 +1,64 @@
-package com.ovoenergy.delivery.service
+package com.ovoenergy.delivery.service.service
 
-import cakesolutions.kafka.KafkaConsumer.{Conf => KafkaConsumerConf}
-import cakesolutions.kafka.KafkaProducer.{Conf => KafkaProducerConf}
-import cakesolutions.kafka.{KafkaConsumer, KafkaProducer}
-import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.EmailStatus.Queued
-import com.ovoenergy.comms.serialisation.Serialisation._
+import com.ovoenergy.comms.model.ErrorCode.EmailGatewayError
+import com.ovoenergy.comms.model.Gateway.Mailgun
+import com.ovoenergy.comms.model._
+import com.ovoenergy.delivery.service.service.helpers.KafkaTesting
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.apache.kafka.common.TopicPartition
-import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.mockserver.client.server.MockServerClient
-import org.mockserver.model.HttpRequest.request
-import com.ovoenergy.comms.serialisation.Serialisation._
-import com.ovoenergy.comms.serialisation.Decoders._
-import io.circe.generic.auto._
 import org.mockserver.matchers.Times
+import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse.response
-import org.scalacheck.Shapeless._
 import org.scalacheck.Arbitrary
-import org.scalatest.{Failed => _, _}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
-
+import org.scalatest.{Failed => _, _}
 import scala.collection.JavaConverters._
-import scala.util.Random
-import scala.util.control.NonFatal
 
-class ServiceTestIT
+//Implicits
+import io.circe.generic.auto._
+import org.scalacheck.Shapeless._
+
+class EmailServiceTestIT
     extends FlatSpec
     with Matchers
     with GeneratorDrivenPropertyChecks
     with ScalaFutures
-    with OneInstancePerTest {
+    with KafkaTesting
+    with BeforeAndAfterAll {
 
   object DockerComposeTag extends Tag("DockerComposeTag")
 
   implicit val config: PatienceConfig = PatienceConfig(Span(60, Seconds))
 
-  val kafkaHosts     = "localhost:29092"
-  val zookeeperHosts = "localhost:32181"
-
-  val consumerGroup = Random.nextString(10)
-  val composedEmailProducer = KafkaProducer(
-    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedEmail], kafkaHosts))
-  val commFailedConsumer = KafkaConsumer(
-    KafkaConsumerConf(new StringDeserializer, avroDeserializer[Failed], kafkaHosts, consumerGroup))
-  val emailProgressedConsumer = KafkaConsumer(
-    KafkaConsumerConf(new StringDeserializer, avroDeserializer[EmailProgressed], kafkaHosts, consumerGroup))
-  val issuedForDeliveryConsumer = KafkaConsumer(
-    KafkaConsumerConf(new StringDeserializer, avroDeserializer[IssuedForDelivery], kafkaHosts, consumerGroup))
-
-  val failedTopic            = "comms.failed"
-  val composedEmailTopic     = "comms.composed.email"
-  val emailProgressedTopic   = "comms.progressed.email"
-  val issuedForDeliveryTopic = "comms.issued.for.delivery"
-
   val mockServerClient = new MockServerClient("localhost", 1080)
 
-  behavior of "producer"
+  override def beforeAll() = {
+    createTopicsAndSubscribe()
+  }
+
+  behavior of "Email Delivery"
 
   it should "create Failed event when authentication fails with Mailgun" taggedAs DockerComposeTag in {
-    createTopicsAndSubscribe()
     create401MailgunResponse()
 
     val composedEmailEvent = arbitraryComposedEmailEvent
     val future =
       composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
-      val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
+      val failedEvents =
+        pollForEvents[Failed](noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
       failedEvents.size shouldBe 1
-      failedEvents.foreach(record => {
-        val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
-        failed.reason shouldBe "Error authenticating with the Email Gateway"
+      failedEvents.foreach(failed => {
+        failed.reason shouldBe "Error authenticating with the Gateway"
+        failed.errorCode shouldBe EmailGatewayError
       })
     }
   }
 
   it should "create Failed event when get bad request from Mailgun" taggedAs DockerComposeTag in {
-    createTopicsAndSubscribe()
     create400MailgunResponse()
 
     val composedEmailEvent = arbitraryComposedEmailEvent
@@ -89,39 +69,37 @@ class ServiceTestIT
       failedEvents.size shouldBe 1
       failedEvents.foreach(record => {
         val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
-        failed.reason shouldBe "The Email Gateway did not like our request"
+        failed.reason shouldBe "The Gateway did not like our request"
         failed.errorCode shouldBe ErrorCode.EmailGatewayError
       })
     }
   }
 
   it should "create events when get OK from Mailgun" taggedAs DockerComposeTag in {
-    createTopicsAndSubscribe()
     createOKMailgunResponse()
 
     val composedEmailEvent = arbitraryComposedEmailEvent
     val future =
       composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
-      val emailProgressedEvents = emailProgressedConsumer.poll(30000).records(emailProgressedTopic).asScala.toList
-      val issuedForDeliveryEvents =
-        issuedForDeliveryConsumer.poll(30000).records(issuedForDeliveryTopic).asScala.toList
+      val emailProgressedEvents = pollForEvents[EmailProgressed](noOfEventsExpected = 1,
+                                                                 consumer = emailProgressedConsumer,
+                                                                 topic = emailProgressedTopic)
+      val issuedForDeliveryEvents = pollForEvents[IssuedForDelivery](noOfEventsExpected = 1,
+                                                                     consumer = issuedForDeliveryConsumer,
+                                                                     topic = issuedForDeliveryTopic)
 
-      emailProgressedEvents.size shouldBe 1
-      emailProgressedEvents.foreach(record => {
-        val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
+      emailProgressedEvents.foreach(emailProgressed => {
         emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
-        emailProgressed.gateway shouldBe Gateway.Mailgun
+        emailProgressed.gateway shouldBe Mailgun
         emailProgressed.status shouldBe Queued
         emailProgressed.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         emailProgressed.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
       })
 
-      issuedForDeliveryEvents.size shouldBe 1
-      issuedForDeliveryEvents.foreach(record => {
-        val issuedForDelivery = record.value().getOrElse(fail("No record for ${record.key()}"))
+      issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
-        issuedForDelivery.gateway shouldBe Gateway.Mailgun
+        issuedForDelivery.gateway shouldBe Mailgun
         issuedForDelivery.channel shouldBe Channel.Email
         issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
@@ -130,7 +108,6 @@ class ServiceTestIT
   }
 
   it should "retry when Mailgun returns an error response" taggedAs DockerComposeTag in {
-    createTopicsAndSubscribe()
     createFlakyMailgunResponse()
 
     val composedEmailEvent = arbitraryComposedEmailEvent
@@ -143,55 +120,22 @@ class ServiceTestIT
 
       emailProgressedEvents.size shouldBe 1
       emailProgressedEvents.foreach(record => {
-        val emailProgressed = record.value().getOrElse(fail("No record for ${record.key()}"))
+        val emailProgressed = record.value().getOrElse(fail(s"No record for ${record.key()}"))
         emailProgressed.gatewayMessageId shouldBe Some("ABCDEFGHIJKL1234")
-        emailProgressed.gateway shouldBe Gateway.Mailgun
+        emailProgressed.gateway shouldBe Mailgun
         emailProgressed.status shouldBe Queued
       })
 
       issuedForDeliveryEvents.size shouldBe 1
       issuedForDeliveryEvents.foreach(record => {
-        val issuedForDelivery = record.value().getOrElse(fail("No record for ${record.key()}"))
+        val issuedForDelivery = record.value().getOrElse(fail(s"No record for ${record.key()}"))
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
-        issuedForDelivery.gateway shouldBe Gateway.Mailgun
+        issuedForDelivery.gateway shouldBe Mailgun
         issuedForDelivery.channel shouldBe Channel.Email
         issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
       })
     }
-  }
-
-  def createTopicsAndSubscribe() {
-    import _root_.kafka.admin.AdminUtils
-    import _root_.kafka.utils.ZkUtils
-
-    import scala.concurrent.duration._
-
-    val zkUtils = ZkUtils(zookeeperHosts, 30000, 5000, isZkSecurityEnabled = false)
-
-    //Wait until kafka calls are not erroring and the service has created the composedEmailTopic
-    val timeout    = 10.seconds.fromNow
-    var notStarted = true
-    while (timeout.hasTimeLeft && notStarted) {
-      try {
-        notStarted = !AdminUtils.topicExists(zkUtils, composedEmailTopic)
-      } catch {
-        case NonFatal(ex) => Thread.sleep(100)
-      }
-    }
-    Thread.sleep(3000L)
-    if (notStarted) fail("Services did not start within 10 seconds")
-
-    if (!AdminUtils.topicExists(zkUtils, failedTopic)) AdminUtils.createTopic(zkUtils, failedTopic, 1, 1)
-    if (!AdminUtils.topicExists(zkUtils, emailProgressedTopic))
-      AdminUtils.createTopic(zkUtils, emailProgressedTopic, 1, 1)
-    if (!AdminUtils.topicExists(zkUtils, issuedForDeliveryTopic))
-      AdminUtils.createTopic(zkUtils, issuedForDeliveryTopic, 1, 1)
-    commFailedConsumer.assign(Seq(new TopicPartition(failedTopic, 0)).asJava)
-    emailProgressedConsumer.assign(Seq(new TopicPartition(emailProgressedTopic, 0)).asJava)
-    issuedForDeliveryConsumer.assign(Seq(new TopicPartition(issuedForDeliveryTopic, 0)).asJava)
-    emailProgressedConsumer.poll(10000).records(emailProgressedTopic)
-    issuedForDeliveryConsumer.poll(10000).records(issuedForDeliveryTopic)
   }
 
   def create401MailgunResponse() {

@@ -5,6 +5,7 @@ import java.time.{Clock, OffsetDateTime}
 
 import cats.syntax.either._
 import com.ovoenergy.comms.model.Channel.Email
+import com.ovoenergy.comms.model.Gateway.Mailgun
 import com.ovoenergy.comms.model._
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
@@ -58,7 +59,7 @@ object MailgunClient extends LoggingWithMDC {
           case Success(response) => mapResponseToEither(response, composedEmail, traceToken)
           case Failure(ex) =>
             logError(traceToken, "Error sending email via Mailgun API", ex)
-            Left(ExceptionOccurred)
+            Left(ExceptionOccurred(ErrorCode.EmailGatewayError))
         }
       }
     result
@@ -117,18 +118,18 @@ object MailgunClient extends LoggingWithMDC {
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
         logError(traceToken,
                  s"Error sending email via Mailgun API, Mailgun API internal error: ${response.code} $message")
-        Left(APIGatewayInternalServerError)
+        Left(APIGatewayInternalServerError(ErrorCode.EmailGatewayError))
       case 401 =>
         logError(traceToken, "Error sending email via Mailgun API, authorization with Mailgun API failed")
-        Left(APIGatewayAuthenticationError)
+        Left(APIGatewayAuthenticationError(ErrorCode.EmailGatewayError))
       case 400 =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
         logError(traceToken, s"Error sending email via Mailgun API, Bad request $message")
-        Left(APIGatewayBadRequest)
+        Left(APIGatewayBadRequest(ErrorCode.EmailGatewayError))
       case _ =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
         logError(traceToken, s"Error sending email via Mailgun API, response code: ${response.code} $message")
-        Left(APIGatewayUnspecifiedError)
+        Left(APIGatewayUnspecifiedError(ErrorCode.EmailGatewayError))
     }
   }
 

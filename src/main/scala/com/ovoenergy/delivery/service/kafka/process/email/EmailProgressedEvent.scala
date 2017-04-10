@@ -1,7 +1,7 @@
 package com.ovoenergy.delivery.service.kafka.process.email
 
 import com.ovoenergy.comms.model.EmailStatus.Queued
-import com.ovoenergy.comms.model.{EmailProgressed, Metadata}
+import com.ovoenergy.comms.model.{EmailProgressed, Gateway, Metadata, SMSProgressed}
 import com.ovoenergy.comms.types.ComposedEvent
 import com.ovoenergy.delivery.service.domain.GatewayComm
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC

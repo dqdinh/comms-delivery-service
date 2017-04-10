@@ -11,25 +11,25 @@ package object domain {
     def errorCode: ErrorCode
   }
 
-  case object APIGatewayAuthenticationError extends DeliveryError {
-    val description = "Error authenticating with the Email Gateway"
-    val errorCode   = ErrorCode.EmailGatewayError
+  case class APIGatewayAuthenticationError(error: ErrorCode) extends DeliveryError {
+    val description = "Error authenticating with the Gateway"
+    val errorCode   = error
   }
-  case object APIGatewayInternalServerError extends DeliveryError {
-    val description = "The Email Gateway had an error"
-    val errorCode   = ErrorCode.EmailGatewayError
+  case class APIGatewayInternalServerError(error: ErrorCode) extends DeliveryError {
+    val description = "The Gateway had an error"
+    val errorCode   = error
   }
-  case object APIGatewayBadRequest extends DeliveryError {
-    val description = "The Email Gateway did not like our request"
-    val errorCode   = ErrorCode.EmailGatewayError
+  case class APIGatewayBadRequest(error: ErrorCode) extends DeliveryError {
+    val description = "The Gateway did not like our request"
+    val errorCode   = error
   }
-  case object APIGatewayUnspecifiedError extends DeliveryError {
-    val description = "An unexpected response was received from the Email Gateway"
-    val errorCode   = ErrorCode.EmailGatewayError
+  case class APIGatewayUnspecifiedError(error: ErrorCode) extends DeliveryError {
+    val description = "An unexpected response was received from the Gateway"
+    val errorCode   = error
   }
-  case object ExceptionOccurred extends DeliveryError {
-    val description = "An error occurred in our service trying to send the email"
-    val errorCode   = ErrorCode.EmailGatewayError
+  case class ExceptionOccurred(error: ErrorCode) extends DeliveryError {
+    val description = "An error occurred in our service trying to send the comm"
+    val errorCode   = error
   }
   case class EmailAddressBlacklisted(emailAddress: String) extends DeliveryError {
     val description = s"Email addressed was blacklisted: $emailAddress"

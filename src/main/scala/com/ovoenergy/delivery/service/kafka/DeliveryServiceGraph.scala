@@ -34,8 +34,7 @@ object DeliveryServiceGraph extends LoggingWithMDC {
 
     def sendWithRetry[A](future: Future[A], composedEvent: T, eventErrorDescription: String)(
         implicit scheduler: Scheduler) = {
-      Retry.retryAsync(retryConfig,
-                       e => logWarn(composedEvent.metadata.traceToken, eventErrorDescription, e))(() =>
+      Retry.retryAsync(retryConfig, e => logWarn(composedEvent.metadata.traceToken, eventErrorDescription, e))(() =>
         future)
     }
 
@@ -52,20 +51,21 @@ object DeliveryServiceGraph extends LoggingWithMDC {
 
     def success(composedEvent: T, gatewayComm: GatewayComm) = {
       val futures = List(
-        sendWithRetry(sendIssuedToGatewayEvent(composedEvent, gatewayComm), composedEvent, "Failed to send issued to gateway event, offset will be committed"),
-        sendWithRetry(sendCommProgressedEvent(composedEvent, gatewayComm), composedEvent, "Failed to send Comm progressed event, offset will be committed")
+        sendIssuedToGatewayEvent(composedEvent, gatewayComm),
+        sendCommProgressedEvent(composedEvent, gatewayComm)
       )
       Future.sequence(futures).recover {
         case NonFatal(e) =>
           logWarn(composedEvent.metadata.traceToken,
-          "Error raising events for a successful comm, offset will be committed",
-          e)
-        }
+                  "Error raising events for a successful comm, offset will be committed",
+                  e)
+      }
     }
 
     def failure(composedEvent: T, deliveryError: DeliveryError) =
-      sendWithRetry(sendFailedEvent(composedEvent, deliveryError), composedEvent, "event for a failed comm, offset will be committed")
-
+      sendWithRetry(sendFailedEvent(composedEvent, deliveryError),
+                    composedEvent,
+                    "event for a failed comm, offset will be committed")
 
     def consumerRecordToString(consumerRecord: ConsumerRecord[String, Option[T]]) = {
       s"""

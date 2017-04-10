@@ -9,11 +9,25 @@ object BlackWhiteList {
   case object NotWhitelisted extends Verdict
   case object Blacklisted    extends Verdict
 
-  def build(whitelist: Regex, blacklist: Seq[String]): String => Verdict = {
+  def buildFromRegex(whitelist: Regex, blacklist: Seq[String]): String => Verdict = {
     val blacklistSet = blacklist.toSet
 
     { recipient =>
       if (matches(whitelist, recipient)) {
+        if (blacklistSet.contains(recipient))
+          Blacklisted
+        else
+          OK
+      } else NotWhitelisted
+    }
+  }
+
+  def buildFromLists(whitelist: Seq[String], blacklist: Seq[String]): String => Verdict = {
+    val blacklistSet = blacklist.toSet
+    val whitelistSet = whitelist.toSet
+
+    { recipient =>
+      if (whitelistSet.contains(recipient) || whitelistSet.isEmpty) {
         if (blacklistSet.contains(recipient))
           Blacklisted
         else

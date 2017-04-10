@@ -16,6 +16,10 @@ trait LoggingWithMDC {
     log(traceToken, () => log.info(message))
   }
 
+  def logInfo(traceToken: String, message: String, exception: Throwable): Unit = {
+    log(traceToken, () => log.info(message, exception))
+  }
+
   def logWarn(traceToken: String, message: String): Unit = {
     log(traceToken, () => log.warn(message))
   }

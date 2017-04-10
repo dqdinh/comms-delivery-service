@@ -1,0 +1,24 @@
+{
+  "sid": "1234567890",
+  "date_created": "Wed, 05 Apr 2017 15:54:02 +0000",
+  "date_updated": "Wed, 05 Apr 2017 15:54:02 +0000",
+  "date_sent": null,
+  "account_sid": "123456789012345678",
+  "to": "+44123456789",
+  "from": null,
+  "messaging_service_sid": "98765432",
+  "body": "Some test message",
+  "status": "accepted",
+  "num_segments": "0",
+  "num_media": "0",
+  "direction": "outbound-api",
+  "api_version": "2010-04-01",
+  "price": null,
+  "price_unit": null,
+  "error_code": null,
+  "error_message": null,
+  "uri": "/2010-04-01/Accounts/123456789012345678/Messages/SM3e0e826c7f784597a0ec27c5c24195a2.json",
+  "subresource_uris": {
+    "media": "/2010-04-01/Accounts/AC9c107fac2a66381ed455366870c7508f/Messages/1234567890/Media.json"
+  }
+}

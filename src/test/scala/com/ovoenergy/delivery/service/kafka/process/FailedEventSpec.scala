@@ -3,8 +3,9 @@ package com.ovoenergy.delivery.service.kafka.process
 import java.time.Clock
 import java.util.UUID
 
+import com.ovoenergy.comms.model.ErrorCode._
 import com.ovoenergy.comms.model.{ComposedEmail, Failed}
-import com.ovoenergy.delivery.service.domain.APIGatewayUnspecifiedError
+import com.ovoenergy.delivery.service.domain._
 import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.TopicPartition
 import org.scalacheck.Arbitrary
@@ -35,11 +36,11 @@ class FailedEventSpec extends FlatSpec with Matchers with GeneratorDrivenPropert
   }
 
   "FailedEvent" should "process failed email" in {
-    FailedEvent.send(publishEvent)(composedEmail, APIGatewayUnspecifiedError)
+    FailedEvent.send(publishEvent)(composedEmail, APIGatewayUnspecifiedError(EmailGatewayError))
     failedEventPublished.get.metadata.traceToken shouldBe composedEmail.metadata.traceToken
     failedEventPublished.get.metadata.source shouldBe "delivery-service"
-    failedEventPublished.get.errorCode shouldBe APIGatewayUnspecifiedError.errorCode
-    failedEventPublished.get.reason shouldBe APIGatewayUnspecifiedError.description
+    failedEventPublished.get.errorCode shouldBe APIGatewayUnspecifiedError(EmailGatewayError).errorCode
+    failedEventPublished.get.reason shouldBe APIGatewayUnspecifiedError(EmailGatewayError).description
     failedEventPublished.get.internalMetadata shouldBe composedEmail.internalMetadata
   }
 
