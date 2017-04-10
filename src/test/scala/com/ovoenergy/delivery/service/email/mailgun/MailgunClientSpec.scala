@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream
 import java.net.URLDecoder
 import java.time._
 import java.time.format.DateTimeFormatter
-import java.util.UUID
 
 import akka.Done
 import com.ovoenergy.comms.model.Channel.Email
@@ -43,7 +42,6 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
 
   val composedEmail = generate[ComposedEmail]
-  val uUID          = generate[UUID]
   val emailSentRes  = generate[Done]
   val deliveryError = generate[DeliveryError]
 

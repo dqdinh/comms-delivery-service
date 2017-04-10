@@ -1,6 +1,6 @@
 package com.ovoenergy.delivery.service.util
 
-import java.time.{Instant, ZoneId, ZonedDateTime}
+import java.time.Instant
 import java.util.UUID
 
 import org.scalacheck.{Arbitrary, Gen}
@@ -10,9 +10,7 @@ import org.scalacheck.rng.Seed
 import scala.util.Random
 
 trait ArbGenerator {
-  implicit def arbUUID: Arbitrary[UUID] = Arbitrary {
-    UUID.randomUUID()
-  }
+
   implicit def arbInstant: Arbitrary[Instant] = Arbitrary {
     Instant.now().plusSeconds(Random.nextInt(5))
   }

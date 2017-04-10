@@ -1,14 +1,11 @@
 package com.ovoenergy.delivery.service.sms
 
 import java.time.Clock
-import java.util.UUID
 
 import com.ovoenergy.comms.model.ComposedSMS
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
-import org.scalacheck.Arbitrary
-import org.scalacheck._
 import org.scalacheck.Shapeless._
 import org.scalatest.{FlatSpec, Matchers}
 

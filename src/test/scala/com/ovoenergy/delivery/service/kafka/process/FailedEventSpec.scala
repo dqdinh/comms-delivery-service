@@ -1,11 +1,11 @@
 package com.ovoenergy.delivery.service.kafka.process
 
 import java.time.Clock
-import java.util.UUID
 
 import com.ovoenergy.comms.model.ErrorCode._
 import com.ovoenergy.comms.model.{ComposedEmail, Failed}
 import com.ovoenergy.delivery.service.domain._
+import com.ovoenergy.delivery.service.util.ArbGenerator
 import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.TopicPartition
 import org.scalacheck.Arbitrary
@@ -16,17 +16,9 @@ import org.scalatest.{FlatSpec, Matchers}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class FailedEventSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+class FailedEventSpec extends FlatSpec with Matchers with ArbGenerator with GeneratorDrivenPropertyChecks {
 
   private implicit val clock = Clock.systemUTC()
-
-  implicit def arbUUID: Arbitrary[UUID] = Arbitrary {
-    UUID.randomUUID()
-  }
-
-  private def generate[A](a: Arbitrary[A]) = {
-    a.arbitrary.sample.get
-  }
 
   private val composedEmail        = generate(implicitly[Arbitrary[ComposedEmail]])
   private var failedEventPublished = Option.empty[Failed]

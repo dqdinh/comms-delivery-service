@@ -1,6 +1,5 @@
 package com.ovoenergy.delivery.service.service
 
-import com.ovoenergy.comms.model.EmailStatus.Queued
 import com.ovoenergy.comms.model.ErrorCode.EmailGatewayError
 import com.ovoenergy.comms.model.Gateway.Mailgun
 import com.ovoenergy.comms.model._
