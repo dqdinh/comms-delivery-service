@@ -17,9 +17,9 @@ class IssueEmailSpec extends FlatSpec with Matchers with ArbGenerator with Gener
 
   private implicit val clock = Clock.systemUTC()
 
-  private val gatewayComm   = generate(implicitly[Arbitrary[GatewayComm]])
-  private val composedEmail = generate(implicitly[Arbitrary[ComposedEmail]])
-  private val deliveryError = generate(implicitly[Arbitrary[DeliveryError]])
+  private val gatewayComm   = generate[GatewayComm]
+  private val composedEmail = generate[ComposedEmail]
+  private val deliveryError = generate[DeliveryError]
 
   private val blackWhiteListOK      = (_: String) => BlackWhiteList.OK
   private val successfullySendEmail = (_: ComposedEmail) => Right(gatewayComm)

@@ -19,8 +19,8 @@ class IssuedForDeliveryEventSpec extends FlatSpec with Matchers with ArbGenerato
 
   private implicit val clock = Clock.systemUTC()
 
-  private val gatewayComm                     = generate(implicitly[Arbitrary[GatewayComm]])
-  private val composedEmail                   = generate(implicitly[Arbitrary[ComposedEmail]])
+  private val gatewayComm                     = generate[GatewayComm]
+  private val composedEmail                   = generate[ComposedEmail]
   private var issuedForDeliveryEventPublished = Option.empty[IssuedForDelivery]
   private val publishEvent = (issuedForDelivery: IssuedForDelivery) => {
     issuedForDeliveryEventPublished = Some(issuedForDelivery)

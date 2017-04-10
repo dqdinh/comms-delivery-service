@@ -20,7 +20,7 @@ class FailedEventSpec extends FlatSpec with Matchers with ArbGenerator with Gene
 
   private implicit val clock = Clock.systemUTC()
 
-  private val composedEmail        = generate(implicitly[Arbitrary[ComposedEmail]])
+  private val composedEmail        = generate[ComposedEmail]
   private var failedEventPublished = Option.empty[Failed]
   private val publishEvent = (failed: Failed) => {
     failedEventPublished = Some(failed)
