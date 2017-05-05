@@ -6,7 +6,7 @@ import java.time.{Clock, OffsetDateTime}
 import cats.syntax.either._
 import com.ovoenergy.comms.model.Channel.Email
 import com.ovoenergy.comms.model._
-import com.ovoenergy.comms.model.email.ComposedEmail
+import com.ovoenergy.comms.model.email.{ComposedEmail, ComposedEmailV2}
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
@@ -42,8 +42,7 @@ object MailgunClient extends LoggingWithMDC {
 
   implicit val encoder: Encoder[CommType] = deriveEnumerationEncoder[CommType]
 
-  def sendEmail(configuration: Configuration)(composedEmail: ComposedEmail): Either[DeliveryError, GatewayComm] = {
-    val traceToken     = composedEmail.metadata.traceToken
+  def sendEmail(configuration: Configuration)(composedEmail: ComposedEmailV2): Either[DeliveryError, GatewayComm] = {
     implicit val clock = configuration.clock
 
     val credentials = Credentials.basic("api", configuration.apiKey)
@@ -116,19 +115,19 @@ object MailgunClient extends LoggingWithMDC {
         )
       case InternalServerError() =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
-        logError(traceToken,
-                 s"Error sending email via Mailgun API, Mailgun API internal error: ${response.code} $message")
+        logWarn(traceToken,
+                s"Error sending email via Mailgun API, Mailgun API internal error: ${response.code} $message")
         Left(APIGatewayInternalServerError(ErrorCode.EmailGatewayError))
       case 401 =>
-        logError(traceToken, "Error sending email via Mailgun API, authorization with Mailgun API failed")
+        logWarn(traceToken, "Error sending email via Mailgun API, authorization with Mailgun API failed")
         Left(APIGatewayAuthenticationError(ErrorCode.EmailGatewayError))
       case 400 =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
-        logError(traceToken, s"Error sending email via Mailgun API, Bad request $message")
+        logWarn(traceToken, s"Error sending email via Mailgun API, Bad request $message")
         Left(APIGatewayBadRequest(ErrorCode.EmailGatewayError))
       case _ =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
-        logError(traceToken, s"Error sending email via Mailgun API, response code: ${response.code} $message")
+        logWarn(traceToken, s"Error sending email via Mailgun API, response code: ${response.code} $message")
         Left(APIGatewayUnspecifiedError(ErrorCode.EmailGatewayError))
     }
   }
