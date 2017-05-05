@@ -4,9 +4,9 @@ import cakesolutions.kafka.KafkaConsumer.{Conf => KafkaConsumerConf}
 import cakesolutions.kafka.KafkaProducer.{Conf => KafkaProducerConf}
 import cakesolutions.kafka.{KafkaConsumer, KafkaProducer}
 import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.email._
+import com.ovoenergy.comms.model.sms._
 import com.ovoenergy.comms.serialisation.Serialisation.{avroDeserializer, avroSerializer}
-import com.typesafe.config.Config
-import kafka.admin.AdminUtils
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.scalatest.Assertions

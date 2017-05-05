@@ -2,7 +2,7 @@ package com.ovoenergy.delivery.service.sms
 
 import java.time.Clock
 
-import com.ovoenergy.comms.model.ComposedSMS
+import com.ovoenergy.comms.model.sms.ComposedSMS
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import com.ovoenergy.delivery.service.validation.BlackWhiteList

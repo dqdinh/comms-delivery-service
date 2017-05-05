@@ -2,12 +2,12 @@ package com.ovoenergy.delivery.service.kafka.process
 
 import java.time.Clock
 
-import com.ovoenergy.comms.model.{ComposedEmail, IssuedForDelivery}
+import com.ovoenergy.comms.model.IssuedForDelivery
+import com.ovoenergy.comms.model.email.ComposedEmail
 import com.ovoenergy.delivery.service.domain.GatewayComm
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.TopicPartition
-import org.scalacheck.Arbitrary
 import org.scalacheck.Shapeless._
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}

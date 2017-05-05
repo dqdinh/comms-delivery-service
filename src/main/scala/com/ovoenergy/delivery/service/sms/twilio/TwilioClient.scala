@@ -2,17 +2,14 @@ package com.ovoenergy.delivery.service.sms.twilio
 
 import cats.syntax.either._
 import com.ovoenergy.comms.model.Channel.SMS
-import com.ovoenergy.comms.model.Gateway.Twilio
 import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.sms.ComposedSMS
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
-import com.ovoenergy.delivery.service.util.Retry.{Failed, RetryConfig, Succeeded}
 import io.circe.generic.auto._
-import io.circe.generic.extras.semiauto.deriveEnumerationEncoder
 import io.circe.parser._
-import io.circe.syntax._
-import io.circe.{Decoder, Encoder}
+import io.circe.Decoder
 import okhttp3.{Credentials, FormBody, Request, Response}
 
 import scala.util.{Failure, Success, Try}

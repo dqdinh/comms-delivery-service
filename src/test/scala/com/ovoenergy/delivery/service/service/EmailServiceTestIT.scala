@@ -1,8 +1,8 @@
 package com.ovoenergy.delivery.service.service
 
 import com.ovoenergy.comms.model.ErrorCode.EmailGatewayError
-import com.ovoenergy.comms.model.Gateway.Mailgun
 import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.email._
 import com.ovoenergy.delivery.service.service.helpers.KafkaTesting
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.mockserver.client.server.MockServerClient

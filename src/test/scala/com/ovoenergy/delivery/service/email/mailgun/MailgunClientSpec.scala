@@ -8,7 +8,8 @@ import java.time.format.DateTimeFormatter
 import akka.Done
 import com.ovoenergy.comms.model.Channel.Email
 import com.ovoenergy.comms.model.ErrorCode.EmailGatewayError
-import com.ovoenergy.comms.model.{Metadata, _}
+import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.email._
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient.CustomFormData
 import com.ovoenergy.delivery.service.util.{ArbGenerator, Retry}
@@ -22,7 +23,6 @@ import io.circe.Decoder
 import okhttp3._
 import okio.Okio
 import org.scalacheck.Shapeless._
-import org.scalacheck._
 import org.scalatest.{Failed => _, _}
 
 import scala.util.Try
@@ -73,7 +73,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
     MailgunClient.sendEmail(config)(composedNoText) match {
       case Right(gatewayComm) =>
         gatewayComm.id shouldBe gatewayId
-        gatewayComm.gateway shouldBe Gateway.Mailgun
+        gatewayComm.gateway shouldBe Mailgun
         gatewayComm.channel shouldBe Email
       case Left(_) => { println("FAILED!"); fail() }
     }

@@ -1,6 +1,6 @@
 package com.ovoenergy.delivery.service.email
 
-import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.email.ComposedEmail
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.validation.BlackWhiteList

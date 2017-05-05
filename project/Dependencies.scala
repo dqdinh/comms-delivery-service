@@ -15,7 +15,7 @@ object Dependencies {
     "me.moocar"                  % "logback-gelf"               % "0.2",
     "net.cakesolutions"          %% "scala-kafka-client"        % "0.10.0.0",
     "io.logz.logback"            % "logzio-logback-appender"    % "1.0.11",
-    "com.ovoenergy"              %% "comms-kafka-messages"      % "1.14",
+    "com.ovoenergy"              %% "comms-kafka-messages"      % "1.16",
     "com.ovoenergy"              %% "comms-kafka-serialisation" % "2.1",
     "org.typelevel"              %% "cats-core"                 % "0.9.0",
     "com.squareup.okhttp3"       % "okhttp"                     % "3.4.2",

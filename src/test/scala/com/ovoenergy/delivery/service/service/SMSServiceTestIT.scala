@@ -1,7 +1,7 @@
 package com.ovoenergy.delivery.service.service
 
-import com.ovoenergy.comms.model.Gateway.Twilio
-import com.ovoenergy.comms.model.{Channel, ComposedSMS, ErrorCode, IssuedForDelivery}
+import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.sms._
 import com.ovoenergy.delivery.service.service.helpers.KafkaTesting
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.mockserver.client.server.MockServerClient

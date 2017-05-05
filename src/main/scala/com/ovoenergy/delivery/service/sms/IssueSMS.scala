@@ -1,9 +1,10 @@
 package com.ovoenergy.delivery.service.sms
 
-import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.sms.ComposedSMS
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
+
 object IssueSMS extends LoggingWithMDC {
 
   def issue(checkBlackWhiteList: (String) => BlackWhiteList.Verdict,

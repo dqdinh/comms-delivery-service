@@ -2,11 +2,10 @@ package com.ovoenergy.delivery.service.email
 
 import java.time.Clock
 
-import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.email.ComposedEmail
 import com.ovoenergy.delivery.service.domain.{DeliveryError, EmailAddressBlacklisted, Expired, GatewayComm}
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
-import org.scalacheck._
 import org.scalacheck.Shapeless._
 import org.scalatest._
 import org.scalatest.prop._

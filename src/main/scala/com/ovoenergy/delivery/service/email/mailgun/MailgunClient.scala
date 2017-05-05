@@ -5,8 +5,8 @@ import java.time.{Clock, OffsetDateTime}
 
 import cats.syntax.either._
 import com.ovoenergy.comms.model.Channel.Email
-import com.ovoenergy.comms.model.Gateway.Mailgun
 import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.email.ComposedEmail
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
@@ -109,7 +109,7 @@ object MailgunClient extends LoggingWithMDC {
         logInfo(traceToken, s"Email issued to ${composedEmail.recipient}")
         Right(
           GatewayComm(
-            gateway = Gateway.Mailgun,
+            gateway = Mailgun,
             id = id,
             channel = Email
           )

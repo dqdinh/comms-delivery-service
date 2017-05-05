@@ -3,8 +3,8 @@ package com.ovoenergy.delivery.service.sms.twilio
 import java.io.ByteArrayOutputStream
 
 import com.ovoenergy.comms.model.Channel.SMS
-import com.ovoenergy.comms.model.Gateway.Twilio
 import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.sms._
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.util.{ArbGenerator, Retry}
 import com.ovoenergy.delivery.service.util.Retry.RetryConfig

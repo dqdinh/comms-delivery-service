@@ -7,7 +7,9 @@ import akka.actor.ActorSystem
 import akka.kafka.scaladsl.Consumer.Control
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.RunnableGraph
-import com.ovoenergy.comms.model.{ComposedEmail, ComposedSMS, _}
+import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.email.ComposedEmail
+import com.ovoenergy.comms.model.sms.ComposedSMS
 import com.ovoenergy.comms.serialisation.Decoders._
 import com.ovoenergy.comms.serialisation.Serialisation._
 import com.ovoenergy.delivery.service.email.IssueEmail
