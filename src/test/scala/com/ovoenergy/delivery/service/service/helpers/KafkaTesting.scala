@@ -38,10 +38,20 @@ trait KafkaTesting extends Assertions {
   val issuedForDeliveryConsumer = KafkaConsumer(
     KafkaConsumerConf(new StringDeserializer, avroDeserializer[IssuedForDeliveryV2], kafkaHosts, consumerGroup))
 
-  val failedTopic            = "comms.failed"
-  val composedEmailTopic     = "comms.composed.email"
-  val composedSMSTopic       = "comms.composed.sms"
-  val issuedForDeliveryTopic = "comms.issued.for.delivery"
+  val failedTopic            = "comms.failed.v2"
+  val composedEmailTopic     = "comms.composed.email.v2"
+  val composedSMSTopic       = "comms.composed.sms.v2"
+  val issuedForDeliveryTopic = "comms.issued.for.delivery.v2"
+
+  val composedEmailLegacyTopic = "comms.composed.email"
+  val composedSMSLegacyTopic   = "comms.composed.sms"
+
+  val topicsTheServiceWillCreate = List(
+    composedEmailTopic,
+    composedSMSTopic,
+    composedEmailLegacyTopic,
+    composedSMSLegacyTopic
+  )
 
   def createTopicsAndSubscribe() {
 
@@ -64,21 +74,19 @@ trait KafkaTesting extends Assertions {
     }
 
     //Wait until kafka calls are not erroring and the service has created the composedEmailTopic
-    val timeout    = 15.seconds.fromNow
+    val timeout    = 20.seconds.fromNow
     var notStarted = true
     while (timeout.hasTimeLeft && notStarted) {
       try {
-        notStarted = {
-          !AdminUtils.topicExists(zkUtils, composedEmailTopic) && !AdminUtils.topicExists(zkUtils, composedSMSTopic)
-        }
+        notStarted = !topicsTheServiceWillCreate.forall(topic => AdminUtils.topicExists(zkUtils, topic))
         createTopic(failedTopic, commFailedConsumer)
         createTopic(issuedForDeliveryTopic, issuedForDeliveryConsumer)
       } catch {
-        case NonFatal(ex) => Thread.sleep(100)
+        case NonFatal(_) => Thread.sleep(100)
       }
     }
 
-    if (notStarted) fail("Services did not start within 10 seconds")
+    if (notStarted) fail("Services did not start in time")
   }
 
   def pollForEvents[E](pollTime: FiniteDuration = 10000.millisecond,
