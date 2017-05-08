@@ -30,17 +30,13 @@ trait KafkaTesting extends Assertions {
 
   val consumerGroup = Random.nextString(10)
   val composedEmailProducer = KafkaProducer(
-    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedEmail], kafkaHosts))
+    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedEmailV2], kafkaHosts))
   val composedSMSProducer = KafkaProducer(
-    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedSMS], kafkaHosts))
+    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedSMSV2], kafkaHosts))
   val commFailedConsumer = KafkaConsumer(
-    KafkaConsumerConf(new StringDeserializer, avroDeserializer[Failed], kafkaHosts, consumerGroup))
-  val emailProgressedConsumer = KafkaConsumer(
-    KafkaConsumerConf(new StringDeserializer, avroDeserializer[EmailProgressed], kafkaHosts, consumerGroup))
-  val smsProgressedConsumer = KafkaConsumer(
-    KafkaConsumerConf(new StringDeserializer, avroDeserializer[SMSProgressed], kafkaHosts, consumerGroup))
+    KafkaConsumerConf(new StringDeserializer, avroDeserializer[FailedV2], kafkaHosts, consumerGroup))
   val issuedForDeliveryConsumer = KafkaConsumer(
-    KafkaConsumerConf(new StringDeserializer, avroDeserializer[IssuedForDelivery], kafkaHosts, consumerGroup))
+    KafkaConsumerConf(new StringDeserializer, avroDeserializer[IssuedForDeliveryV2], kafkaHosts, consumerGroup))
 
   val failedTopic            = "comms.failed"
   val composedEmailTopic     = "comms.composed.email"

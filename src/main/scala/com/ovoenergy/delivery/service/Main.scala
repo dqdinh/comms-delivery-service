@@ -8,8 +8,8 @@ import akka.kafka.scaladsl.Consumer.Control
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.RunnableGraph
 import com.ovoenergy.comms.model._
-import com.ovoenergy.comms.model.email.ComposedEmail
-import com.ovoenergy.comms.model.sms.ComposedSMS
+import com.ovoenergy.comms.model.email.{ComposedEmail, ComposedEmailV2}
+import com.ovoenergy.comms.model.sms.{ComposedSMS, ComposedSMSV2}
 import com.ovoenergy.comms.serialisation.Decoders._
 import com.ovoenergy.comms.serialisation.Serialisation._
 import com.ovoenergy.delivery.service.email.IssueEmail
@@ -114,11 +114,11 @@ object Main extends App with LoggingWithMDC {
   )
   implicit val scheduler = actorSystem.scheduler
 
-  val failedPublisher            = Publisher.publishEvent[Failed](failedTopic) _
-  val issuedForDeliveryPublisher = Publisher.publishEvent[IssuedForDelivery](issuedForDeliveryTopic) _
+  val failedPublisher            = Publisher.publishEvent[FailedV2](failedTopic) _
+  val issuedForDeliveryPublisher = Publisher.publishEvent[IssuedForDeliveryV2](issuedForDeliveryTopic) _
 
-  val emailGraph = DeliveryServiceGraph[ComposedEmail](
-    consumerDeserializer = avroDeserializer[ComposedEmail],
+  val emailGraph = DeliveryServiceGraph[ComposedEmailV2](
+    consumerDeserializer = avroDeserializer[ComposedEmailV2],
     issueComm = IssueEmail.issue(
       checkBlackWhiteList = BlackWhiteList.buildFromRegex(emailWhitelist, blackListedEmailAddresses),
       isExpired = ExpiryCheck.isExpired(clock),
@@ -127,12 +127,14 @@ object Main extends App with LoggingWithMDC {
     kafkaConfig = kafkaConfig,
     retryConfig = kafkaProducerRetryConfig,
     consumerTopic = composedEmailTopic,
-    sendFailedEvent = FailedEvent.send(failedPublisher),
-    sendIssuedToGatewayEvent = IssuedForDeliveryEvent.send(issuedForDeliveryPublisher)
+    sendFailedEvent = FailedEvent.email(failedPublisher),
+    sendIssuedToGatewayEvent = IssuedForDeliveryEvent.email(issuedForDeliveryPublisher)
   )
 
-  val smsGraph: RunnableGraph[Control] = DeliveryServiceGraph[ComposedSMS](
-    avroDeserializer[ComposedSMS],
+  // TODO legacy email graph
+
+  val smsGraph: RunnableGraph[Control] = DeliveryServiceGraph[ComposedSMSV2](
+    avroDeserializer[ComposedSMSV2],
     issueComm = IssueSMS.issue(
       checkBlackWhiteList = BlackWhiteList.buildFromLists(smsWhiteList, smsBlacklist),
       isExpired = ExpiryCheck.isExpired(clock),
@@ -141,9 +143,11 @@ object Main extends App with LoggingWithMDC {
     kafkaConfig = kafkaConfig,
     retryConfig = kafkaProducerRetryConfig,
     consumerTopic = composedSMSTopic,
-    sendFailedEvent = FailedEvent.send(failedPublisher),
-    sendIssuedToGatewayEvent = IssuedForDeliveryEvent.send(issuedForDeliveryPublisher)
+    sendFailedEvent = FailedEvent.sms(failedPublisher),
+    sendIssuedToGatewayEvent = IssuedForDeliveryEvent.sms(issuedForDeliveryPublisher)
   )
+
+  // TODO legacy SMS graph
 
   for (line <- Source.fromFile("./banner.txt").getLines) {
     println(line)

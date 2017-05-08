@@ -31,7 +31,7 @@ object MailgunClient extends LoggingWithMDC {
   )(implicit val clock: Clock)
 
   case class CustomFormData(createdAt: String,
-                            customerId: String,
+                            customerId: Option[String],
                             traceToken: String,
                             canary: Boolean,
                             commManifest: CommManifest,
@@ -55,9 +55,9 @@ object MailgunClient extends LoggingWithMDC {
     val result =
       Retry.retry[DeliveryError, GatewayComm](config = configuration.retryConfig, onFailure = _ => ()) { () =>
         configuration.httpClient(request) match {
-          case Success(response) => mapResponseToEither(response, composedEmail, traceToken)
+          case Success(response) => mapResponseToEither(response, composedEmail)
           case Failure(ex) =>
-            logError(traceToken, "Error sending email via Mailgun API", ex)
+            logError(composedEmail, "Error sending email via Mailgun API", ex)
             Left(ExceptionOccurred(ErrorCode.EmailGatewayError))
         }
       }
@@ -66,7 +66,7 @@ object MailgunClient extends LoggingWithMDC {
       .map(succeeded => succeeded.result)
   }
 
-  private def buildSendEmailForm(composedEmail: ComposedEmail)(implicit clock: Clock) = {
+  private def buildSendEmailForm(composedEmail: ComposedEmailV2)(implicit clock: Clock) = {
     val form = new FormBody.Builder()
       .add("from", composedEmail.sender)
       .add("to", composedEmail.recipient)
@@ -77,10 +77,10 @@ object MailgunClient extends LoggingWithMDC {
     composedEmail.textBody.fold(form.build())(textBody => form.add("text", textBody).build())
   }
 
-  private def buildCustomJson(composedEmail: ComposedEmail)(implicit clock: Clock): String = {
+  private def buildCustomJson(composedEmail: ComposedEmailV2)(implicit clock: Clock): String = {
     CustomFormData(
       createdAt = OffsetDateTime.now(clock).format(dtf),
-      customerId = composedEmail.metadata.customerId,
+      customerId = getCustomerId(composedEmail.metadata.deliverTo),
       traceToken = composedEmail.metadata.traceToken,
       canary = composedEmail.metadata.canary,
       commManifest = composedEmail.metadata.commManifest,
@@ -89,7 +89,11 @@ object MailgunClient extends LoggingWithMDC {
     ).asJson.noSpaces
   }
 
-  private def mapResponseToEither(response: Response, composedEmail: ComposedEmail, traceToken: String)(
+  // TODO use the helper method in comms-kafka-messages when it is released
+  private def getCustomerId(deliverTo: DeliverTo): Option[String] =
+    deliverTo.value.select[CustomerId].map(_.customerId)
+
+  private def mapResponseToEither(response: Response, composedEmail: ComposedEmailV2)(
       implicit clock: Clock): Either[DeliveryError, GatewayComm] = {
     case class SendEmailSuccessResponse(id: String, message: String)
     case class SendEmailFailureResponse(message: String)
@@ -105,7 +109,7 @@ object MailgunClient extends LoggingWithMDC {
     response.code match {
       case Success() =>
         val id = parseResponse[SendEmailSuccessResponse](responseBody).map(_.id).getOrElse("unknown id")
-        logInfo(traceToken, s"Email issued to ${composedEmail.recipient}")
+        logInfo(composedEmail, s"Email issued to ${composedEmail.recipient}")
         Right(
           GatewayComm(
             gateway = Mailgun,
@@ -115,19 +119,19 @@ object MailgunClient extends LoggingWithMDC {
         )
       case InternalServerError() =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
-        logWarn(traceToken,
+        logWarn(composedEmail,
                 s"Error sending email via Mailgun API, Mailgun API internal error: ${response.code} $message")
         Left(APIGatewayInternalServerError(ErrorCode.EmailGatewayError))
       case 401 =>
-        logWarn(traceToken, "Error sending email via Mailgun API, authorization with Mailgun API failed")
+        logWarn(composedEmail, "Error sending email via Mailgun API, authorization with Mailgun API failed")
         Left(APIGatewayAuthenticationError(ErrorCode.EmailGatewayError))
       case 400 =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
-        logWarn(traceToken, s"Error sending email via Mailgun API, Bad request $message")
+        logWarn(composedEmail, s"Error sending email via Mailgun API, Bad request $message")
         Left(APIGatewayBadRequest(ErrorCode.EmailGatewayError))
       case _ =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
-        logWarn(traceToken, s"Error sending email via Mailgun API, response code: ${response.code} $message")
+        logWarn(composedEmail, s"Error sending email via Mailgun API, response code: ${response.code} $message")
         Left(APIGatewayUnspecifiedError(ErrorCode.EmailGatewayError))
     }
   }

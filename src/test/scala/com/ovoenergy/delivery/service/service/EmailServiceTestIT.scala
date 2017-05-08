@@ -45,10 +45,10 @@ class EmailServiceTestIT
 
     val composedEmailEvent = arbitraryComposedEmailEvent
     val future =
-      composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+      composedEmailProducer.send(new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
       val failedEvents =
-        pollForEvents[Failed](noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
+        pollForEvents[FailedV2](noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
       failedEvents.size shouldBe 1
       failedEvents.foreach(failed => {
         failed.reason shouldBe "Error authenticating with the Gateway"
@@ -62,7 +62,7 @@ class EmailServiceTestIT
 
     val composedEmailEvent = arbitraryComposedEmailEvent
     val future =
-      composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+      composedEmailProducer.send(new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
       val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
       failedEvents.size shouldBe 1
@@ -79,11 +79,11 @@ class EmailServiceTestIT
 
     val composedEmailEvent = arbitraryComposedEmailEvent
     val future =
-      composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+      composedEmailProducer.send(new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
-      val issuedForDeliveryEvents = pollForEvents[IssuedForDelivery](noOfEventsExpected = 1,
-                                                                     consumer = issuedForDeliveryConsumer,
-                                                                     topic = issuedForDeliveryTopic)
+      val issuedForDeliveryEvents = pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
+                                                                       consumer = issuedForDeliveryConsumer,
+                                                                       topic = issuedForDeliveryTopic)
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
@@ -100,11 +100,11 @@ class EmailServiceTestIT
 
     val composedEmailEvent = arbitraryComposedEmailEvent
     val future =
-      composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+      composedEmailProducer.send(new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
-      val issuedForDeliveryEvents = pollForEvents[IssuedForDelivery](noOfEventsExpected = 1,
-                                                                     consumer = issuedForDeliveryConsumer,
-                                                                     topic = issuedForDeliveryTopic)
+      val issuedForDeliveryEvents = pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
+                                                                       consumer = issuedForDeliveryConsumer,
+                                                                       topic = issuedForDeliveryTopic)
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
@@ -183,7 +183,7 @@ class EmailServiceTestIT
       )
   }
 
-  def arbitraryComposedEmailEvent: ComposedEmail =
+  def arbitraryComposedEmailEvent: ComposedEmailV2 =
     // Make sure the recipient email address is whitelisted
-    Arbitrary.arbitrary[ComposedEmail].sample.get.copy(recipient = "foo@ovoenergy.com")
+    Arbitrary.arbitrary[ComposedEmailV2].sample.get.copy(recipient = "foo@ovoenergy.com")
 }

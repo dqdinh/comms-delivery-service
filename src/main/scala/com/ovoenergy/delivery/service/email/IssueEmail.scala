@@ -10,8 +10,8 @@ object IssueEmail extends LoggingWithMDC {
 
   def issue(checkBlackWhiteList: (String) => BlackWhiteList.Verdict,
             isExpired: Option[String] => Boolean,
-            sendEmail: (ComposedEmail) => Either[DeliveryError, GatewayComm])(
-      composedEmail: ComposedEmailV2): Either[FailedV2, GatewayComm] = {
+            sendEmail: ComposedEmailV2 => Either[DeliveryError, GatewayComm])(
+      composedEmail: ComposedEmailV2): Either[DeliveryError, GatewayComm] = {
 
     def blackWhiteListCheck: Either[DeliveryError, Unit] = checkBlackWhiteList(composedEmail.recipient) match {
       case BlackWhiteList.OK =>
@@ -34,20 +34,11 @@ object IssueEmail extends LoggingWithMDC {
     }
 
     import cats.syntax.either._
-    val result = for {
+    for {
       _           <- blackWhiteListCheck
       _           <- expiryCheck
       gatewayComm <- sendEmail(composedEmail)
     } yield gatewayComm
-
-    result.leftMap { deliveryError =>
-      FailedV2(
-        metadata = MetadataV2.fromSourceMetadata("delivery-service", composedEmail.metadata),
-        internalMetadata = composedEmail.internalMetadata,
-        reason = deliveryError.description,
-        errorCode = deliveryError.errorCode
-      )
-    }
   }
 
 }

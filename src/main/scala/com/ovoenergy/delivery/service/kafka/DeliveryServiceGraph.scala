@@ -21,11 +21,11 @@ import scala.util.control.NonFatal
 object DeliveryServiceGraph extends LoggingWithMDC {
 
   def apply[T <: LoggableEvent](consumerDeserializer: Deserializer[Option[T]],
-                                issueComm: (T) => Either[FailedV2, GatewayComm],
+                                issueComm: (T) => Either[DeliveryError, GatewayComm],
                                 kafkaConfig: KafkaConfig,
                                 retryConfig: RetryConfig,
                                 consumerTopic: String,
-                                sendFailedEvent: FailedV2 => Future[_],
+                                sendFailedEvent: (T, DeliveryError) => Future[_],
                                 sendIssuedToGatewayEvent: (T, GatewayComm) => Future[_])(
       implicit actorSystem: ActorSystem,
       materializer: Materializer,
@@ -60,10 +60,11 @@ object DeliveryServiceGraph extends LoggingWithMDC {
                     "Error raising IssuedForDelivery event for a successful comm")
     }
 
-    def failure(composedEvent: T, failedEvent: FailedV2) = {
-      logWarn(composedEvent,
-              s"Unable to send comm. Error code: ${failedEvent.errorCode}, reason: ${failedEvent.reason}")
-      sendWithRetry(sendFailedEvent(failedEvent), composedEvent, "Error raising Failed event for a failed comm")
+    def failure(composedEvent: T, deliveryError: DeliveryError) = {
+      logWarn(composedEvent, s"Unable to send comm due to $deliveryError")
+      sendWithRetry(sendFailedEvent(composedEvent, deliveryError),
+                    composedEvent,
+                    "Error raising Failed event for a failed comm")
     }
 
     val source = Consumer
@@ -75,8 +76,8 @@ object DeliveryServiceGraph extends LoggingWithMDC {
             issueComm(composedEvent) match {
               case Right(gatewayComm) =>
                 success(composedEvent, gatewayComm)
-              case Left(failedEvent) =>
-                failure(composedEvent, failedEvent)
+              case Left(deliveryError) =>
+                failure(composedEvent, deliveryError)
             }
           case None =>
             log.error(s"Skipping event: $msg, failed to parse")

@@ -41,7 +41,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
   val gatewayId       = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
 
-  val composedEmail = generate[ComposedEmail]
+  val composedEmail = generate[ComposedEmailV2]
   val emailSentRes  = generate[Done]
   val deliveryError = generate[DeliveryError]
 
@@ -195,16 +195,6 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
     RetryConfig(refineMV[Positive](1), Retry.Backoff.retryImmediately)
   )
 
-  private def assertMetadata(metadata: Metadata): Unit = {
-    metadata.customerId shouldBe composedEmail.metadata.customerId
-    metadata.canary shouldBe composedEmail.metadata.canary
-    metadata.source shouldBe "delivery-service"
-    metadata.sourceMetadata.get shouldBe composedEmail.metadata
-    metadata.traceToken shouldBe composedEmail.metadata.traceToken
-    metadata.createdAt shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-    metadata.friendlyDescription shouldBe composedEmail.metadata.friendlyDescription
-  }
-
   private def assertFormData(out: ByteArrayOutputStream, textIncluded: Boolean) = {
     val formData = out.toString("UTF-8").split("&").map(formEntry => URLDecoder.decode(formEntry, "UTF-8"))
 
@@ -229,7 +219,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
         val commManifestRes = customJson.commManifest
 
         customJson.createdAt shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        customJson.customerId shouldBe composedEmail.metadata.customerId
+        customJson.customerId shouldBe composedEmail.metadata.deliverTo // TODO use helper method to extract customerId
         customJson.traceToken shouldBe composedEmail.metadata.traceToken
         customJson.canary shouldBe composedEmail.metadata.canary
         customJson.internalTraceToken shouldBe composedEmail.internalMetadata.internalTraceToken

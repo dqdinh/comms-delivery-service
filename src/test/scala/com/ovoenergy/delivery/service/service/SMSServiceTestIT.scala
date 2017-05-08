@@ -54,7 +54,7 @@ class SMSServiceTestIT
     createTwilioResponse(401, unauthenticatedResponse)
     val composedSMSEvent = arbitraryComposedSMSEvent
     val future =
-      composedSMSProducer.send(new ProducerRecord[String, ComposedSMS](composedSMSTopic, composedSMSEvent))
+      composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
     whenReady(future) { _ =>
       val failedEvents = pollForEvents(noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
       val failed       = failedEvents.head
@@ -67,7 +67,7 @@ class SMSServiceTestIT
     createTwilioResponse(400, badRequestResponse)
     val composedSMSEvent = arbitraryComposedSMSEvent
     val future =
-      composedSMSProducer.send(new ProducerRecord[String, ComposedSMS](composedSMSTopic, composedSMSEvent))
+      composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
     whenReady(future) { _ =>
       val failedEvents = pollForEvents(noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
 
@@ -82,13 +82,13 @@ class SMSServiceTestIT
     val composedSMSEvent = arbitraryComposedSMSEvent
 
     val future =
-      composedSMSProducer.send(new ProducerRecord[String, ComposedSMS](composedSMSTopic, composedSMSEvent))
+      composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
 
     whenReady(future) { _ =>
       val issuedForDeliveryEvents =
-        pollForEvents[IssuedForDelivery](noOfEventsExpected = 1,
-                                         consumer = issuedForDeliveryConsumer,
-                                         topic = issuedForDeliveryTopic)
+        pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
+                                           consumer = issuedForDeliveryConsumer,
+                                           topic = issuedForDeliveryTopic)
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
 
@@ -106,13 +106,13 @@ class SMSServiceTestIT
 
     val composedSMSEvent = arbitraryComposedSMSEvent
     val future =
-      composedSMSProducer.send(new ProducerRecord[String, ComposedSMS](composedSMSTopic, composedSMSEvent))
+      composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
 
     whenReady(future) { _ =>
       val issuedForDeliveryEvents =
-        pollForEvents[IssuedForDelivery](noOfEventsExpected = 1,
-                                         consumer = issuedForDeliveryConsumer,
-                                         topic = issuedForDeliveryTopic)
+        pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
+                                           consumer = issuedForDeliveryConsumer,
+                                           topic = issuedForDeliveryTopic)
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
 
@@ -164,8 +164,7 @@ class SMSServiceTestIT
       )
   }
 
-  def arbitraryComposedSMSEvent: ComposedSMS =
-    // Make sure the recipient email address is whitelisted
-    Arbitrary.arbitrary[ComposedSMS].sample.get
+  def arbitraryComposedSMSEvent: ComposedSMSV2 =
+    Arbitrary.arbitrary[ComposedSMSV2].sample.get
 
 }
