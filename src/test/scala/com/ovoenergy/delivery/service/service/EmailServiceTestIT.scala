@@ -116,6 +116,35 @@ class EmailServiceTestIT
     }
   }
 
+  it should "process events on the legacy Kafka topic" taggedAs DockerComposeTag in {
+    createOKMailgunResponse()
+
+    val composedEmailEvent = {
+      // Make sure the recipient email address is whitelisted and the createdAt date is valid
+      val arbEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
+      arbEvent
+        .copy(recipient = "foo@ovoenergy.com")
+        .copy(metadata = arbEvent.metadata.copy(createdAt = "2016-05-09T13:46:00Z"))
+    }
+
+    val future =
+      composedEmailLegacyProducer.send(
+        new ProducerRecord[String, ComposedEmail](composedEmailLegacyTopic, composedEmailEvent))
+    whenReady(future) { _ =>
+      val issuedForDeliveryEvents = pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
+                                                                       consumer = issuedForDeliveryConsumer,
+                                                                       topic = issuedForDeliveryTopic)
+
+      issuedForDeliveryEvents.foreach(issuedForDelivery => {
+        issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
+        issuedForDelivery.gateway shouldBe Mailgun
+        issuedForDelivery.channel shouldBe Channel.Email
+        issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
+        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
+      })
+    }
+  }
+
   def create401MailgunResponse() {
     mockServerClient.reset()
     mockServerClient

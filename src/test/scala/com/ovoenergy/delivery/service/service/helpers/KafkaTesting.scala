@@ -38,6 +38,11 @@ trait KafkaTesting extends Assertions {
   val issuedForDeliveryConsumer = KafkaConsumer(
     KafkaConsumerConf(new StringDeserializer, avroDeserializer[IssuedForDeliveryV2], kafkaHosts, consumerGroup))
 
+  val composedEmailLegacyProducer = KafkaProducer(
+    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedEmail], kafkaHosts))
+  val composedSMSLegacyProducer = KafkaProducer(
+    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedSMS], kafkaHosts))
+
   val failedTopic            = "comms.failed.v2"
   val composedEmailTopic     = "comms.composed.email.v2"
   val composedSMSTopic       = "comms.composed.sms.v2"
