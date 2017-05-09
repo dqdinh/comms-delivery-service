@@ -80,7 +80,7 @@ object MailgunClient extends LoggingWithMDC {
   private def buildCustomJson(composedEmail: ComposedEmailV2)(implicit clock: Clock): String = {
     CustomFormData(
       createdAt = OffsetDateTime.now(clock).format(dtf),
-      customerId = getCustomerId(composedEmail.metadata.deliverTo),
+      customerId = DeliverTo.getCustomerId(composedEmail.metadata.deliverTo).map(_.customerId),
       traceToken = composedEmail.metadata.traceToken,
       canary = composedEmail.metadata.canary,
       commManifest = composedEmail.metadata.commManifest,
@@ -88,10 +88,6 @@ object MailgunClient extends LoggingWithMDC {
       triggerSource = composedEmail.metadata.triggerSource
     ).asJson.noSpaces
   }
-
-  // TODO use the helper method in comms-kafka-messages when it is released
-  private def getCustomerId(deliverTo: DeliverTo): Option[String] =
-    deliverTo.value.select[CustomerId].map(_.customerId)
 
   private def mapResponseToEither(response: Response, composedEmail: ComposedEmailV2)(
       implicit clock: Clock): Either[DeliveryError, GatewayComm] = {

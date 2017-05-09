@@ -1,6 +1,7 @@
 package com.ovoenergy.delivery.service.sms
 
-import com.ovoenergy.comms.model.{FailedV2, MetadataV2}
+import java.time.Instant
+
 import com.ovoenergy.comms.model.sms.ComposedSMSV2
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
@@ -9,7 +10,7 @@ import com.ovoenergy.delivery.service.validation.BlackWhiteList
 object IssueSMS extends LoggingWithMDC {
 
   def issue(checkBlackWhiteList: (String) => BlackWhiteList.Verdict,
-            isExpired: Option[String] => Boolean,
+            isExpired: Option[Instant] => Boolean,
             sendSMS: ComposedSMSV2 => Either[DeliveryError, GatewayComm])(
       composedSMS: ComposedSMSV2): Either[DeliveryError, GatewayComm] = {
 

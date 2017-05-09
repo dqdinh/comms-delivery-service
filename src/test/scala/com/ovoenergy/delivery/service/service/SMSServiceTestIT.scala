@@ -3,20 +3,21 @@ package com.ovoenergy.delivery.service.service
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms._
 import com.ovoenergy.delivery.service.service.helpers.KafkaTesting
+import com.ovoenergy.delivery.service.util.ArbGenerator
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.matchers.Times
 import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse.response
-import org.scalacheck.Arbitrary
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
+
 import scala.io.Source
 
 //implicits
-import com.ovoenergy.comms.serialisation.Decoders._
+//import com.ovoenergy.comms.serialisation.Codecs._
 import io.circe.generic.auto._
 import org.scalacheck.Shapeless._
 
@@ -26,6 +27,7 @@ class SMSServiceTestIT
     with GeneratorDrivenPropertyChecks
     with ScalaFutures
     with KafkaTesting
+    with ArbGenerator
     with BeforeAndAfterAll {
 
   object DockerComposeTag extends Tag("DockerComposeTag")
@@ -52,7 +54,7 @@ class SMSServiceTestIT
 
   it should "create Failed event when authentication fails with Twilio" taggedAs DockerComposeTag in {
     createTwilioResponse(401, unauthenticatedResponse)
-    val composedSMSEvent = arbitraryComposedSMSEvent
+    val composedSMSEvent = generate[ComposedSMSV2]
     val future =
       composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
     whenReady(future) { _ =>
@@ -65,7 +67,7 @@ class SMSServiceTestIT
 
   it should "create Failed event when bad request from Twilio" taggedAs DockerComposeTag in {
     createTwilioResponse(400, badRequestResponse)
-    val composedSMSEvent = arbitraryComposedSMSEvent
+    val composedSMSEvent = generate[ComposedSMSV2]
     val future =
       composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
     whenReady(future) { _ =>
@@ -79,7 +81,7 @@ class SMSServiceTestIT
 
   it should "create issued for delivery events when get OK from Twilio" taggedAs DockerComposeTag in {
     createTwilioResponse(200, validResponse)
-    val composedSMSEvent = arbitraryComposedSMSEvent
+    val composedSMSEvent = generate[ComposedSMSV2]
 
     val future =
       composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
@@ -104,7 +106,7 @@ class SMSServiceTestIT
   it should "retry when Twilio returns an error response" taggedAs DockerComposeTag in {
     createFlakyTwilioResponse()
 
-    val composedSMSEvent = arbitraryComposedSMSEvent
+    val composedSMSEvent = generate[ComposedSMSV2]
     val future =
       composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
 
@@ -127,11 +129,10 @@ class SMSServiceTestIT
 
   it should "process events on the legacy Kafka topic" taggedAs DockerComposeTag in {
     createTwilioResponse(200, validResponse)
-    val composedSMSEvent = {
-      // Make sure the createdAt date is valid
-      val arbEvent = Arbitrary.arbitrary[ComposedSMS].sample.get
-      arbEvent.copy(metadata = arbEvent.metadata.copy(createdAt = "2016-05-09T13:46:00Z"))
-    }
+    // Make sure all dates are valid
+    val composedSMSEvent = generate[ComposedSMS]
+      .copy(metadata = generate[Metadata].copy(createdAt = "2016-05-09T13:46:00Z"))
+      .copy(expireAt = None)
 
     val future =
       composedSMSLegacyProducer.send(new ProducerRecord[String, ComposedSMS](composedSMSLegacyTopic, composedSMSEvent))
@@ -191,8 +192,5 @@ class SMSServiceTestIT
           .withStatusCode(200)
       )
   }
-
-  def arbitraryComposedSMSEvent: ComposedSMSV2 =
-    Arbitrary.arbitrary[ComposedSMSV2].sample.get
 
 }

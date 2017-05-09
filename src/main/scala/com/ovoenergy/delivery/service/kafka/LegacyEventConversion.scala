@@ -16,7 +16,7 @@ object LegacyEventConversion {
     subject = composedEmail.subject,
     htmlBody = composedEmail.htmlBody,
     textBody = composedEmail.textBody,
-    expireAt = composedEmail.expireAt
+    expireAt = composedEmail.expireAt.map(OffsetDateTime.parse(_).toInstant)
   )
 
   def toComposedSMSV2(composedSMS: ComposedSMS) = ComposedSMSV2(
@@ -24,11 +24,11 @@ object LegacyEventConversion {
     internalMetadata = composedSMS.internalMetadata,
     recipient = composedSMS.recipient,
     textBody = composedSMS.textBody,
-    expireAt = composedSMS.expireAt
+    expireAt = composedSMS.expireAt.map(OffsetDateTime.parse(_).toInstant)
   )
 
   def toMetadataV2(metadata: Metadata): MetadataV2 = MetadataV2(
-    createdAt = OffsetDateTime.parse(metadata.createdAt).toInstant.toEpochMilli,
+    createdAt = OffsetDateTime.parse(metadata.createdAt).toInstant,
     eventId = metadata.eventId,
     deliverTo = DeliverTo.fromCustomerId(metadata.customerId),
     traceToken = metadata.traceToken,

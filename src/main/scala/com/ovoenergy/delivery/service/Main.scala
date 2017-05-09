@@ -10,7 +10,7 @@ import akka.stream.scaladsl.RunnableGraph
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email.{ComposedEmail, ComposedEmailV2}
 import com.ovoenergy.comms.model.sms.{ComposedSMS, ComposedSMSV2}
-import com.ovoenergy.comms.serialisation.Decoders._
+import com.ovoenergy.comms.serialisation.Codecs._
 import com.ovoenergy.comms.serialisation.Serialisation._
 import com.ovoenergy.delivery.service.email.IssueEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
@@ -34,7 +34,7 @@ import eu.timepit.refined._
 import eu.timepit.refined.numeric.Positive
 import io.circe.generic.auto._
 
-import scala.collection.JavaConversions.asScalaBuffer
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
 import scala.util.matching.Regex
@@ -110,10 +110,10 @@ object Main extends App with LoggingWithMDC {
   val issuedForDeliveryLegacyTopic = config.getString("kafka.topics.issued.for.delivery.v1")
 
   val emailWhitelist: Regex     = config.getString("email.whitelist").r
-  val blackListedEmailAddresses = config.getStringList("email.blacklist")
+  val blackListedEmailAddresses = config.getStringList("email.blacklist").asScala
 
-  val smsWhiteList = config.getStringList("sms.whiteList")
-  val smsBlacklist = config.getStringList("sms.blackList")
+  val smsWhiteList = config.getStringList("sms.whiteList").asScala
+  val smsBlacklist = config.getStringList("sms.blackList").asScala
 
   implicit val actorSystem      = ActorSystem("kafka")
   implicit val materializer     = ActorMaterializer()

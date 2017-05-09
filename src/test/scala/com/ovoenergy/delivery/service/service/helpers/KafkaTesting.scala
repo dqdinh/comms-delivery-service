@@ -19,7 +19,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 
 //implicits
-import com.ovoenergy.comms.serialisation.Decoders._
+import com.ovoenergy.comms.serialisation.Codecs._
 import io.circe.generic.auto._
 import org.scalacheck.Shapeless._
 

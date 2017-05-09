@@ -1,6 +1,6 @@
 package com.ovoenergy.delivery.service.sms
 
-import java.time.Clock
+import java.time.{Clock, Instant}
 
 import com.ovoenergy.comms.model.sms.ComposedSMSV2
 import com.ovoenergy.delivery.service.domain._
@@ -19,7 +19,7 @@ class IssueSMSSpec extends FlatSpec with Matchers with ArbGenerator {
 
   private val blackWhiteListOK    = (_: String) => BlackWhiteList.OK
   private val successfullySendSMS = (_: ComposedSMSV2) => Right(gatewayComm)
-  private val notExpired          = (_: Option[String]) => false
+  private val notExpired          = (_: Option[Instant]) => false
 
   behavior of "IssueSMS"
 
@@ -35,14 +35,14 @@ class IssueSMSSpec extends FlatSpec with Matchers with ArbGenerator {
     result shouldBe Left(deliveryError)
   }
 
-  it should "not send an SMS if the recipient address is blacklisted" in {
+  it should "not send an SMS if the recipient phone number is blacklisted" in {
     val blacklisted = (_: String) => BlackWhiteList.Blacklisted
 
     val result = IssueSMS.issue(blacklisted, notExpired, successfullySendSMS)(composedSMS)
     result shouldBe Left(EmailAddressBlacklisted(composedSMS.recipient))
   }
 
-  it should "not send an SMS if the recipient address is not on the whitelist" in {
+  it should "not send an SMS if the recipient phone number is not on the whitelist" in {
     val notWhiteListed = (_: String) => BlackWhiteList.NotWhitelisted
 
     val result = IssueSMS.issue(notWhiteListed, notExpired, successfullySendSMS)(composedSMS)
@@ -50,7 +50,7 @@ class IssueSMSSpec extends FlatSpec with Matchers with ArbGenerator {
   }
 
   it should "not send an SMS if the comm has expired" in {
-    val expired = (_: Option[String]) => true
+    val expired = (_: Option[Instant]) => true
 
     val result = IssueSMS.issue(blackWhiteListOK, expired, successfullySendSMS)(composedSMS)
     result shouldBe Left(Expired)

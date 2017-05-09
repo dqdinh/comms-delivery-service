@@ -219,7 +219,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
         val commManifestRes = customJson.commManifest
 
         customJson.createdAt shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        customJson.customerId shouldBe composedEmail.metadata.deliverTo // TODO use helper method to extract customerId
+        customJson.customerId shouldBe DeliverTo.getCustomerId(composedEmail.metadata.deliverTo).map(_.customerId)
         customJson.traceToken shouldBe composedEmail.metadata.traceToken
         customJson.canary shouldBe composedEmail.metadata.canary
         customJson.internalTraceToken shouldBe composedEmail.internalMetadata.internalTraceToken

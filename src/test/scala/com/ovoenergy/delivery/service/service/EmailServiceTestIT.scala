@@ -4,6 +4,7 @@ import com.ovoenergy.comms.model.ErrorCode.EmailGatewayError
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email._
 import com.ovoenergy.delivery.service.service.helpers.KafkaTesting
+import com.ovoenergy.delivery.service.util.ArbGenerator
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.matchers.Times
@@ -14,6 +15,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{Failed => _, _}
+
 import scala.collection.JavaConverters._
 
 //Implicits
@@ -26,6 +28,7 @@ class EmailServiceTestIT
     with GeneratorDrivenPropertyChecks
     with ScalaFutures
     with KafkaTesting
+    with ArbGenerator
     with BeforeAndAfterAll {
 
   object DockerComposeTag extends Tag("DockerComposeTag")
@@ -119,13 +122,11 @@ class EmailServiceTestIT
   it should "process events on the legacy Kafka topic" taggedAs DockerComposeTag in {
     createOKMailgunResponse()
 
-    val composedEmailEvent = {
-      // Make sure the recipient email address is whitelisted and the createdAt date is valid
-      val arbEvent = Arbitrary.arbitrary[ComposedEmail].sample.get
-      arbEvent
-        .copy(recipient = "foo@ovoenergy.com")
-        .copy(metadata = arbEvent.metadata.copy(createdAt = "2016-05-09T13:46:00Z"))
-    }
+    // Make sure the recipient email address is whitelisted and all dates are valid
+    val composedEmailEvent = generate[ComposedEmail]
+      .copy(recipient = "foo@ovoenergy.com")
+      .copy(metadata = generate[Metadata].copy(createdAt = "2016-05-09T13:46:00Z"))
+      .copy(expireAt = None)
 
     val future =
       composedEmailLegacyProducer.send(
@@ -214,5 +215,5 @@ class EmailServiceTestIT
 
   def arbitraryComposedEmailEvent: ComposedEmailV2 =
     // Make sure the recipient email address is whitelisted
-    Arbitrary.arbitrary[ComposedEmailV2].sample.get.copy(recipient = "foo@ovoenergy.com")
+    generate[ComposedEmailV2].copy(recipient = "foo@ovoenergy.com")
 }
