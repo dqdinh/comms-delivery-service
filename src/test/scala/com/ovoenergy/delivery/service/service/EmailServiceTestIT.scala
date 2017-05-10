@@ -10,11 +10,10 @@ import org.mockserver.client.server.MockServerClient
 import org.mockserver.matchers.Times
 import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse.response
-import org.scalacheck.Arbitrary
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
-import org.scalatest.{Failed => _, _}
+import org.scalatest._
 
 import scala.collection.JavaConverters._
 
@@ -39,6 +38,7 @@ class EmailServiceTestIT
 
   override def beforeAll() = {
     createTopicsAndSubscribe()
+    Thread.sleep(10000L) // like a boss
   }
 
   behavior of "Email Delivery"

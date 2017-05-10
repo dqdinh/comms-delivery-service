@@ -17,7 +17,6 @@ import org.scalatest.time.{Seconds, Span}
 import scala.io.Source
 
 //implicits
-//import com.ovoenergy.comms.serialisation.Codecs._
 import io.circe.generic.auto._
 import org.scalacheck.Shapeless._
 
@@ -48,6 +47,7 @@ class SMSServiceTestIT
 
   override def beforeAll() = {
     createTopicsAndSubscribe()
+    Thread.sleep(10000L) // like a boss
   }
 
   behavior of "SMS Delivery"
