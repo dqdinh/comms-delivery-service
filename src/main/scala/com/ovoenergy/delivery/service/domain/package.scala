@@ -1,5 +1,6 @@
 package com.ovoenergy.delivery.service
 
+import com.ovoenergy.comms.model
 import com.ovoenergy.comms.model._
 
 package object domain {
@@ -33,15 +34,15 @@ package object domain {
   }
   case class EmailAddressBlacklisted(emailAddress: String) extends DeliveryError {
     val description = s"Email addressed was blacklisted: $emailAddress"
-    val errorCode   = ErrorCode.EmailAddressBlacklisted
+    val errorCode   = model.EmailAddressBlacklisted
   }
   case class EmailAddressNotWhitelisted(emailAddress: String) extends DeliveryError {
     val description = s"Email addressed was not whitelisted: $emailAddress"
-    val errorCode   = ErrorCode.EmailAddressBlacklisted
+    val errorCode   = model.EmailAddressBlacklisted
   }
   case object Expired extends DeliveryError {
     val description = "Not delivering because the comm has expired"
-    val errorCode   = ErrorCode.CommExpired
+    val errorCode   = model.CommExpired
   }
 
 }

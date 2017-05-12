@@ -4,13 +4,12 @@ import java.time.format.DateTimeFormatter
 import java.time.{Clock, OffsetDateTime}
 
 import cats.syntax.either._
-import com.ovoenergy.comms.model.Channel.Email
 import com.ovoenergy.comms.model._
-import com.ovoenergy.comms.model.email.{ComposedEmail, ComposedEmailV2}
+import com.ovoenergy.comms.model.email.ComposedEmailV2
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
-import com.ovoenergy.delivery.service.util.Retry.{Failed, RetryConfig, Succeeded}
+import com.ovoenergy.delivery.service.util.Retry.RetryConfig
 import io.circe.generic.auto._
 import io.circe.generic.extras.semiauto.deriveEnumerationEncoder
 import io.circe.parser._
@@ -58,7 +57,7 @@ object MailgunClient extends LoggingWithMDC {
           case Success(response) => mapResponseToEither(response, composedEmail)
           case Failure(ex) =>
             logError(composedEmail, "Error sending email via Mailgun API", ex)
-            Left(ExceptionOccurred(ErrorCode.EmailGatewayError))
+            Left(ExceptionOccurred(EmailGatewayError))
         }
       }
     result
@@ -78,9 +77,14 @@ object MailgunClient extends LoggingWithMDC {
   }
 
   private def buildCustomJson(composedEmail: ComposedEmailV2)(implicit clock: Clock): String = {
+    val customerId = composedEmail.metadata.deliverTo match {
+      case Customer(cId) => Some(cId)
+      case _             => None
+    }
+
     CustomFormData(
       createdAt = OffsetDateTime.now(clock).format(dtf),
-      customerId = DeliverTo.getCustomerId(composedEmail.metadata.deliverTo).map(_.customerId),
+      customerId = customerId,
       traceToken = composedEmail.metadata.traceToken,
       canary = composedEmail.metadata.canary,
       commManifest = composedEmail.metadata.commManifest,
@@ -117,18 +121,18 @@ object MailgunClient extends LoggingWithMDC {
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
         logWarn(composedEmail,
                 s"Error sending email via Mailgun API, Mailgun API internal error: ${response.code} $message")
-        Left(APIGatewayInternalServerError(ErrorCode.EmailGatewayError))
+        Left(APIGatewayInternalServerError(EmailGatewayError))
       case 401 =>
         logWarn(composedEmail, "Error sending email via Mailgun API, authorization with Mailgun API failed")
-        Left(APIGatewayAuthenticationError(ErrorCode.EmailGatewayError))
+        Left(APIGatewayAuthenticationError(EmailGatewayError))
       case 400 =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
         logWarn(composedEmail, s"Error sending email via Mailgun API, Bad request $message")
-        Left(APIGatewayBadRequest(ErrorCode.EmailGatewayError))
+        Left(APIGatewayBadRequest(EmailGatewayError))
       case _ =>
         val message = parseResponse[SendEmailFailureResponse](responseBody).map("- " + _.message).getOrElse("")
         logWarn(composedEmail, s"Error sending email via Mailgun API, response code: ${response.code} $message")
-        Left(APIGatewayUnspecifiedError(ErrorCode.EmailGatewayError))
+        Left(APIGatewayUnspecifiedError(EmailGatewayError))
     }
   }
 

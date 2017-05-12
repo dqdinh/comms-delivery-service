@@ -1,9 +1,8 @@
 package com.ovoenergy.delivery.service.sms.twilio
 
 import cats.syntax.either._
-import com.ovoenergy.comms.model.Channel.SMS
 import com.ovoenergy.comms.model._
-import com.ovoenergy.comms.model.sms.{ComposedSMS, ComposedSMSV2}
+import com.ovoenergy.comms.model.sms.ComposedSMSV2
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
@@ -50,7 +49,7 @@ object TwilioClient extends LoggingWithMDC {
         }
         case Failure(err) => {
           logWarn(event, "Error sending SMS via twilio API", err)
-          Left(ExceptionOccurred(ErrorCode.EmailGatewayError))
+          Left(ExceptionOccurred(SMSGatewayError))
         }
       }
     }
@@ -75,10 +74,9 @@ object TwilioClient extends LoggingWithMDC {
     val responseBody = response.body().string()
 
     response.code() match {
-
       case success if response.isSuccessful => {
         parseResponse[SuccessfulResponse](responseBody)
-          .leftMap(_ => ExceptionOccurred(ErrorCode.SMSGatewayError)) // Log exception
+          .leftMap(_ => ExceptionOccurred(SMSGatewayError)) // Log exception
           .map { res =>
             logInfo(composedSMS, s"SMS issued")
             GatewayComm(Twilio, res.sid, SMS)
@@ -86,22 +84,21 @@ object TwilioClient extends LoggingWithMDC {
       }
       case InternalServerError() => {
         val message = parseResponse[ErrorResponse](responseBody).map(_.detail).getOrElse(unknownResponseMsg)
-        logWarn(composedSMS,
-                s"Error sending email via Twilio API, Twilio API internal error: ${response.code} $message")
-        Left(APIGatewayInternalServerError(ErrorCode.SMSGatewayError))
+        logWarn(composedSMS, s"Error sending SMS via Twilio API, Twilio API internal error: ${response.code} $message")
+        Left(APIGatewayInternalServerError(SMSGatewayError))
       }
       case 401 =>
         val message = parseResponse[ErrorResponse](responseBody).map(_.detail).getOrElse(unknownResponseMsg)
         logWarn(composedSMS, s"Error sending SMS via Twilio API, authorization with Twilio failed: $message")
-        Left(APIGatewayAuthenticationError(ErrorCode.SMSGatewayError))
+        Left(APIGatewayAuthenticationError(SMSGatewayError))
       case 400 =>
         val message = parseResponse[ErrorResponse](responseBody).map(_.detail).getOrElse(unknownResponseMsg)
         logWarn(composedSMS, s"Error sending SMS via Twilio API, Bad request $message")
-        Left(APIGatewayBadRequest(ErrorCode.SMSGatewayError))
+        Left(APIGatewayBadRequest(SMSGatewayError))
       case _ =>
         val message = parseResponse[ErrorResponse](responseBody).map(_.detail).getOrElse(unknownResponseMsg)
         logWarn(composedSMS, s"Error sending SMS via Twilio API, response code: ${response.code} $message")
-        Left(APIGatewayUnspecifiedError(ErrorCode.SMSGatewayError))
+        Left(APIGatewayUnspecifiedError(SMSGatewayError))
     }
   }
 }

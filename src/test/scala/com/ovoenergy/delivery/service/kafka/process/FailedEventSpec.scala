@@ -2,8 +2,7 @@ package com.ovoenergy.delivery.service.kafka.process
 
 import java.time.Clock
 
-import com.ovoenergy.comms.model.ErrorCode._
-import com.ovoenergy.comms.model.FailedV2
+import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email.ComposedEmailV2
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.util.ArbGenerator

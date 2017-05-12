@@ -20,7 +20,7 @@ import scala.concurrent.duration._
 
 //implicits
 import com.ovoenergy.comms.serialisation.Codecs._
-import io.circe.generic.auto._
+import com.sksamuel.avro4s._
 import org.scalacheck.Shapeless._
 
 trait KafkaTesting extends Assertions {

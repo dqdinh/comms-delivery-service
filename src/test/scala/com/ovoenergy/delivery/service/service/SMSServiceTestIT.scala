@@ -17,7 +17,6 @@ import org.scalatest.time.{Seconds, Span}
 import scala.io.Source
 
 //implicits
-import io.circe.generic.auto._
 import org.scalacheck.Shapeless._
 
 class SMSServiceTestIT
@@ -60,7 +59,7 @@ class SMSServiceTestIT
     whenReady(future) { _ =>
       val failedEvents = pollForEvents(noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
       val failed       = failedEvents.head
-      failed.errorCode shouldBe ErrorCode.SMSGatewayError
+      failed.errorCode shouldBe SMSGatewayError
       failed.reason shouldBe "Error authenticating with the Gateway"
     }
   }
@@ -74,7 +73,7 @@ class SMSServiceTestIT
       val failedEvents = pollForEvents(noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
 
       val failed = failedEvents.head
-      failed.errorCode shouldBe ErrorCode.SMSGatewayError
+      failed.errorCode shouldBe SMSGatewayError
       failed.reason shouldBe "The Gateway did not like our request"
     }
   }
@@ -96,7 +95,7 @@ class SMSServiceTestIT
 
         issuedForDelivery.gatewayMessageId shouldBe "1234567890"
         issuedForDelivery.gateway shouldBe Twilio
-        issuedForDelivery.channel shouldBe Channel.SMS
+        issuedForDelivery.channel shouldBe SMS
         issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
       })
@@ -120,7 +119,7 @@ class SMSServiceTestIT
 
         issuedForDelivery.gatewayMessageId shouldBe "1234567890"
         issuedForDelivery.gateway shouldBe Twilio
-        issuedForDelivery.channel shouldBe Channel.SMS
+        issuedForDelivery.channel shouldBe SMS
         issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
       })
@@ -147,7 +146,7 @@ class SMSServiceTestIT
 
         issuedForDelivery.gatewayMessageId shouldBe "1234567890"
         issuedForDelivery.gateway shouldBe Twilio
-        issuedForDelivery.channel shouldBe Channel.SMS
+        issuedForDelivery.channel shouldBe SMS
         issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
       })

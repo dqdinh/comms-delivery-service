@@ -2,7 +2,6 @@ package com.ovoenergy.delivery.service.sms.twilio
 
 import java.io.ByteArrayOutputStream
 
-import com.ovoenergy.comms.model.Channel.SMS
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms._
 import com.ovoenergy.delivery.service.domain._
@@ -91,7 +90,7 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
 
     val result = TwilioClient.send(config)(composedSMS)
 
-    result shouldBe Left(APIGatewayAuthenticationError(ErrorCode.SMSGatewayError))
+    result shouldBe Left(APIGatewayAuthenticationError(SMSGatewayError))
   }
 
   it should "Handle Bad request responses" in {
@@ -106,6 +105,6 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
 
     val result = TwilioClient.send(config)(composedSMS)
 
-    result shouldBe Left(APIGatewayBadRequest(ErrorCode.SMSGatewayError))
+    result shouldBe Left(APIGatewayBadRequest(SMSGatewayError))
   }
 }

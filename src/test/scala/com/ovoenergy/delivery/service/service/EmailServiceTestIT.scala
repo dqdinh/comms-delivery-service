@@ -1,6 +1,5 @@
 package com.ovoenergy.delivery.service.service
 
-import com.ovoenergy.comms.model.ErrorCode.EmailGatewayError
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email._
 import com.ovoenergy.delivery.service.service.helpers.KafkaTesting
@@ -18,7 +17,6 @@ import org.scalatest._
 import scala.collection.JavaConverters._
 
 //Implicits
-import io.circe.generic.auto._
 import org.scalacheck.Shapeless._
 
 class EmailServiceTestIT
@@ -72,7 +70,7 @@ class EmailServiceTestIT
       failedEvents.foreach(record => {
         val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
         failed.reason shouldBe "The Gateway did not like our request"
-        failed.errorCode shouldBe ErrorCode.EmailGatewayError
+        failed.errorCode shouldBe EmailGatewayError
       })
     }
   }
@@ -91,7 +89,7 @@ class EmailServiceTestIT
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
         issuedForDelivery.gateway shouldBe Mailgun
-        issuedForDelivery.channel shouldBe Channel.Email
+        issuedForDelivery.channel shouldBe Email
         issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
       })
@@ -112,7 +110,7 @@ class EmailServiceTestIT
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
         issuedForDelivery.gateway shouldBe Mailgun
-        issuedForDelivery.channel shouldBe Channel.Email
+        issuedForDelivery.channel shouldBe Email
         issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
       })
@@ -139,7 +137,7 @@ class EmailServiceTestIT
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
         issuedForDelivery.gateway shouldBe Mailgun
-        issuedForDelivery.channel shouldBe Channel.Email
+        issuedForDelivery.channel shouldBe Email
         issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
       })

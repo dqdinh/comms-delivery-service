@@ -2,7 +2,7 @@ package com.ovoenergy.delivery.service.kafka
 
 import java.time.OffsetDateTime
 
-import com.ovoenergy.comms.model.{DeliverTo, Metadata, MetadataV2}
+import com.ovoenergy.comms.model.{Customer, Metadata, MetadataV2}
 import com.ovoenergy.comms.model.email.{ComposedEmail, ComposedEmailV2}
 import com.ovoenergy.comms.model.sms.{ComposedSMS, ComposedSMSV2}
 
@@ -30,7 +30,7 @@ object LegacyEventConversion {
   def toMetadataV2(metadata: Metadata): MetadataV2 = MetadataV2(
     createdAt = OffsetDateTime.parse(metadata.createdAt).toInstant,
     eventId = metadata.eventId,
-    deliverTo = DeliverTo.fromCustomerId(metadata.customerId),
+    deliverTo = Customer(metadata.customerId),
     traceToken = metadata.traceToken,
     commManifest = metadata.commManifest,
     friendlyDescription = metadata.friendlyDescription,

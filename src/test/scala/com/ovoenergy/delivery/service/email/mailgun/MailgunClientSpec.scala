@@ -6,8 +6,6 @@ import java.time._
 import java.time.format.DateTimeFormatter
 
 import akka.Done
-import com.ovoenergy.comms.model.Channel.Email
-import com.ovoenergy.comms.model.ErrorCode.EmailGatewayError
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email._
 import com.ovoenergy.delivery.service.domain._
@@ -219,7 +217,10 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
         val commManifestRes = customJson.commManifest
 
         customJson.createdAt shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        customJson.customerId shouldBe DeliverTo.getCustomerId(composedEmail.metadata.deliverTo).map(_.customerId)
+        composedEmail.metadata.deliverTo match {
+          case Customer(customerId) => customJson.customerId shouldBe Some(customerId)
+          case _                    => customJson.customerId shouldBe None
+        }
         customJson.traceToken shouldBe composedEmail.metadata.traceToken
         customJson.canary shouldBe composedEmail.metadata.canary
         customJson.internalTraceToken shouldBe composedEmail.internalMetadata.internalTraceToken
