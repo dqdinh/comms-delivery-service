@@ -101,7 +101,7 @@ trait KafkaTesting extends Assertions with Eventually {
 
   }
 
-  def pollForEvents[E](pollTime: FiniteDuration = 10000.millisecond,
+  def pollForEvents[E](pollTime: FiniteDuration = 20000.millisecond,
                        noOfEventsExpected: Int,
                        consumer: ApacheKafkaConsumer[String, Option[E]],
                        topic: String): Seq[E] = {
