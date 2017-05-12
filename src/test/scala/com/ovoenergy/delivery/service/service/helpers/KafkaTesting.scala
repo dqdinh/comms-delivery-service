@@ -11,6 +11,8 @@ import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.scalatest.Assertions
 import org.apache.kafka.clients.consumer.{KafkaConsumer => ApacheKafkaConsumer}
+import org.scalatest.concurrent.{Eventually, PatienceConfiguration}
+import org.scalatest.time.{Seconds, Span}
 
 import scala.annotation.tailrec
 import scala.util.Random
@@ -23,7 +25,7 @@ import com.ovoenergy.comms.serialisation.Codecs._
 import com.sksamuel.avro4s._
 import org.scalacheck.Shapeless._
 
-trait KafkaTesting extends Assertions {
+trait KafkaTesting extends Assertions with Eventually {
 
   val kafkaHosts     = "localhost:29092"
   val zookeeperHosts = "localhost:32181"
@@ -90,8 +92,13 @@ trait KafkaTesting extends Assertions {
         case NonFatal(_) => Thread.sleep(100)
       }
     }
+    if (notStarted) fail("Service did not start in time")
 
-    if (notStarted) fail("Services did not start in time")
+    // wait until the service has registered at least one Kafka consumer
+    eventually(PatienceConfiguration.Timeout(Span(180, Seconds))) {
+      if (!AdminUtils.fetchAllTopicConfigs(zkUtils).contains("__consumer_offsets")) fail("No consumer registered")
+    }
+
   }
 
   def pollForEvents[E](pollTime: FiniteDuration = 10000.millisecond,
