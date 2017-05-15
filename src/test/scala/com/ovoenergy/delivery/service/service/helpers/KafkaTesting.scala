@@ -104,11 +104,11 @@ trait KafkaTesting extends Assertions with Eventually {
     createTopic(failedTopic, commFailedConsumer)
     createTopic(issuedForDeliveryTopic, issuedForDeliveryConsumer)
 
-    Thread.sleep(60000L) // wait a stupidly long time to see if this makes the tests more reliable
+    Thread.sleep(10000L)
 
   }
 
-  def pollForEvents[E](pollTime: FiniteDuration = 60.second,
+  def pollForEvents[E](pollTime: FiniteDuration = 30.second,
                        noOfEventsExpected: Int,
                        consumer: ApacheKafkaConsumer[String, Option[E]],
                        topic: String): Seq[E] = {
