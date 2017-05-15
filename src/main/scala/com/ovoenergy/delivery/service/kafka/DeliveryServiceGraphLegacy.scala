@@ -5,7 +5,7 @@ import akka.kafka.scaladsl.Consumer
 import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl.{RunnableGraph, Sink}
 import akka.stream.{ActorAttributes, Materializer, Supervision}
-import com.ovoenergy.comms.model.{FailedV2, LoggableEvent}
+import com.ovoenergy.comms.model.LoggableEvent
 import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
@@ -14,24 +14,26 @@ import com.ovoenergy.delivery.service.util.Retry.RetryConfig
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.{Deserializer, StringDeserializer}
 
-import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.util.control.NonFatal
 
-object DeliveryServiceGraph extends LoggingWithMDC {
+object DeliveryServiceGraphLegacy extends LoggingWithMDC {
 
-  def apply[T <: LoggableEvent](consumerDeserializer: Deserializer[Option[T]],
-                                issueComm: (T) => Either[DeliveryError, GatewayComm],
-                                kafkaConfig: KafkaConfig,
-                                retryConfig: RetryConfig,
-                                consumerTopic: String,
-                                sendFailedEvent: (T, DeliveryError) => Future[_],
-                                sendIssuedToGatewayEvent: (T, GatewayComm) => Future[_])(
+  def apply[LegacyEvent, NewEvent <: LoggableEvent](consumerDeserializer: Deserializer[Option[LegacyEvent]],
+                                                    convertEvent: LegacyEvent => NewEvent,
+                                                    issueComm: (NewEvent) => Either[DeliveryError, GatewayComm],
+                                                    kafkaConfig: KafkaConfig,
+                                                    retryConfig: RetryConfig,
+                                                    consumerTopic: String,
+                                                    sendFailedEvent: (NewEvent, DeliveryError) => Future[_],
+                                                    sendIssuedToGatewayEvent: (NewEvent, GatewayComm) => Future[_])(
       implicit actorSystem: ActorSystem,
       materializer: Materializer,
       scheduler: Scheduler): RunnableGraph[Consumer.Control] = {
 
-    def sendWithRetry[A](future: Future[A], inputEvent: T, errorDescription: String)(implicit scheduler: Scheduler) = {
+    def sendWithRetry[A](future: Future[A], inputEvent: NewEvent, errorDescription: String)(
+        implicit scheduler: Scheduler) = {
       val onFailure         = (e: Throwable) => logWarn(inputEvent, errorDescription, e)
       val futureWithRetries = Retry.retryAsync(retryConfig, onFailure)(() => future)
 
@@ -54,13 +56,13 @@ object DeliveryServiceGraph extends LoggingWithMDC {
         .withBootstrapServers(kafkaConfig.hosts)
         .withGroupId(kafkaConfig.groupId)
 
-    def success(composedEvent: T, gatewayComm: GatewayComm) = {
+    def success(composedEvent: NewEvent, gatewayComm: GatewayComm) = {
       sendWithRetry(sendIssuedToGatewayEvent(composedEvent, gatewayComm),
                     composedEvent,
                     "Error raising IssuedForDelivery event for a successful comm")
     }
 
-    def failure(composedEvent: T, deliveryError: DeliveryError) = {
+    def failure(composedEvent: NewEvent, deliveryError: DeliveryError) = {
       logWarn(composedEvent, s"Unable to send comm due to $deliveryError")
       sendWithRetry(sendFailedEvent(composedEvent, deliveryError),
                     composedEvent,
@@ -72,7 +74,8 @@ object DeliveryServiceGraph extends LoggingWithMDC {
       .mapAsync(1) { msg =>
         log.debug(s"Event received $msg")
         val result = msg.record.value match {
-          case Some(composedEvent) =>
+          case Some(legacyEvent) =>
+            val composedEvent = convertEvent(legacyEvent)
             issueComm(composedEvent) match {
               case Right(gatewayComm) =>
                 success(composedEvent, gatewayComm)

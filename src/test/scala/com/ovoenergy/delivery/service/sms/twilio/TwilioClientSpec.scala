@@ -2,9 +2,8 @@ package com.ovoenergy.delivery.service.sms.twilio
 
 import java.io.ByteArrayOutputStream
 
-import com.ovoenergy.comms.model.Channel.SMS
-import com.ovoenergy.comms.model.Gateway.Twilio
 import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.sms._
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.util.{ArbGenerator, Retry}
 import com.ovoenergy.delivery.service.util.Retry.RetryConfig
@@ -24,7 +23,7 @@ import org.scalatest.{Failed => _, _}
 
 class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with EitherValues {
 
-  val composedSMS: ComposedSMS = generate[ComposedSMS]
+  val composedSMS = generate[ComposedSMSV2]
 
   val retryConfig = RetryConfig(
     refineV[Positive](1).right.getOrElse(sys.error(s"NOOO")),
@@ -91,7 +90,7 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
 
     val result = TwilioClient.send(config)(composedSMS)
 
-    result shouldBe Left(APIGatewayAuthenticationError(ErrorCode.SMSGatewayError))
+    result shouldBe Left(APIGatewayAuthenticationError(SMSGatewayError))
   }
 
   it should "Handle Bad request responses" in {
@@ -106,6 +105,6 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
 
     val result = TwilioClient.send(config)(composedSMS)
 
-    result shouldBe Left(APIGatewayBadRequest(ErrorCode.SMSGatewayError))
+    result shouldBe Left(APIGatewayBadRequest(SMSGatewayError))
   }
 }

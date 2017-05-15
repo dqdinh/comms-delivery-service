@@ -1,23 +1,22 @@
 package com.ovoenergy.delivery.service.service
 
-import com.ovoenergy.comms.model.ErrorCode.EmailGatewayError
-import com.ovoenergy.comms.model.Gateway.Mailgun
 import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.email._
 import com.ovoenergy.delivery.service.service.helpers.KafkaTesting
+import com.ovoenergy.delivery.service.util.ArbGenerator
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.matchers.Times
 import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse.response
-import org.scalacheck.Arbitrary
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
-import org.scalatest.{Failed => _, _}
+import org.scalatest._
+
 import scala.collection.JavaConverters._
 
 //Implicits
-import io.circe.generic.auto._
 import org.scalacheck.Shapeless._
 
 class EmailServiceTestIT
@@ -26,6 +25,7 @@ class EmailServiceTestIT
     with GeneratorDrivenPropertyChecks
     with ScalaFutures
     with KafkaTesting
+    with ArbGenerator
     with BeforeAndAfterAll {
 
   object DockerComposeTag extends Tag("DockerComposeTag")
@@ -36,6 +36,7 @@ class EmailServiceTestIT
 
   override def beforeAll() = {
     createTopicsAndSubscribe()
+    Thread.sleep(10000L) // like a boss
   }
 
   behavior of "Email Delivery"
@@ -45,10 +46,10 @@ class EmailServiceTestIT
 
     val composedEmailEvent = arbitraryComposedEmailEvent
     val future =
-      composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+      composedEmailProducer.send(new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
       val failedEvents =
-        pollForEvents[Failed](noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
+        pollForEvents[FailedV2](noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
       failedEvents.size shouldBe 1
       failedEvents.foreach(failed => {
         failed.reason shouldBe "Error authenticating with the Gateway"
@@ -62,14 +63,14 @@ class EmailServiceTestIT
 
     val composedEmailEvent = arbitraryComposedEmailEvent
     val future =
-      composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+      composedEmailProducer.send(new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
       val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
       failedEvents.size shouldBe 1
       failedEvents.foreach(record => {
         val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
         failed.reason shouldBe "The Gateway did not like our request"
-        failed.errorCode shouldBe ErrorCode.EmailGatewayError
+        failed.errorCode shouldBe EmailGatewayError
       })
     }
   }
@@ -79,16 +80,16 @@ class EmailServiceTestIT
 
     val composedEmailEvent = arbitraryComposedEmailEvent
     val future =
-      composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+      composedEmailProducer.send(new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
-      val issuedForDeliveryEvents = pollForEvents[IssuedForDelivery](noOfEventsExpected = 1,
-                                                                     consumer = issuedForDeliveryConsumer,
-                                                                     topic = issuedForDeliveryTopic)
+      val issuedForDeliveryEvents = pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
+                                                                       consumer = issuedForDeliveryConsumer,
+                                                                       topic = issuedForDeliveryTopic)
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
         issuedForDelivery.gateway shouldBe Mailgun
-        issuedForDelivery.channel shouldBe Channel.Email
+        issuedForDelivery.channel shouldBe Email
         issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
       })
@@ -100,16 +101,43 @@ class EmailServiceTestIT
 
     val composedEmailEvent = arbitraryComposedEmailEvent
     val future =
-      composedEmailProducer.send(new ProducerRecord[String, ComposedEmail](composedEmailTopic, composedEmailEvent))
+      composedEmailProducer.send(new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, composedEmailEvent))
     whenReady(future) { _ =>
-      val issuedForDeliveryEvents = pollForEvents[IssuedForDelivery](noOfEventsExpected = 1,
-                                                                     consumer = issuedForDeliveryConsumer,
-                                                                     topic = issuedForDeliveryTopic)
+      val issuedForDeliveryEvents = pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
+                                                                       consumer = issuedForDeliveryConsumer,
+                                                                       topic = issuedForDeliveryTopic)
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
         issuedForDelivery.gateway shouldBe Mailgun
-        issuedForDelivery.channel shouldBe Channel.Email
+        issuedForDelivery.channel shouldBe Email
+        issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
+        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
+      })
+    }
+  }
+
+  it should "process events on the legacy Kafka topic" taggedAs DockerComposeTag in {
+    createOKMailgunResponse()
+
+    // Make sure the recipient email address is whitelisted and all dates are valid
+    val composedEmailEvent = generate[ComposedEmail]
+      .copy(recipient = "foo@ovoenergy.com")
+      .copy(metadata = generate[Metadata].copy(createdAt = "2016-05-09T13:46:00Z"))
+      .copy(expireAt = None)
+
+    val future =
+      composedEmailLegacyProducer.send(
+        new ProducerRecord[String, ComposedEmail](composedEmailLegacyTopic, composedEmailEvent))
+    whenReady(future) { _ =>
+      val issuedForDeliveryEvents = pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
+                                                                       consumer = issuedForDeliveryConsumer,
+                                                                       topic = issuedForDeliveryTopic)
+
+      issuedForDeliveryEvents.foreach(issuedForDelivery => {
+        issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
+        issuedForDelivery.gateway shouldBe Mailgun
+        issuedForDelivery.channel shouldBe Email
         issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
       })
@@ -183,7 +211,7 @@ class EmailServiceTestIT
       )
   }
 
-  def arbitraryComposedEmailEvent: ComposedEmail =
+  def arbitraryComposedEmailEvent: ComposedEmailV2 =
     // Make sure the recipient email address is whitelisted
-    Arbitrary.arbitrary[ComposedEmail].sample.get.copy(recipient = "foo@ovoenergy.com")
+    generate[ComposedEmailV2].copy(recipient = "foo@ovoenergy.com")
 }

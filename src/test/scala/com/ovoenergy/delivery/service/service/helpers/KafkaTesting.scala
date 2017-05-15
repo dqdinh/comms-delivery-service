@@ -4,13 +4,15 @@ import cakesolutions.kafka.KafkaConsumer.{Conf => KafkaConsumerConf}
 import cakesolutions.kafka.KafkaProducer.{Conf => KafkaProducerConf}
 import cakesolutions.kafka.{KafkaConsumer, KafkaProducer}
 import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.email._
+import com.ovoenergy.comms.model.sms._
 import com.ovoenergy.comms.serialisation.Serialisation.{avroDeserializer, avroSerializer}
-import com.typesafe.config.Config
-import kafka.admin.AdminUtils
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.scalatest.Assertions
 import org.apache.kafka.clients.consumer.{KafkaConsumer => ApacheKafkaConsumer}
+import org.scalatest.concurrent.{Eventually, PatienceConfiguration}
+import org.scalatest.time.{Seconds, Span}
 
 import scala.annotation.tailrec
 import scala.util.Random
@@ -19,33 +21,44 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 
 //implicits
-import com.ovoenergy.comms.serialisation.Decoders._
-import io.circe.generic.auto._
+import com.ovoenergy.comms.serialisation.Codecs._
+import com.sksamuel.avro4s._
 import org.scalacheck.Shapeless._
 
-trait KafkaTesting extends Assertions {
+trait KafkaTesting extends Assertions with Eventually {
 
   val kafkaHosts     = "localhost:29092"
   val zookeeperHosts = "localhost:32181"
 
   val consumerGroup = Random.nextString(10)
   val composedEmailProducer = KafkaProducer(
-    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedEmail], kafkaHosts))
+    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedEmailV2], kafkaHosts))
   val composedSMSProducer = KafkaProducer(
-    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedSMS], kafkaHosts))
+    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedSMSV2], kafkaHosts))
   val commFailedConsumer = KafkaConsumer(
-    KafkaConsumerConf(new StringDeserializer, avroDeserializer[Failed], kafkaHosts, consumerGroup))
-  val emailProgressedConsumer = KafkaConsumer(
-    KafkaConsumerConf(new StringDeserializer, avroDeserializer[EmailProgressed], kafkaHosts, consumerGroup))
-  val smsProgressedConsumer = KafkaConsumer(
-    KafkaConsumerConf(new StringDeserializer, avroDeserializer[SMSProgressed], kafkaHosts, consumerGroup))
+    KafkaConsumerConf(new StringDeserializer, avroDeserializer[FailedV2], kafkaHosts, consumerGroup))
   val issuedForDeliveryConsumer = KafkaConsumer(
-    KafkaConsumerConf(new StringDeserializer, avroDeserializer[IssuedForDelivery], kafkaHosts, consumerGroup))
+    KafkaConsumerConf(new StringDeserializer, avroDeserializer[IssuedForDeliveryV2], kafkaHosts, consumerGroup))
 
-  val failedTopic            = "comms.failed"
-  val composedEmailTopic     = "comms.composed.email"
-  val composedSMSTopic       = "comms.composed.sms"
-  val issuedForDeliveryTopic = "comms.issued.for.delivery"
+  val composedEmailLegacyProducer = KafkaProducer(
+    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedEmail], kafkaHosts))
+  val composedSMSLegacyProducer = KafkaProducer(
+    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedSMS], kafkaHosts))
+
+  val failedTopic            = "comms.failed.v2"
+  val composedEmailTopic     = "comms.composed.email.v2"
+  val composedSMSTopic       = "comms.composed.sms.v2"
+  val issuedForDeliveryTopic = "comms.issued.for.delivery.v2"
+
+  val composedEmailLegacyTopic = "comms.composed.email"
+  val composedSMSLegacyTopic   = "comms.composed.sms"
+
+  val topicsTheServiceWillCreate = List(
+    composedEmailTopic,
+    composedSMSTopic,
+    composedEmailLegacyTopic,
+    composedSMSLegacyTopic
+  )
 
   def createTopicsAndSubscribe() {
 
@@ -68,24 +81,27 @@ trait KafkaTesting extends Assertions {
     }
 
     //Wait until kafka calls are not erroring and the service has created the composedEmailTopic
-    val timeout    = 15.seconds.fromNow
+    val timeout    = 20.seconds.fromNow
     var notStarted = true
     while (timeout.hasTimeLeft && notStarted) {
       try {
-        notStarted = {
-          !AdminUtils.topicExists(zkUtils, composedEmailTopic) && !AdminUtils.topicExists(zkUtils, composedSMSTopic)
-        }
+        notStarted = !topicsTheServiceWillCreate.forall(topic => AdminUtils.topicExists(zkUtils, topic))
         createTopic(failedTopic, commFailedConsumer)
         createTopic(issuedForDeliveryTopic, issuedForDeliveryConsumer)
       } catch {
-        case NonFatal(ex) => Thread.sleep(100)
+        case NonFatal(_) => Thread.sleep(100)
       }
     }
+    if (notStarted) fail("Service did not start in time")
 
-    if (notStarted) fail("Services did not start within 10 seconds")
+    // wait until the service has registered at least one Kafka consumer
+    eventually(PatienceConfiguration.Timeout(Span(180, Seconds))) {
+      if (!AdminUtils.fetchAllTopicConfigs(zkUtils).contains("__consumer_offsets")) fail("No consumer registered")
+    }
+
   }
 
-  def pollForEvents[E](pollTime: FiniteDuration = 10000.millisecond,
+  def pollForEvents[E](pollTime: FiniteDuration = 20000.millisecond,
                        noOfEventsExpected: Int,
                        consumer: ApacheKafkaConsumer[String, Option[E]],
                        topic: String): Seq[E] = {

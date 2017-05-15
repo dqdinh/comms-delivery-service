@@ -6,9 +6,8 @@ import java.time._
 import java.time.format.DateTimeFormatter
 
 import akka.Done
-import com.ovoenergy.comms.model.Channel.Email
-import com.ovoenergy.comms.model.ErrorCode.EmailGatewayError
-import com.ovoenergy.comms.model.{Metadata, _}
+import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.email._
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient.CustomFormData
 import com.ovoenergy.delivery.service.util.{ArbGenerator, Retry}
@@ -22,7 +21,6 @@ import io.circe.Decoder
 import okhttp3._
 import okio.Okio
 import org.scalacheck.Shapeless._
-import org.scalacheck._
 import org.scalatest.{Failed => _, _}
 
 import scala.util.Try
@@ -41,7 +39,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
   val gatewayId       = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
 
-  val composedEmail = generate[ComposedEmail]
+  val composedEmail = generate[ComposedEmailV2]
   val emailSentRes  = generate[Done]
   val deliveryError = generate[DeliveryError]
 
@@ -73,7 +71,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
     MailgunClient.sendEmail(config)(composedNoText) match {
       case Right(gatewayComm) =>
         gatewayComm.id shouldBe gatewayId
-        gatewayComm.gateway shouldBe Gateway.Mailgun
+        gatewayComm.gateway shouldBe Mailgun
         gatewayComm.channel shouldBe Email
       case Left(_) => { println("FAILED!"); fail() }
     }
@@ -195,16 +193,6 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
     RetryConfig(refineMV[Positive](1), Retry.Backoff.retryImmediately)
   )
 
-  private def assertMetadata(metadata: Metadata): Unit = {
-    metadata.customerId shouldBe composedEmail.metadata.customerId
-    metadata.canary shouldBe composedEmail.metadata.canary
-    metadata.source shouldBe "delivery-service"
-    metadata.sourceMetadata.get shouldBe composedEmail.metadata
-    metadata.traceToken shouldBe composedEmail.metadata.traceToken
-    metadata.createdAt shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-    metadata.friendlyDescription shouldBe composedEmail.metadata.friendlyDescription
-  }
-
   private def assertFormData(out: ByteArrayOutputStream, textIncluded: Boolean) = {
     val formData = out.toString("UTF-8").split("&").map(formEntry => URLDecoder.decode(formEntry, "UTF-8"))
 
@@ -229,7 +217,10 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
         val commManifestRes = customJson.commManifest
 
         customJson.createdAt shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        customJson.customerId shouldBe composedEmail.metadata.customerId
+        composedEmail.metadata.deliverTo match {
+          case Customer(customerId) => customJson.customerId shouldBe Some(customerId)
+          case _                    => customJson.customerId shouldBe None
+        }
         customJson.traceToken shouldBe composedEmail.metadata.traceToken
         customJson.canary shouldBe composedEmail.metadata.canary
         customJson.internalTraceToken shouldBe composedEmail.internalMetadata.internalTraceToken
