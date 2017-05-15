@@ -73,6 +73,10 @@ trait KafkaTesting extends Assertions with Eventually {
       if (!AdminUtils.topicExists(zkUtils, topic)) {
         AdminUtils.createTopic(zkUtils, topic, 1, 1)
       }
+
+      // sleep before assigning a consumer to the newly created topic
+      Thread.sleep(5000L)
+
       consumer.assign(Seq(new TopicPartition(topic, 0)).asJava)
       consumer.poll(200).records(topic)
 
@@ -86,8 +90,6 @@ trait KafkaTesting extends Assertions with Eventually {
     while (timeout.hasTimeLeft && notStarted) {
       try {
         notStarted = !topicsTheServiceWillCreate.forall(topic => AdminUtils.topicExists(zkUtils, topic))
-        createTopic(failedTopic, commFailedConsumer)
-        createTopic(issuedForDeliveryTopic, issuedForDeliveryConsumer)
       } catch {
         case NonFatal(_) => Thread.sleep(100)
       }
@@ -98,6 +100,9 @@ trait KafkaTesting extends Assertions with Eventually {
     eventually(PatienceConfiguration.Timeout(Span(180, Seconds))) {
       if (!AdminUtils.fetchAllTopicConfigs(zkUtils).contains("__consumer_offsets")) fail("No consumer registered")
     }
+
+    createTopic(failedTopic, commFailedConsumer)
+    createTopic(issuedForDeliveryTopic, issuedForDeliveryConsumer)
 
     Thread.sleep(60000L) // wait a stupidly long time to see if this makes the tests more reliable
 
