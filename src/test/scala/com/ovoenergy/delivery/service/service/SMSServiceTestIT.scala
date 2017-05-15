@@ -46,7 +46,6 @@ class SMSServiceTestIT
 
   override def beforeAll() = {
     createTopicsAndSubscribe()
-    Thread.sleep(10000L) // like a boss
   }
 
   behavior of "SMS Delivery"

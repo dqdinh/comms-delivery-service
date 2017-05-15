@@ -36,7 +36,6 @@ class EmailServiceTestIT
 
   override def beforeAll() = {
     createTopicsAndSubscribe()
-    Thread.sleep(10000L) // like a boss
   }
 
   behavior of "Email Delivery"

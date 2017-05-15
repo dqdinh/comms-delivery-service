@@ -99,9 +99,11 @@ trait KafkaTesting extends Assertions with Eventually {
       if (!AdminUtils.fetchAllTopicConfigs(zkUtils).contains("__consumer_offsets")) fail("No consumer registered")
     }
 
+    Thread.sleep(60000L) // wait a stupidly long time to see if this makes the tests more reliable
+
   }
 
-  def pollForEvents[E](pollTime: FiniteDuration = 20000.millisecond,
+  def pollForEvents[E](pollTime: FiniteDuration = 60.second,
                        noOfEventsExpected: Int,
                        consumer: ApacheKafkaConsumer[String, Option[E]],
                        topic: String): Seq[E] = {
