@@ -109,7 +109,7 @@ object MailgunClient extends LoggingWithMDC {
     response.code match {
       case Success() =>
         val id = parseResponse[SendEmailSuccessResponse](responseBody).map(_.id).getOrElse("unknown id")
-        logInfo(composedEmail, s"Email issued to ${composedEmail.recipient}")
+        logInfo(composedEmail, s"Email issued via Mailgun")
         Right(
           GatewayComm(
             gateway = Mailgun,
