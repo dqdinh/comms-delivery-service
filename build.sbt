@@ -14,14 +14,17 @@ lazy val buildSettings = Seq(
 )
 
 lazy val service = (project in file("."))
-  .settings(buildSettings)
-  .settings(resolvers += Resolver.bintrayRepo("ovotech", "maven"))
-  .settings(resolvers += Resolver.bintrayRepo("cakesolutions", "maven"))
-  .settings(libraryDependencies ++= Dependencies.all)
-  .settings(testTagsToExecute := "DockerComposeTag")
-  .settings(dockerImageCreationTask := (publishLocal in Docker).value)
-  .settings(credstashInputDir := file("conf"))
-  .settings(variablesForSubstitution := Map("IP_ADDRESS" -> ipAddress))
+  .settings(
+    buildSettings,
+    resolvers += Resolver.bintrayRepo("ovotech", "maven"),
+    resolvers += Resolver.bintrayRepo("cakesolutions", "maven"),
+    libraryDependencies ++= Dependencies.all,
+    testTagsToExecute := "DockerComposeTag",
+    dockerImageCreationTask := (publishLocal in Docker).value,
+    variablesForSubstitution := Map("IP_ADDRESS" -> ipAddress),
+    commsPackagingHeapSize := 512,
+    commsPackagingMaxMetaspaceSize := 128
+  )
   .enablePlugins(JavaServerAppPackaging, DockerPlugin, DockerComposePlugin)
 
 lazy val ipAddress: String = {
