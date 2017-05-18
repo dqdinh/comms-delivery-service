@@ -40,24 +40,14 @@ trait KafkaTesting extends Assertions with Eventually {
   val issuedForDeliveryConsumer = KafkaConsumer(
     KafkaConsumerConf(new StringDeserializer, avroDeserializer[IssuedForDeliveryV2], kafkaHosts, consumerGroup))
 
-  val composedEmailLegacyProducer = KafkaProducer(
-    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedEmail], kafkaHosts))
-  val composedSMSLegacyProducer = KafkaProducer(
-    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedSMS], kafkaHosts))
-
   val failedTopic            = "comms.failed.v2"
   val composedEmailTopic     = "comms.composed.email.v2"
   val composedSMSTopic       = "comms.composed.sms.v2"
   val issuedForDeliveryTopic = "comms.issued.for.delivery.v2"
 
-  val composedEmailLegacyTopic = "comms.composed.email"
-  val composedSMSLegacyTopic   = "comms.composed.sms"
-
   val topicsTheServiceWillCreate = List(
     composedEmailTopic,
-    composedSMSTopic,
-    composedEmailLegacyTopic,
-    composedSMSLegacyTopic
+    composedSMSTopic
   )
 
   def createTopicsAndSubscribe() {

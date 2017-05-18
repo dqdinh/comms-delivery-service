@@ -125,33 +125,6 @@ class SMSServiceTestIT
     }
   }
 
-  it should "process events on the legacy Kafka topic" taggedAs DockerComposeTag in {
-    createTwilioResponse(200, validResponse)
-    // Make sure all dates are valid
-    val composedSMSEvent = generate[ComposedSMS]
-      .copy(metadata = generate[Metadata].copy(createdAt = "2016-05-09T13:46:00Z"))
-      .copy(expireAt = None)
-
-    val future =
-      composedSMSLegacyProducer.send(new ProducerRecord[String, ComposedSMS](composedSMSLegacyTopic, composedSMSEvent))
-
-    whenReady(future) { _ =>
-      val issuedForDeliveryEvents =
-        pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
-                                           consumer = issuedForDeliveryConsumer,
-                                           topic = issuedForDeliveryTopic)
-
-      issuedForDeliveryEvents.foreach(issuedForDelivery => {
-
-        issuedForDelivery.gatewayMessageId shouldBe "1234567890"
-        issuedForDelivery.gateway shouldBe Twilio
-        issuedForDelivery.channel shouldBe SMS
-        issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
-        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
-      })
-    }
-  }
-
   def createTwilioResponse(statusCode: Int, responseStr: String) {
     mockServerClient.reset()
     mockServerClient
