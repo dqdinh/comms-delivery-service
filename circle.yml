@@ -36,7 +36,7 @@ deployment:
     commands:
       - git clone git@github.com:ovotech/comms-ci-scripts
       - comms-ci-scripts/publish_docker_image.sh
-      - comms-ci-scripts/deploy_to_ecs.sh -s orchestration UAT aws/container-definition.json
+      - comms-ci-scripts/deploy_to_ecs.sh -s delivery-service UAT aws/container-definition.json
 
 experimental:
   notify:
