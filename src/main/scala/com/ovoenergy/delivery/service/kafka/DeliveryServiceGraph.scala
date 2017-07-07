@@ -5,13 +5,16 @@ import akka.kafka.scaladsl.Consumer
 import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.stream.scaladsl.{RunnableGraph, Sink}
 import akka.stream.{ActorAttributes, Materializer, Supervision}
+import com.ovoenergy.comms.akka.streams.Factory.SSLConfig
 import com.ovoenergy.comms.model.{FailedV2, LoggableEvent}
 import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
 import com.ovoenergy.delivery.service.util.Retry.RetryConfig
+import org.apache.kafka.clients.CommonClientConfigs
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.config.SslConfigs
 import org.apache.kafka.common.serialization.{Deserializer, StringDeserializer}
 
 import scala.concurrent.Future
@@ -24,6 +27,7 @@ object DeliveryServiceGraph extends LoggingWithMDC {
                                 issueComm: (T) => Either[DeliveryError, GatewayComm],
                                 kafkaConfig: KafkaConfig,
                                 retryConfig: RetryConfig,
+                                sslConfig: Option[SSLConfig],
                                 consumerTopic: String,
                                 sendFailedEvent: (T, DeliveryError) => Future[_],
                                 sendIssuedToGatewayEvent: (T, GatewayComm) => Future[_])(
@@ -49,10 +53,22 @@ object DeliveryServiceGraph extends LoggingWithMDC {
         Supervision.Stop
     }
 
-    val consumerSettings =
+    val initialSettings =
       ConsumerSettings(actorSystem, new StringDeserializer, consumerDeserializer)
         .withBootstrapServers(kafkaConfig.hosts)
         .withGroupId(kafkaConfig.groupId)
+
+    val consumerSettings = sslConfig.fold(initialSettings) { ssl =>
+      initialSettings
+        .withProperty(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL")
+        .withProperty(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, ssl.keystoreLocation.toAbsolutePath.toString)
+        .withProperty(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, ssl.keystoreType.toString)
+        .withProperty(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, ssl.keystorePassword)
+        .withProperty(SslConfigs.SSL_KEY_PASSWORD_CONFIG, ssl.keyPassword)
+        .withProperty(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, ssl.truststoreLocation.toString)
+        .withProperty(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, ssl.truststoreType.toString)
+        .withProperty(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, ssl.truststorePassword)
+    }
 
     def success(composedEvent: T, gatewayComm: GatewayComm) = {
       sendWithRetry(sendIssuedToGatewayEvent(composedEvent, gatewayComm),

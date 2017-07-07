@@ -2,7 +2,13 @@ name := "delivery-service"
 
 // Make ScalaTest write test reports that CirceCI understands
 val testReportsDir = sys.env.getOrElse("CI_REPORTS", "target/reports")
-testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oF", "-u", testReportsDir, "-l", "DockerComposeTag")
+testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oF", "-u", testReportsDir)
+
+lazy val ServiceTest = config("servicetest") extend(Test)
+configs(ServiceTest)
+inConfig(ServiceTest)(Defaults.testSettings)
+(test in ServiceTest) := (test in ServiceTest).dependsOn(publishLocal in Docker).value
+inConfig(ServiceTest)(parallelExecution in test := false)
 
 lazy val buildSettings = Seq(
   name                    := "delivery-service",
@@ -13,19 +19,20 @@ lazy val buildSettings = Seq(
   scalacOptions           := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-feature")
 )
 
+val serviceTestDependencies = Seq(
+  "com.whisk" %% "docker-testkit-scalatest" % "0.9.3" % ServiceTest,
+  "com.whisk" %% "docker-testkit-impl-docker-java" % "0.9.3" % ServiceTest)
+
 lazy val service = (project in file("."))
   .settings(
     buildSettings,
     resolvers += Resolver.bintrayRepo("ovotech", "maven"),
     resolvers += Resolver.bintrayRepo("cakesolutions", "maven"),
-    libraryDependencies ++= Dependencies.all,
-    testTagsToExecute := "DockerComposeTag",
-    dockerImageCreationTask := (publishLocal in Docker).value,
-    variablesForSubstitution := Map("IP_ADDRESS" -> ipAddress),
+    resolvers += "confluent-release" at "http://packages.confluent.io/maven/",
+    libraryDependencies ++= Dependencies.all ++ serviceTestDependencies,
     commsPackagingHeapSize := 512,
     commsPackagingMaxMetaspaceSize := 128
-  )
-  .enablePlugins(JavaServerAppPackaging, DockerPlugin, DockerComposePlugin)
+  ).enablePlugins(JavaServerAppPackaging, DockerPlugin)
 
 lazy val ipAddress: String = {
   val addr = "./get_ip_address.sh".!!.trim

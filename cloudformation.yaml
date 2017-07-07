@@ -24,6 +24,17 @@ Resources:
       Path: /
       Policies:
         -
+          PolicyName: read-aiven-bucket
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action:
+                - 's3:Get*'
+                - 's3:List*'
+              Resource:
+                - 'arn:aws:s3:::ovo-comms-aiven'
+                - 'arn:aws:s3:::ovo-comms-aiven/*'
+        -
           PolicyName: read-credstash
           PolicyDocument:
             Statement:

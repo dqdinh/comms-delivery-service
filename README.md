@@ -39,9 +39,7 @@ Tests are executed via `sbt test`
 
 [Service tests] (https://github.com/ovotech/comms-delivery-service/blob/master/src/test/scala/com/ovoenergy/delivery/service/ServiceTestIT.scala) execute the service as a 'black box' using docker-compose, as described above.
 
-If you wish to execute the tests you need to produce a local image `sbt docker:publishLocal` and then you can execute via `sbt dockerComposeTest`
-
-If you wish to execute the service tests in your IDE then, making sure you have produced a local image, run `sbt dockerComposeUp` and run the tests in your IDE.
+If you wish to execute the tests just execute `sbt servicetest:test`
 
 ## Deployment
 
