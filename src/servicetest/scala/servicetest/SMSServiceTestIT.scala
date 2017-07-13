@@ -1,6 +1,5 @@
 package com.ovoenergy.delivery.service.service
 
-import cakesolutions.kafka.KafkaProducer
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms._
 import com.ovoenergy.delivery.service.service.helpers.KafkaTesting
@@ -22,7 +21,7 @@ import org.scalacheck.Shapeless._
 
 class SMSServiceTestIT
     extends DockerIntegrationTest
-    with WordSpecLike
+    with FlatSpecLike
     with Matchers
     with GeneratorDrivenPropertyChecks
     with KafkaTesting
@@ -42,90 +41,82 @@ class SMSServiceTestIT
   val unauthenticatedResponse = getFileString("src/test/resources/FailedTwilioResponse.json")
   val badRequestResponse      = getFileString("src/test/resources/BadRequestTwilioResponse.json")
 
-  "SMS Delivery with legacy kafka" should {
-    executeTestsWithKafkaInstance(legacyComposedSMSProducer)
+  behavior of "SMS Delivery"
+
+  it should "create Failed event when authentication fails with Twilio" in {
+    createTwilioResponse(401, unauthenticatedResponse)
+    val composedSMSEvent = generate[ComposedSMSV2]
+    val future =
+      composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
+    whenReady(future) { _ =>
+      val failedEvents =
+        pollForEvents(noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
+      val failed = failedEvents.head
+      failed.errorCode shouldBe SMSGatewayError
+      failed.reason shouldBe "Error authenticating with the Gateway"
+    }
   }
 
-  "SMS Delivery with aiven kafka" should {
-    executeTestsWithKafkaInstance(aivenComposedSMSProducer)
+  it should "create Failed event when bad request from Twilio" in {
+    createTwilioResponse(400, badRequestResponse)
+    val composedSMSEvent = generate[ComposedSMSV2]
+    val future =
+      composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
+    whenReady(future) { _ =>
+      val failedEvents =
+        pollForEvents(noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
+
+      val failed = failedEvents.head
+      failed.errorCode shouldBe SMSGatewayError
+      failed.reason shouldBe "The Gateway did not like our request"
+    }
   }
 
-  def executeTestsWithKafkaInstance(composedProducer: => KafkaProducer[String, ComposedSMSV2]) {
-    "create Failed event when authentication fails with Twilio" in {
-      createTwilioResponse(401, unauthenticatedResponse)
-      val composedSMSEvent = generate[ComposedSMSV2]
-      val future =
-        composedProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
-      whenReady(future) { _ =>
-        val failedEvents =
-          pollForEvents(noOfEventsExpected = 1, consumer = aivenCommFailedConsumer, topic = failedTopic)
-        val failed = failedEvents.head
-        failed.errorCode shouldBe SMSGatewayError
-        failed.reason shouldBe "Error authenticating with the Gateway"
-      }
+  it should "create issued for delivery events when get OK from Twilio" in {
+    createTwilioResponse(200, validResponse)
+    val composedSMSEvent = generate[ComposedSMSV2]
+
+    val future =
+      composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
+
+    whenReady(future) { _ =>
+      val issuedForDeliveryEvents =
+        pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
+                                           consumer = issuedForDeliveryConsumer,
+                                           topic = issuedForDeliveryTopic)
+
+      issuedForDeliveryEvents.foreach(issuedForDelivery => {
+
+        issuedForDelivery.gatewayMessageId shouldBe "1234567890"
+        issuedForDelivery.gateway shouldBe Twilio
+        issuedForDelivery.channel shouldBe SMS
+        issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
+        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
+      })
     }
+  }
 
-    "create Failed event when bad request from Twilio" in {
-      createTwilioResponse(400, badRequestResponse)
-      val composedSMSEvent = generate[ComposedSMSV2]
-      val future =
-        composedProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
-      whenReady(future) { _ =>
-        val failedEvents =
-          pollForEvents(noOfEventsExpected = 1, consumer = aivenCommFailedConsumer, topic = failedTopic)
+  it should "retry when Twilio returns an error response" in {
+    createFlakyTwilioResponse()
 
-        val failed = failedEvents.head
-        failed.errorCode shouldBe SMSGatewayError
-        failed.reason shouldBe "The Gateway did not like our request"
-      }
-    }
+    val composedSMSEvent = generate[ComposedSMSV2]
+    val future =
+      composedSMSProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
 
-    "create issued for delivery events when get OK from Twilio" in {
-      createTwilioResponse(200, validResponse)
-      val composedSMSEvent = generate[ComposedSMSV2]
+    whenReady(future) { _ =>
+      val issuedForDeliveryEvents =
+        pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
+                                           consumer = issuedForDeliveryConsumer,
+                                           topic = issuedForDeliveryTopic)
 
-      val future =
-        composedProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
+      issuedForDeliveryEvents.foreach(issuedForDelivery => {
 
-      whenReady(future) { _ =>
-        val issuedForDeliveryEvents =
-          pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
-                                             consumer = aivenIssuedForDeliveryConsumer,
-                                             topic = issuedForDeliveryTopic)
-
-        issuedForDeliveryEvents.foreach(issuedForDelivery => {
-
-          issuedForDelivery.gatewayMessageId shouldBe "1234567890"
-          issuedForDelivery.gateway shouldBe Twilio
-          issuedForDelivery.channel shouldBe SMS
-          issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
-          issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
-        })
-      }
-    }
-
-    "retry when Twilio returns an error response" in {
-      createFlakyTwilioResponse()
-
-      val composedSMSEvent = generate[ComposedSMSV2]
-      val future =
-        composedProducer.send(new ProducerRecord[String, ComposedSMSV2](composedSMSTopic, composedSMSEvent))
-
-      whenReady(future) { _ =>
-        val issuedForDeliveryEvents =
-          pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
-                                             consumer = aivenIssuedForDeliveryConsumer,
-                                             topic = issuedForDeliveryTopic)
-
-        issuedForDeliveryEvents.foreach(issuedForDelivery => {
-
-          issuedForDelivery.gatewayMessageId shouldBe "1234567890"
-          issuedForDelivery.gateway shouldBe Twilio
-          issuedForDelivery.channel shouldBe SMS
-          issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
-          issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
-        })
-      }
+        issuedForDelivery.gatewayMessageId shouldBe "1234567890"
+        issuedForDelivery.gateway shouldBe Twilio
+        issuedForDelivery.channel shouldBe SMS
+        issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
+        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
+      })
     }
   }
 

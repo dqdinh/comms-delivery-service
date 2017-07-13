@@ -79,7 +79,7 @@ trait DockerIntegrationTest
 
   // TODO currently no way to set the memory limit on docker containers. Need to make a PR to add support to docker-it-scala. I've checked that the spotify client supports it.
 
-  val aivenTopicNames = Seq(
+  val topicNames = Seq(
     "comms.triggered.v3",
     "comms.orchestrated.email.v3",
     "comms.orchestrated.sms.v2",
@@ -94,42 +94,7 @@ trait DockerIntegrationTest
     "comms.cancelled.v2"
   )
 
-  val legacyTopicNames = aivenTopicNames ++ Seq(
-      "comms.triggered.v2",
-      "comms.cancellation.requested"
-    )
-
-  val legacyZookeeper = DockerContainer("confluentinc/cp-zookeeper:3.1.1", name = Some("legacyZookeeper"))
-    .withPorts(32181 -> Some(32181))
-    .withEnv(
-      "ZOOKEEPER_CLIENT_PORT=32181",
-      "ZOOKEEPER_TICK_TIME=2000",
-      "KAFKA_HEAP_OPTS=-Xmx256M -Xms128M"
-    )
-    .withReadyChecker(LogOutputAndWaitForLineThatContains("binding to port", "legacyZookeeper"))
-
-  val legacyKafka = {
-    // create each topic with 1 partition and replication factor 1
-    val createTopicsString = legacyTopicNames.map(t => s"$t:1:1").mkString(",")
-
-    val lastTopicName = legacyTopicNames.last
-
-    DockerContainer("wurstmeister/kafka:0.10.2.1", name = Some("legacyKafka"))
-      .withPorts(29092 -> Some(29092))
-      .withLinks(ContainerLink(legacyZookeeper, "legacyZookeeper"))
-      .withEnv(
-        "KAFKA_BROKER_ID=1",
-        "KAFKA_ZOOKEEPER_CONNECT=legacyZookeeper:32181",
-        "KAFKA_PORT=29092",
-        "KAFKA_ADVERTISED_PORT=29092",
-        s"KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://$hostIpAddress:29092",
-        "KAFKA_HEAP_OPTS=-Xmx256M -Xms128M",
-        s"KAFKA_CREATE_TOPICS=$createTopicsString"
-      )
-      .withReadyChecker(LogOutputAndWaitForLineThatContains(s"""Created topic "$lastTopicName"""", "legacyKafka")) // Note: this needs to be the last topic in the list of topics above
-  }
-
-  val aivenZookeeper = DockerContainer("confluentinc/cp-zookeeper:3.1.1", name = Some("aivenZookeeper"))
+  val zookeeper = DockerContainer("confluentinc/cp-zookeeper:3.1.1", name = Some("aivenZookeeper"))
     .withPorts(32182 -> Some(32182))
     .withEnv(
       "ZOOKEEPER_CLIENT_PORT=32182",
@@ -138,14 +103,14 @@ trait DockerIntegrationTest
     )
     .withReadyChecker(LogOutputAndWaitForLineThatContains("binding to port", "aivenZookeeper"))
 
-  val aivenKafka = {
+  val kafka = {
     // create each topic with 1 partition and replication factor 1
-    val createTopicsString = aivenTopicNames.map(t => s"$t:1:1").mkString(",")
-    val lastTopicName      = aivenTopicNames.last
+    val createTopicsString = topicNames.map(t => s"$t:1:1").mkString(",")
+    val lastTopicName      = topicNames.last
 
     DockerContainer("wurstmeister/kafka:0.10.2.1", name = Some("aivenKafka"))
       .withPorts(29093 -> Some(29093))
-      .withLinks(ContainerLink(aivenZookeeper, "aivenZookeeper"))
+      .withLinks(ContainerLink(zookeeper, "aivenZookeeper"))
       .withEnv(
         "KAFKA_BROKER_ID=2",
         "KAFKA_ZOOKEEPER_CONNECT=aivenZookeeper:32182",
@@ -161,8 +126,8 @@ trait DockerIntegrationTest
   val schemaRegistry = DockerContainer("confluentinc/cp-schema-registry:3.2.2", name = Some("schema-registry"))
     .withPorts(8081 -> Some(8081))
     .withLinks(
-      ContainerLink(aivenZookeeper, "aivenZookeeper"),
-      ContainerLink(aivenKafka, "aivenKafka")
+      ContainerLink(zookeeper, "aivenZookeeper"),
+      ContainerLink(kafka, "aivenKafka")
     )
     .withEnv(
       "SCHEMA_REGISTRY_HOST_NAME=schema-registry",
@@ -212,8 +177,7 @@ trait DockerIntegrationTest
     DockerContainer(s"$awsAccountId.dkr.ecr.eu-west-1.amazonaws.com/delivery-service:0.1-SNAPSHOT",
                     name = Some("delivery-service"))
       .withLinks(
-        ContainerLink(legacyKafka, "legacyKafka"),
-        ContainerLink(aivenKafka, "aivenKafka"),
+        ContainerLink(kafka, "aivenKafka"),
         ContainerLink(schemaRegistry, "schema-registry"),
         ContainerLink(fakes3ssl, "ovo-comms-audit.s3-eu-west-1.amazonaws.com"),
         ContainerLink(mockServers, "api.mailgun.net"),
@@ -225,18 +189,9 @@ trait DockerIntegrationTest
   }
 
   override def dockerContainers =
-    List(legacyZookeeper,
-         legacyKafka,
-         aivenZookeeper,
-         aivenKafka,
-         schemaRegistry,
-         fakes3,
-         fakes3ssl,
-         mockServers,
-         deliveryService)
+    List(zookeeper, kafka, schemaRegistry, fakes3, fakes3ssl, mockServers, deliveryService)
 
-  lazy val legacyZkUtils = ZkUtils("localhost:32181", 30000, 5000, isZkSecurityEnabled = false)
-  lazy val aivenZkUtils  = ZkUtils("localhost:32182", 30000, 5000, isZkSecurityEnabled = false)
+  lazy val zkUtils = ZkUtils("localhost:32182", 30000, 5000, isZkSecurityEnabled = false)
 
   def checkKafkaTopic(topic: String, zkUtils: ZkUtils, description: String) = {
     println(s"Checking we can retrieve metadata about topic $topic on $description ZooKeeper")
@@ -280,17 +235,13 @@ trait DockerIntegrationTest
       "Starting a whole bunch of Docker containers. This could take a few minutes, but I promise it'll be worth the wait!")
     startAllOrFail()
 
-    legacyTopicNames.foreach(t => checkKafkaTopic(t, legacyZkUtils, "legacy"))
-    aivenTopicNames.foreach(t => checkKafkaTopic(t, aivenZkUtils, "Aiven"))
-
-    legacyTopicNames.foreach(t => checkCanConsumeFromKafkaTopic(t, "localhost:29092", "legacy"))
-    aivenTopicNames.foreach(t => checkCanConsumeFromKafkaTopic(t, "localhost:29093", "Aiven"))
+    topicNames.foreach(t => checkKafkaTopic(t, zkUtils, "Aiven"))
+    topicNames.foreach(t => checkCanConsumeFromKafkaTopic(t, "localhost:29093", "Aiven"))
   }
 
   abstract override def afterAll(): Unit = {
     Try {
-      legacyZkUtils.close()
-      aivenZkUtils.close()
+      zkUtils.close()
     }
 
     stopAllQuietly()
