@@ -109,21 +109,17 @@ object Main extends App with LoggingWithMDC {
   val smsWhiteList = config.getStringList("sms.whiteList").asScala
   val smsBlacklist = config.getStringList("sms.blackList").asScala
 
-  val aivenSchemaRegistryEndpoint = config.getString("kafka.schema.registry.url")
-  val aivenSchemaRegistryUsername = config.getString("kafka.schema.registry.username")
-  val aivenSchemaRegistryPassword = config.getString("kafka.schema.registry.password")
+  val schemaRegistryEndpoint = config.getString("kafka.schema.registry.url")
+  val schemaRegistryUsername = config.getString("kafka.schema.registry.username")
+  val schemaRegistryPassword = config.getString("kafka.schema.registry.password")
   val schemaRegistrySettings =
-    SchemaRegistryClientSettings(aivenSchemaRegistryEndpoint, aivenSchemaRegistryUsername, aivenSchemaRegistryPassword)
+    SchemaRegistryClientSettings(schemaRegistryEndpoint, schemaRegistryUsername, schemaRegistryPassword)
 
   implicit val actorSystem      = ActorSystem("kafka")
   implicit val materializer     = ActorMaterializer()
   implicit val executionContext = actorSystem.dispatcher
-  implicit val legacyKafkaConfig = KafkaConfig(
-    config.getString("kafka.legacy.hosts"),
-    config.getString("kafka.group-id")
-  )
 
-  implicit val aivenKafkaConfig = KafkaConfig(
+  implicit val kafkaConfig = KafkaConfig(
     config.getString("kafka.aiven.hosts"),
     config.getString("kafka.group-id")
   )
@@ -144,30 +140,15 @@ object Main extends App with LoggingWithMDC {
   }
 
   implicit val failedProducer =
-    Publisher.producerFor[FailedV2](aivenKafkaConfig, kafkaSSLConfig, schemaRegistrySettings)
+    Publisher.producerFor[FailedV2](kafkaConfig, kafkaSSLConfig, schemaRegistrySettings)
   implicit val issuedForDeliveryProducer =
-    Publisher.producerFor[IssuedForDeliveryV2](aivenKafkaConfig, kafkaSSLConfig, schemaRegistrySettings)
+    Publisher.producerFor[IssuedForDeliveryV2](kafkaConfig, kafkaSSLConfig, schemaRegistrySettings)
   implicit val scheduler = actorSystem.scheduler
 
   val failedPublisher            = Publisher.publishEvent[FailedV2](failedTopic) _
   val issuedForDeliveryPublisher = Publisher.publishEvent[IssuedForDeliveryV2](issuedForDeliveryTopic) _
 
-  val emailGraphLegacy = DeliveryServiceGraph[ComposedEmailV2](
-    consumerDeserializer = avroDeserializer[ComposedEmailV2],
-    issueComm = IssueEmail.issue(
-      checkBlackWhiteList = BlackWhiteList.buildFromRegex(emailWhitelist, blackListedEmailAddresses),
-      isExpired = ExpiryCheck.isExpired(clock),
-      sendEmail = MailgunClient.sendEmail(mailgunClientConfig)
-    ),
-    kafkaConfig = legacyKafkaConfig,
-    retryConfig = kafkaProducerRetryConfig,
-    sslConfig = None,
-    consumerTopic = composedEmailTopic,
-    sendFailedEvent = FailedEvent.email(failedPublisher),
-    sendIssuedToGatewayEvent = IssuedForDeliveryEvent.email(issuedForDeliveryPublisher)
-  )
-
-  val emailGraphAiven = DeliveryServiceGraph[ComposedEmailV2](
+  val emailGraph = DeliveryServiceGraph[ComposedEmailV2](
     consumerDeserializer =
       avroBinarySchemaRegistryDeserializer[ComposedEmailV2](schemaRegistrySettings, composedEmailTopic),
     issueComm = IssueEmail.issue(
@@ -175,7 +156,7 @@ object Main extends App with LoggingWithMDC {
       isExpired = ExpiryCheck.isExpired(clock),
       sendEmail = MailgunClient.sendEmail(mailgunClientConfig)
     ),
-    kafkaConfig = aivenKafkaConfig,
+    kafkaConfig = kafkaConfig,
     retryConfig = kafkaProducerRetryConfig,
     sslConfig = kafkaSSLConfig,
     consumerTopic = composedEmailTopic,
@@ -183,22 +164,7 @@ object Main extends App with LoggingWithMDC {
     sendIssuedToGatewayEvent = IssuedForDeliveryEvent.email(issuedForDeliveryPublisher)
   )
 
-  val smsGraphLegacy: RunnableGraph[Control] = DeliveryServiceGraph[ComposedSMSV2](
-    consumerDeserializer = avroDeserializer[ComposedSMSV2],
-    issueComm = IssueSMS.issue(
-      checkBlackWhiteList = BlackWhiteList.buildFromLists(smsWhiteList, smsBlacklist),
-      isExpired = ExpiryCheck.isExpired(clock),
-      sendSMS = TwilioClient.send(twilioClientConfig)
-    ),
-    kafkaConfig = legacyKafkaConfig,
-    retryConfig = kafkaProducerRetryConfig,
-    sslConfig = None,
-    consumerTopic = composedSMSTopic,
-    sendFailedEvent = FailedEvent.sms(failedPublisher),
-    sendIssuedToGatewayEvent = IssuedForDeliveryEvent.sms(issuedForDeliveryPublisher)
-  )
-
-  val smsGraphAiven: RunnableGraph[Control] = DeliveryServiceGraph[ComposedSMSV2](
+  val smsGraph: RunnableGraph[Control] = DeliveryServiceGraph[ComposedSMSV2](
     consumerDeserializer =
       avroBinarySchemaRegistryDeserializer[ComposedSMSV2](schemaRegistrySettings, composedSMSTopic),
     issueComm = IssueSMS.issue(
@@ -206,7 +172,7 @@ object Main extends App with LoggingWithMDC {
       isExpired = ExpiryCheck.isExpired(clock),
       sendSMS = TwilioClient.send(twilioClientConfig)
     ),
-    kafkaConfig = aivenKafkaConfig,
+    kafkaConfig = kafkaConfig,
     retryConfig = kafkaProducerRetryConfig,
     sslConfig = kafkaSSLConfig,
     consumerTopic = composedSMSTopic,
@@ -219,17 +185,13 @@ object Main extends App with LoggingWithMDC {
   }
 
   log.info("Delivery Service started")
-  setupGraph(emailGraphAiven, "Email", "Aiven")
-  setupGraph(smsGraphAiven, "SMS", "Aiven")
+  setupGraph(emailGraph, "Email Delivery")
+  setupGraph(smsGraph, "SMS Delivery")
 
-  setupGraph(emailGraphLegacy, "Email", "Legacy")
-  setupGraph(smsGraphLegacy, "SMS", "Legacy")
-
-  private def setupGraph(graph: RunnableGraph[Control], graphName: String, kafkaHostName: String) = {
+  private def setupGraph(graph: RunnableGraph[Control], graphName: String) = {
     val control: Control = graph.run()
     control.isShutdown.foreach { _ =>
-      log.error(
-        s"ARGH! The Kafka source has shut down for graph $graphName in host $kafkaHostName. Killing the JVM and nuking from orbit.")
+      log.error(s"ARGH! The Kafka source has shut down for graph $graphName. Killing the JVM and nuking from orbit.")
       System.exit(1)
     }
   }

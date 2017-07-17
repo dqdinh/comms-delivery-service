@@ -26,10 +26,8 @@ import com.sksamuel.avro4s._
 import org.scalacheck.Shapeless._
 
 trait KafkaTesting extends Assertions with Eventually {
-  val legacyKafkaHosts     = "localhost:29092"
-  val aivenKafkaHosts      = "localhost:29093"
-  val legacyZookeeperHosts = "localhost:32181"
-  val aivenZookeeperHosts  = "localhost:32182"
+  val aivenKafkaHosts     = "localhost:29093"
+  val aivenZookeeperHosts = "localhost:32182"
   implicit val schemaRegistrySettings =
     SchemaRegistryClientSettings("http://localhost:8081", Authentication.None, 100, 1)
 
@@ -39,31 +37,21 @@ trait KafkaTesting extends Assertions with Eventually {
   val issuedForDeliveryTopic = "comms.issued.for.delivery.v2"
 
   val consumerGroup = Random.nextString(10)
-  val legacyComposedEmailProducer = KafkaProducer(
-    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedEmailV2], legacyKafkaHosts, acks = "0"))
-  val legacyComposedSMSProducer = KafkaProducer(
-    KafkaProducerConf(new StringSerializer, avroSerializer[ComposedSMSV2], legacyKafkaHosts, acks = "0"))
 
-  lazy val aivenComposedEmailProducer = aivenProducer[ComposedEmailV2](composedEmailTopic)
-  lazy val aivenComposedSMSProducer   = aivenProducer[ComposedSMSV2](composedSMSTopic)
+  lazy val composedEmailProducer = producer[ComposedEmailV2](composedEmailTopic)
+  lazy val composedSMSProducer   = producer[ComposedSMSV2](composedSMSTopic)
 
-  lazy val aivenCommFailedConsumer        = aivenConsumer[FailedV2](failedTopic)
-  lazy val aivenIssuedForDeliveryConsumer = aivenConsumer[IssuedForDeliveryV2](issuedForDeliveryTopic)
+  lazy val commFailedConsumer        = consumer[FailedV2](failedTopic)
+  lazy val issuedForDeliveryConsumer = consumer[IssuedForDeliveryV2](issuedForDeliveryTopic)
 
-  def legacyProducer[T: SchemaFor: ToRecord] = {
-    KafkaProducer(
-      KafkaProducerConf(new StringSerializer, avroSerializer[T], legacyKafkaHosts)
-    )
-  }
-
-  def aivenProducer[T: SchemaFor: ToRecord](topic: String) = {
+  def producer[T: SchemaFor: ToRecord](topic: String) = {
     val serializer = avroBinarySchemaRegistrySerializer[T](schemaRegistrySettings, topic)
     KafkaProducer(
       KafkaProducerConf(new StringSerializer, serializer, aivenKafkaHosts)
     )
   }
 
-  def aivenConsumer[T: SchemaFor: FromRecord: ClassTag](topic: String) = {
+  def consumer[T: SchemaFor: FromRecord: ClassTag](topic: String) = {
     import scala.collection.JavaConversions._
     val deserializer = avroBinarySchemaRegistryDeserializer[T](schemaRegistrySettings, topic)
     val consumer = KafkaConsumer(
