@@ -4,12 +4,14 @@
 
 Service listens to communication composed events, issuing the communication to the relevant gateway for delivery. 
 
-Only sends emails for now. At some point in the future it will support other channels, e.g. SMS, push.
+It currently deals with emails and SMS's.  The intention is that this is the point at which all outward interaction with 3rd parties happen.
 
 ## Gateways
 
 * Email
   * Mailgun is used for the sending of emails
+* SMS
+  * Twilio is used for the sending of SMS's
 
 ## Running it locally
 
@@ -37,7 +39,7 @@ Tests are executed via `sbt test`
 
 ### Service Tests
 
-[Service tests] (https://github.com/ovotech/comms-delivery-service/blob/master/src/test/scala/com/ovoenergy/delivery/service/ServiceTestIT.scala) execute the service as a 'black box' using docker-compose, as described above.
+[Service tests] (https://github.com/ovotech/comms-delivery-service/tree/master/src/servicetest/scala/servicetest) execute the service as a 'black box' using docker-compose, as described above.
 
 If you wish to execute the tests just execute `sbt servicetest:test`
 
