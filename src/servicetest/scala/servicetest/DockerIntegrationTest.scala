@@ -156,7 +156,6 @@ trait DockerIntegrationTest
   val deliveryService = {
     val envVars = List(
       Some("ENV=LOCAL"),
-      Some("KAFKA_HOSTS_LEGACY=legacyKafka:29092"),
       Some("KAFKA_HOSTS_AIVEN=aivenKafka:29093"),
       Some("LOCAL_DYNAMO=http://dynamodb:8000"),
       Some("DOCKER_COMPOSE=true"),

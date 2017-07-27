@@ -23,7 +23,7 @@ class FailedEventSpec extends FlatSpec with Matchers with ArbGenerator with Gene
   private var failedEventPublished = Option.empty[FailedV2]
   private val publishEvent = (failed: FailedV2) => {
     failedEventPublished = Some(failed)
-    Future.successful(new RecordMetadata(new TopicPartition("", 1), 1l, 1l, 1l, 1l, 1, 1))
+    Future.successful(new RecordMetadata(new TopicPartition("", 1), 1l, 1l, 1l, java.lang.Long.valueOf(1), 1, 1))
   }
 
   "FailedEvent" should "process failed email" in {

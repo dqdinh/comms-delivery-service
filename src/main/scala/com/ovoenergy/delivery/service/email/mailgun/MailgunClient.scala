@@ -6,6 +6,7 @@ import java.time.{Clock, OffsetDateTime}
 import cats.syntax.either._
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email.ComposedEmailV2
+import com.ovoenergy.delivery.config.MailgunAppConfig
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
@@ -21,13 +22,7 @@ import scala.util.{Failure, Success, Try}
 
 object MailgunClient extends LoggingWithMDC {
 
-  case class Configuration(
-      host: String,
-      domain: String,
-      apiKey: String,
-      httpClient: (Request) => Try[Response],
-      retryConfig: RetryConfig
-  )(implicit val clock: Clock)
+  case class Configuration()(implicit val clock: Clock)
 
   case class CustomFormData(createdAt: String,
                             customerId: Option[String],
@@ -41,28 +36,35 @@ object MailgunClient extends LoggingWithMDC {
 
   implicit val encoder: Encoder[CommType] = deriveEnumerationEncoder[CommType]
 
-  def sendEmail(configuration: Configuration)(composedEmail: ComposedEmailV2): Either[DeliveryError, GatewayComm] = {
-    implicit val clock = configuration.clock
+  def sendEmail(httpClient: (Request) => Try[Response])(
+      implicit mailgunConfig: MailgunAppConfig,
+      clock: Clock): (ComposedEmailV2) => Either[DeliveryError, GatewayComm] = {
+    val retryConfig =
+      RetryConfig(mailgunConfig.retry.attempts, Retry.Backoff.constantDelay(mailgunConfig.retry.interval))
 
-    val credentials = Credentials.basic("api", configuration.apiKey)
-    val request = new Request.Builder()
-      .header("Authorization", credentials)
-      .url(s"${configuration.host}/v3/${configuration.domain}/messages")
-      .post(buildSendEmailForm(composedEmail))
-      .build()
+    (composedEmail: ComposedEmailV2) =>
+      {
 
-    val result =
-      Retry.retry[DeliveryError, GatewayComm](config = configuration.retryConfig, onFailure = _ => ()) { () =>
-        configuration.httpClient(request) match {
-          case Success(response) => mapResponseToEither(response, composedEmail)
-          case Failure(ex) =>
-            logError(composedEmail, "Error sending email via Mailgun API", ex)
-            Left(ExceptionOccurred(EmailGatewayError))
-        }
+        val credentials = Credentials.basic("api", mailgunConfig.apiKey)
+        val request = new Request.Builder()
+          .header("Authorization", credentials)
+          .url(s"${mailgunConfig.host}/v3/${mailgunConfig.domain}/messages")
+          .post(buildSendEmailForm(composedEmail))
+          .build()
+
+        val result =
+          Retry.retry[DeliveryError, GatewayComm](config = retryConfig, onFailure = _ => ()) { () =>
+            httpClient(request) match {
+              case Success(response) => mapResponseToEither(response, composedEmail)
+              case Failure(ex) =>
+                logError(composedEmail, "Error sending email via Mailgun API", ex)
+                Left(ExceptionOccurred(EmailGatewayError))
+            }
+          }
+        result
+          .leftMap(failed => failed.finalFailure)
+          .map(succeeded => succeeded.result)
       }
-    result
-      .leftMap(failed => failed.finalFailure)
-      .map(succeeded => succeeded.result)
   }
 
   private def buildSendEmailForm(composedEmail: ComposedEmailV2)(implicit clock: Clock) = {

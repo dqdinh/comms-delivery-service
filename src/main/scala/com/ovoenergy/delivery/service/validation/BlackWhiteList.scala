@@ -1,5 +1,7 @@
 package com.ovoenergy.delivery.service.validation
 
+import com.ovoenergy.delivery.config.{EmailAppConfig, SmsAppConfig}
+
 import scala.util.matching.Regex
 
 object BlackWhiteList {
@@ -9,11 +11,11 @@ object BlackWhiteList {
   case object NotWhitelisted extends Verdict
   case object Blacklisted    extends Verdict
 
-  def buildFromRegex(whitelist: Regex, blacklist: Seq[String]): String => Verdict = {
-    val blacklistSet = blacklist.toSet
+  def buildForEmail(implicit emailConf: EmailAppConfig): String => Verdict = {
+    val blacklistSet = emailConf.blacklist.toSet
 
     { recipient =>
-      if (matches(whitelist, recipient)) {
+      if (matches(emailConf.whitelist.r, recipient)) {
         if (blacklistSet.contains(recipient))
           Blacklisted
         else
@@ -22,9 +24,9 @@ object BlackWhiteList {
     }
   }
 
-  def buildFromLists(whitelist: Seq[String], blacklist: Seq[String]): String => Verdict = {
-    val blacklistSet = blacklist.toSet
-    val whitelistSet = whitelist.toSet
+  def buildForSms(implicit smsconf: SmsAppConfig): String => Verdict = {
+    val blacklistSet = smsconf.blacklist.toSet
+    val whitelistSet = smsconf.whitelist.toSet
 
     { recipient =>
       if (whitelistSet.contains(recipient) || whitelistSet.isEmpty) {

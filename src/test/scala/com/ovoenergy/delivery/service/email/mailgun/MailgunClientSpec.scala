@@ -8,10 +8,11 @@ import java.time.format.DateTimeFormatter
 import akka.Done
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email._
+import com.ovoenergy.delivery.config
+import com.ovoenergy.delivery.config.MailgunAppConfig
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient.CustomFormData
 import com.ovoenergy.delivery.service.util.{ArbGenerator, Retry}
-import com.ovoenergy.delivery.service.util.Retry.RetryConfig
 import eu.timepit.refined._
 import eu.timepit.refined.numeric.Positive
 import io.circe.generic.extras.semiauto._
@@ -25,18 +26,23 @@ import org.scalatest.{Failed => _, _}
 
 import scala.util.Try
 import scala.util.matching.Regex
-
+import scala.concurrent.duration._
 class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with EitherValues {
 
   val dateTime = OffsetDateTime.now(ZoneId.of("UTC"))
 
+  val mailgunDomain = "jifjfofjosdfjdoisj"
+  val mailgunApiKey = "dfsfsfdsfdsfs"
+  val mailgunHost   = "https://api.mailgun.net"
+  val gatewayId     = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
+
   implicit val clock                      = Clock.fixed(dateTime.toInstant, ZoneId.of("UTC"))
   implicit val decoder: Decoder[CommType] = deriveEnumerationDecoder[CommType]
+  implicit val mailgunconfig = MailgunAppConfig(mailgunHost,
+                                                mailgunApiKey,
+                                                mailgunDomain,
+                                                config.ConstantDelayRetry(refineV[Positive](1).right.get, 1.second))
 
-  val mailgunDomain   = "jifjfofjosdfjdoisj"
-  val mailgunApiKey   = "dfsfsfdsfdsfs"
-  val mailgunHost     = "https://api.mailgun.net"
-  val gatewayId       = "<20161117104927.21714.32140.310532EA@sandbox98d59d0a8d0a4af588f2bb683a4a57cc.mailgun.org>"
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
 
   val composedEmail = generate[ComposedEmailV2]
@@ -67,15 +73,10 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
       }
     }
 
-    val config = buildConfig(okResponse)
-    MailgunClient.sendEmail(config)(composedNoText) match {
-      case Right(gatewayComm) =>
-        gatewayComm.id shouldBe gatewayId
-        gatewayComm.gateway shouldBe Mailgun
-        gatewayComm.channel shouldBe Email
-      case Left(_) => { println("FAILED!"); fail() }
-    }
+    val result = MailgunClient.sendEmail(okResponse).apply(composedNoText)
+    result shouldBe Right(GatewayComm(gateway = Mailgun, id = gatewayId, channel = Email))
   }
+
   it should "Send correct request to Mailgun API when both text and HTML present" in {
     val textBody              = Some("textBody")
     val composedEmailWithText = composedEmail.copy(textBody = textBody)
@@ -98,8 +99,9 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
           .build()
       }
     }
-    val config = buildConfig(okResponse)
-    MailgunClient.sendEmail(config)(composedEmailWithText)
+
+    val result = MailgunClient.sendEmail(okResponse).apply(composedEmailWithText)
+    result shouldBe Right(GatewayComm(gateway = Mailgun, id = gatewayId, channel = Email))
   }
 
   it should "Generate correct failure when an exception is thrown in the http client" in {
@@ -108,11 +110,10 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
         throw new IllegalStateException("I am blown up")
       }
     }
-    val config = buildConfig(badResponse)
-    MailgunClient.sendEmail(config)(composedEmail) match {
-      case Right(_) => fail()
-      case Left(f)  => f shouldBe ExceptionOccurred(EmailGatewayError)
-    }
+
+    val result = MailgunClient.sendEmail(badResponse).apply(composedEmail)
+
+    result shouldBe Left(ExceptionOccurred(EmailGatewayError))
   }
 
   it should "Generate correct failure for a 'bad request' response from Mailgun API" in {
@@ -126,8 +127,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
           .build()
       }
     }
-    val config = buildConfig(badResponse)
-    val result = MailgunClient.sendEmail(config)(composedEmail)
+    val result = MailgunClient.sendEmail(badResponse).apply(composedEmail)
 
     result shouldBe Left(APIGatewayBadRequest(EmailGatewayError))
   }
@@ -144,8 +144,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
             .build()
         }
       }
-      val config = buildConfig(badResponse)
-      val result = MailgunClient.sendEmail(config)(composedEmail)
+      val result = MailgunClient.sendEmail(badResponse).apply(composedEmail)
 
       result shouldBe Left(APIGatewayInternalServerError(EmailGatewayError))
     }
@@ -162,8 +161,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
           .build()
       }
     }
-    val config = buildConfig(badResponse)
-    val result = MailgunClient.sendEmail(config)(composedEmail)
+    val result = MailgunClient.sendEmail(badResponse).apply(composedEmail)
 
     result shouldBe Left(APIGatewayAuthenticationError(EmailGatewayError))
   }
@@ -179,19 +177,10 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
           .build()
       }
     }
-    val config = buildConfig(badResponse)
-    val result = MailgunClient.sendEmail(config)(composedEmail)
+    val result = MailgunClient.sendEmail(badResponse).apply(composedEmail)
 
     result shouldBe Left(APIGatewayUnspecifiedError(EmailGatewayError))
   }
-
-  private def buildConfig(httpClient: Request => Try[Response]) = MailgunClient.Configuration(
-    mailgunHost,
-    mailgunDomain,
-    mailgunApiKey,
-    httpClient,
-    RetryConfig(refineMV[Positive](1), Retry.Backoff.retryImmediately)
-  )
 
   private def assertFormData(out: ByteArrayOutputStream, textIncluded: Boolean) = {
     val formData = out.toString("UTF-8").split("&").map(formEntry => URLDecoder.decode(formEntry, "UTF-8"))

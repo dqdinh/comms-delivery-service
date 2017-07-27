@@ -1,10 +1,10 @@
 package com.ovoenergy.delivery.service.service
 
+import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email._
-import com.ovoenergy.delivery.service.service.helpers.KafkaTesting
 import com.ovoenergy.delivery.service.util.ArbGenerator
-import org.apache.kafka.clients.producer.ProducerRecord
+import com.typesafe.config.ConfigFactory
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.matchers.Times
 import org.mockserver.model.HttpRequest.request
@@ -13,10 +13,9 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest._
 import servicetest.DockerIntegrationTest
-
-import scala.collection.JavaConverters._
-
+import scala.language.reflectiveCalls
 //Implicits
+import com.ovoenergy.comms.serialisation.Codecs._
 import org.scalacheck.Shapeless._
 
 class EmailServiceTestIT
@@ -24,12 +23,13 @@ class EmailServiceTestIT
     with FlatSpecLike
     with Matchers
     with GeneratorDrivenPropertyChecks
-    with KafkaTesting
     with ArbGenerator {
 
-  implicit val config: PatienceConfig = PatienceConfig(Span(60, Seconds))
+  implicit val pConfig: PatienceConfig = PatienceConfig(Span(60, Seconds))
+  implicit val conf                    = ConfigFactory.load("servicetest.conf")
 
   val mockServerClient = new MockServerClient("localhost", 1080)
+  val topics           = Kafka.aiven
 
   behavior of "Email Delivery"
 
@@ -37,13 +37,11 @@ class EmailServiceTestIT
     create401MailgunResponse()
 
     val composedEmailEvent = arbitraryComposedEmailEvent
-    val future =
-      composedEmailProducer.send(
-        new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, "test", composedEmailEvent))
+    val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
 
     whenReady(future) { _ =>
       val failedEvents =
-        pollForEvents[FailedV2](noOfEventsExpected = 1, consumer = commFailedConsumer, topic = failedTopic)
+        topics.failed.v2.pollConsumer(noOfEventsExpected = 1)
       failedEvents.size shouldBe 1
       failedEvents.foreach(failed => {
         failed.reason shouldBe "Error authenticating with the Gateway"
@@ -56,13 +54,11 @@ class EmailServiceTestIT
     create400MailgunResponse()
 
     val composedEmailEvent = arbitraryComposedEmailEvent
-    val future =
-      composedEmailProducer.send(new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, composedEmailEvent))
+    val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
+
     whenReady(future) { _ =>
-      val failedEvents = commFailedConsumer.poll(30000).records(failedTopic).asScala.toList
-      failedEvents.size shouldBe 1
-      failedEvents.foreach(record => {
-        val failed = record.value().getOrElse(fail("No record for ${record.key()}"))
+      val failedEvents = topics.failed.v2.pollConsumer(noOfEventsExpected = 1)
+      failedEvents.foreach(failed => {
         failed.reason shouldBe "The Gateway did not like our request"
         failed.errorCode shouldBe EmailGatewayError
       })
@@ -71,15 +67,11 @@ class EmailServiceTestIT
 
   it should "create IssuedForDelivery event when get OK from Mailgun" in {
     createOKMailgunResponse()
-
     val composedEmailEvent = arbitraryComposedEmailEvent
-    val future =
-      composedEmailProducer.send(new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, composedEmailEvent))
-    whenReady(future) { _ =>
-      val issuedForDeliveryEvents = pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
-                                                                       consumer = issuedForDeliveryConsumer,
-                                                                       topic = issuedForDeliveryTopic)
+    val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
 
+    whenReady(future) { _ =>
+      val issuedForDeliveryEvents = topics.issuedForDelivery.v2.pollConsumer(noOfEventsExpected = 1)
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
         issuedForDelivery.gateway shouldBe Mailgun
@@ -94,12 +86,9 @@ class EmailServiceTestIT
     createFlakyMailgunResponse()
 
     val composedEmailEvent = arbitraryComposedEmailEvent
-    val future =
-      composedEmailProducer.send(new ProducerRecord[String, ComposedEmailV2](composedEmailTopic, composedEmailEvent))
+    val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
     whenReady(future) { _ =>
-      val issuedForDeliveryEvents = pollForEvents[IssuedForDeliveryV2](noOfEventsExpected = 1,
-                                                                       consumer = issuedForDeliveryConsumer,
-                                                                       topic = issuedForDeliveryTopic)
+      val issuedForDeliveryEvents = topics.issuedForDelivery.v2.pollConsumer(noOfEventsExpected = 1)
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"

@@ -9,6 +9,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric._
 import akka.pattern.after
+import com.ovoenergy.delivery.config.{ExponentialDelayRetry, ConstantDelayRetry}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -20,15 +21,23 @@ object Retry {
 
   /**
     * @param attempts The total number of attempts to make, including both the first attempt and any retries.
-    * @param backoff Sleep between attempts. The number of attempts made so far is passed as an argument.
+    * @param backoff  Sleep between attempts. The number of attempts made so far is passed as an argument.
     */
   case class RetryConfig(attempts: Int Refined Positive, backoff: Int => FiniteDuration)
+
+  def constantDelay(retry: ConstantDelayRetry) = {
+    RetryConfig(retry.attempts, Backoff.constantDelay(retry.interval))
+  }
+
+  def exponentialDelay(retry: ExponentialDelayRetry) = {
+    RetryConfig(retry.attempts, Backoff.exponential(retry.initialInterval, retry.exponent))
+  }
 
   /**
     * Attempt to perform an operation up to a given number of times, then give up.
     *
     * @param onFailure A hook that is called after each failure. Useful for logging.
-    * @param f The operation to perform.
+    * @param f         The operation to perform.
     */
   def retry[A, B](config: RetryConfig, onFailure: A => Unit)(f: () => Either[A, B]): Either[Failed[A], Succeeded[B]] = {
     @tailrec
@@ -55,7 +64,7 @@ object Retry {
     * Based on https://gist.github.com/viktorklang/9414163
     *
     * @param onFailure A hook that is called after each failure. Useful for logging.
-    * @param f the operation to perform.
+    * @param f         the operation to perform.
     */
   def retryAsync[A](config: RetryConfig, onFailure: Throwable => Unit, attempt: Int = 1)(
       f: () => Future[A])(implicit ec: ExecutionContext, s: Scheduler): Future[A] = {

@@ -3,29 +3,25 @@ package com.ovoenergy.delivery.service.sms.twilio
 import cats.syntax.either._
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms.ComposedSMSV2
+import com.ovoenergy.delivery.config.TwilioAppConfig
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
+import com.ovoenergy.delivery.service.util.Retry.RetryConfig
+import io.circe.Decoder
 import io.circe.generic.auto._
 import io.circe.parser._
-import io.circe.Decoder
 import okhttp3.{Credentials, FormBody, Request, Response}
 
 import scala.util.{Failure, Success, Try}
 
 object TwilioClient extends LoggingWithMDC {
-  case class Config(accountSid: String,
-                    authToken: String,
-                    serviceSid: String,
-                    url: String,
-                    retryConfig: Retry.RetryConfig,
-                    httpClient: (Request) => Try[Response])
-
   case class ErrorResponse(detail: Option[String])
-
   case class SuccessfulResponse(sid: String)
 
-  def send(config: Config): ComposedSMSV2 => Either[DeliveryError, GatewayComm] = { event =>
+  def send(httpClient: (Request) => Try[Response])(
+      implicit config: TwilioAppConfig): ComposedSMSV2 => Either[DeliveryError, GatewayComm] = { event =>
+    val retryConfig = Retry.constantDelay(config.retry)
     val request = {
       val credentials = Credentials.basic(config.accountSid, config.authToken)
 
@@ -37,13 +33,13 @@ object TwilioClient extends LoggingWithMDC {
 
       new Request.Builder()
         .header("Authorization", credentials)
-        .url(s"${config.url}/2010-04-01/Accounts/${config.accountSid}/Messages.json")
+        .url(s"${config.apiUrl}/2010-04-01/Accounts/${config.accountSid}/Messages.json")
         .post(requestBody)
         .build()
     }
 
-    val result = Retry.retry[DeliveryError, GatewayComm](config = config.retryConfig, onFailure = _ => ()) { () =>
-      config.httpClient(request) match {
+    val result = Retry.retry[DeliveryError, GatewayComm](config = retryConfig, onFailure = _ => ()) { () =>
+      httpClient(request) match {
         case Success(response) => {
           extractResponse(response, event)
         }

@@ -2,38 +2,36 @@ package com.ovoenergy.delivery.service.kafka
 
 import akka.actor.{ActorSystem, Scheduler}
 import akka.kafka.scaladsl.Consumer
-import akka.kafka.{ConsumerSettings, Subscriptions}
+import akka.kafka.Subscriptions
 import akka.stream.scaladsl.{RunnableGraph, Sink}
 import akka.stream.{ActorAttributes, Materializer, Supervision}
-import com.ovoenergy.comms.akka.streams.Factory.SSLConfig
-import com.ovoenergy.comms.model.{FailedV2, LoggableEvent}
+import com.ovoenergy.comms.helpers.Topic
+import com.ovoenergy.comms.model.LoggableEvent
+import com.ovoenergy.delivery.config.KafkaAppConfig
 import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
-import com.ovoenergy.delivery.service.kafka.domain.KafkaConfig
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
-import com.ovoenergy.delivery.service.util.Retry.RetryConfig
-import org.apache.kafka.clients.CommonClientConfigs
+import com.sksamuel.avro4s.{FromRecord, SchemaFor}
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.config.SslConfigs
-import org.apache.kafka.common.serialization.{Deserializer, StringDeserializer}
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 object DeliveryServiceGraph extends LoggingWithMDC {
 
-  def apply[T <: LoggableEvent](consumerDeserializer: Deserializer[Option[T]],
-                                issueComm: (T) => Either[DeliveryError, GatewayComm],
-                                kafkaConfig: KafkaConfig,
-                                retryConfig: RetryConfig,
-                                sslConfig: Option[SSLConfig],
-                                consumerTopic: String,
-                                sendFailedEvent: (T, DeliveryError) => Future[_],
-                                sendIssuedToGatewayEvent: (T, GatewayComm) => Future[_])(
+  def apply[T <: LoggableEvent: SchemaFor: FromRecord: ClassTag](
+      topic: Topic[T],
+      issueComm: (T) => Either[DeliveryError, GatewayComm],
+      sendFailedEvent: (T, DeliveryError) => Future[_],
+      sendIssuedToGatewayEvent: (T, GatewayComm) => Future[_])(
       implicit actorSystem: ActorSystem,
+      config: KafkaAppConfig,
       materializer: Materializer,
       scheduler: Scheduler): RunnableGraph[Consumer.Control] = {
+
+    val retryConfig = Retry.exponentialDelay(config.retry)
 
     def sendWithRetry[A](future: Future[A], inputEvent: T, errorDescription: String)(implicit scheduler: Scheduler) = {
       val onFailure         = (e: Throwable) => logWarn(inputEvent, errorDescription, e)
@@ -53,23 +51,6 @@ object DeliveryServiceGraph extends LoggingWithMDC {
         Supervision.Stop
     }
 
-    val initialSettings =
-      ConsumerSettings(actorSystem, new StringDeserializer, consumerDeserializer)
-        .withBootstrapServers(kafkaConfig.hosts)
-        .withGroupId(kafkaConfig.groupId)
-
-    val consumerSettings = sslConfig.fold(initialSettings) { ssl =>
-      initialSettings
-        .withProperty(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL")
-        .withProperty(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, ssl.keystoreLocation.toAbsolutePath.toString)
-        .withProperty(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, ssl.keystoreType.toString)
-        .withProperty(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, ssl.keystorePassword)
-        .withProperty(SslConfigs.SSL_KEY_PASSWORD_CONFIG, ssl.keyPassword)
-        .withProperty(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, ssl.truststoreLocation.toString)
-        .withProperty(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, ssl.truststoreType.toString)
-        .withProperty(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, ssl.truststorePassword)
-    }
-
     def success(composedEvent: T, gatewayComm: GatewayComm) = {
       sendWithRetry(sendIssuedToGatewayEvent(composedEvent, gatewayComm),
                     composedEvent,
@@ -84,7 +65,7 @@ object DeliveryServiceGraph extends LoggingWithMDC {
     }
 
     val source = Consumer
-      .committableSource(consumerSettings, Subscriptions.topics(consumerTopic))
+      .committableSource(topic.consumerSettings, Subscriptions.topics(topic.name))
       .mapAsync(1) { msg =>
         log.debug(s"Event received $msg")
         val result = msg.record.value match {

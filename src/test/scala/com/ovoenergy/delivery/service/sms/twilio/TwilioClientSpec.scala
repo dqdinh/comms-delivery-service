@@ -1,9 +1,12 @@
 package com.ovoenergy.delivery.service.sms.twilio
 
 import java.io.ByteArrayOutputStream
+import java.util.UUID
 
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms._
+import com.ovoenergy.delivery.config
+import com.ovoenergy.delivery.config.{ConstantDelayRetry, TwilioAppConfig}
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.util.{ArbGenerator, Retry}
 import com.ovoenergy.delivery.service.util.Retry.RetryConfig
@@ -11,6 +14,7 @@ import eu.timepit.refined.numeric.Positive
 import eu.timepit.refined.refineV
 import okhttp3._
 import okio.Okio
+import org.scalacheck.Arbitrary
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration.FiniteDuration
@@ -24,16 +28,17 @@ import org.scalatest.{Failed => _, _}
 class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with EitherValues {
 
   val composedSMS = generate[ComposedSMSV2]
+  implicit def arbTwilioConfig = Arbitrary {
+    TwilioAppConfig(
+      generate[String],
+      generate[String],
+      generate[String],
+      "https://test.com",
+      generate[ConstantDelayRetry]
+    )
+  }
 
-  val retryConfig = RetryConfig(
-    refineV[Positive](1).right.getOrElse(sys.error(s"NOOO")),
-    Retry.Backoff.constantDelay(FiniteDuration(1, "second"))
-  )
-
-  val accountSid = generate[String]
-  val authToken  = generate[String]
-  val serviceSid = generate[String]
-  val url        = "https://test.com"
+  implicit val twilioConfig = generate[TwilioAppConfig]
 
   private def getFileString(file: String) = {
     Source
@@ -64,47 +69,21 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
   }
 
   it should "Handle valid response from Twilio API" in {
-    val config = TwilioClient.Config(
-      accountSid,
-      authToken,
-      serviceSid,
-      url,
-      retryConfig,
-      httpClient(validResponse, 200, _ => ())
-    )
-
-    val result = TwilioClient.send(config)(composedSMS)
-
+    val client = httpClient(validResponse, 200, _ => ())
+    val result = TwilioClient.send(client).apply(composedSMS)
     result shouldBe Right(GatewayComm(Twilio, "1234567890", SMS))
   }
 
   it should "Handle 401 Not Authenticated responses" in {
-    val config = TwilioClient.Config(
-      accountSid,
-      authToken,
-      serviceSid,
-      url,
-      retryConfig,
-      httpClient(unauthenticatedResponse, 401, _ => ())
-    )
-
-    val result = TwilioClient.send(config)(composedSMS)
+    val client = httpClient(unauthenticatedResponse, 401, _ => ())
+    val result = TwilioClient.send(client).apply(composedSMS)
 
     result shouldBe Left(APIGatewayAuthenticationError(SMSGatewayError))
   }
 
   it should "Handle Bad request responses" in {
-    val config = TwilioClient.Config(
-      accountSid,
-      authToken,
-      serviceSid,
-      url,
-      retryConfig,
-      httpClient(badRequestResponse, 400, _ => ())
-    )
-
-    val result = TwilioClient.send(config)(composedSMS)
-
+    val client = httpClient(badRequestResponse, 400, _ => ())
+    val result = TwilioClient.send(client).apply(composedSMS)
     result shouldBe Left(APIGatewayBadRequest(SMSGatewayError))
   }
 }
