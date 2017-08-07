@@ -19,6 +19,7 @@ import scala.io.Source
 //implicits
 import com.ovoenergy.comms.serialisation.Codecs._
 import org.scalacheck.Shapeless._
+import com.ovoenergy.comms.testhelpers.KafkaTestHelpers._
 
 class SMSServiceTestIT
     extends DockerIntegrationTest
@@ -46,65 +47,74 @@ class SMSServiceTestIT
 
   it should "create Failed event when authentication fails with Twilio" in {
     createTwilioResponse(401, unauthenticatedResponse)
-    val composedSMSEvent = generate[ComposedSMSV2]
-    val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
-    whenReady(future) { _ =>
-      val failedEvents = Kafka.aiven.failed.v2.pollConsumer(noOfEventsExpected = 1)
-      failedEvents.foreach { failed =>
-        failed.errorCode shouldBe SMSGatewayError
-        failed.reason shouldBe "Error authenticating with the Gateway"
+    withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
+      val composedSMSEvent = generate[ComposedSMSV2]
+      val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
+      whenReady(future) { _ =>
+        val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
+        failedEvents.foreach { failed =>
+          failed.errorCode shouldBe SMSGatewayError
+          failed.reason shouldBe "Error authenticating with the Gateway"
+        }
       }
     }
   }
 
   it should "create Failed event when bad request from Twilio" in {
     createTwilioResponse(400, badRequestResponse)
-    val composedSMSEvent = generate[ComposedSMSV2]
-    val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
-    whenReady(future) { _ =>
-      val failedEvents = Kafka.aiven.failed.v2.pollConsumer(noOfEventsExpected = 1)
-      failedEvents.foreach { failed =>
-        failed.errorCode shouldBe SMSGatewayError
-        failed.reason shouldBe "The Gateway did not like our request"
+    withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
+      val composedSMSEvent = generate[ComposedSMSV2]
+      val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
+      whenReady(future) { _ =>
+        val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
+        failedEvents.foreach { failed =>
+          failed.errorCode shouldBe SMSGatewayError
+          failed.reason shouldBe "The Gateway did not like our request"
+        }
       }
     }
   }
 
   it should "create issued for delivery events when get OK from Twilio" in {
     createTwilioResponse(200, validResponse)
-    val composedSMSEvent = generate[ComposedSMSV2]
-    val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
 
-    whenReady(future) { _ =>
-      val issuedForDeliveryEvents = Kafka.aiven.issuedForDelivery.v2.pollConsumer(noOfEventsExpected = 1)
+    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2) { consumer =>
+      val composedSMSEvent = generate[ComposedSMSV2]
+      val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
 
-      issuedForDeliveryEvents.foreach(issuedForDelivery => {
+      whenReady(future) { _ =>
+        val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
 
-        issuedForDelivery.gatewayMessageId shouldBe "1234567890"
-        issuedForDelivery.gateway shouldBe Twilio
-        issuedForDelivery.channel shouldBe SMS
-        issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
-        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
-      })
+        issuedForDeliveryEvents.foreach(issuedForDelivery => {
+
+          issuedForDelivery.gatewayMessageId shouldBe "1234567890"
+          issuedForDelivery.gateway shouldBe Twilio
+          issuedForDelivery.channel shouldBe SMS
+          issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
+          issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
+        })
+      }
     }
   }
 
   it should "retry when Twilio returns an error response" in {
     createFlakyTwilioResponse()
 
-    val composedSMSEvent = generate[ComposedSMSV2]
-    val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
+    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2) { consumer =>
+      val composedSMSEvent = generate[ComposedSMSV2]
+      val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
 
-    whenReady(future) { _ =>
-      val issuedForDeliveryEvents = Kafka.aiven.issuedForDelivery.v2.pollConsumer(noOfEventsExpected = 1)
-      issuedForDeliveryEvents.foreach(issuedForDelivery => {
+      whenReady(future) { _ =>
+        val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
+        issuedForDeliveryEvents.foreach(issuedForDelivery => {
 
-        issuedForDelivery.gatewayMessageId shouldBe "1234567890"
-        issuedForDelivery.gateway shouldBe Twilio
-        issuedForDelivery.channel shouldBe SMS
-        issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
-        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
-      })
+          issuedForDelivery.gatewayMessageId shouldBe "1234567890"
+          issuedForDelivery.gateway shouldBe Twilio
+          issuedForDelivery.channel shouldBe SMS
+          issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
+          issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
+        })
+      }
     }
   }
 

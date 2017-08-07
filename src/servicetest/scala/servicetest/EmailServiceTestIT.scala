@@ -17,6 +17,7 @@ import scala.language.reflectiveCalls
 //Implicits
 import com.ovoenergy.comms.serialisation.Codecs._
 import org.scalacheck.Shapeless._
+import com.ovoenergy.comms.testhelpers.KafkaTestHelpers._
 
 class EmailServiceTestIT
     extends DockerIntegrationTest
@@ -36,67 +37,74 @@ class EmailServiceTestIT
   it should "create Failed event when authentication fails with Mailgun" in {
     create401MailgunResponse()
 
-    val composedEmailEvent = arbitraryComposedEmailEvent
-    val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
-
-    whenReady(future) { _ =>
-      val failedEvents =
-        topics.failed.v2.pollConsumer(noOfEventsExpected = 1)
-      failedEvents.size shouldBe 1
-      failedEvents.foreach(failed => {
-        failed.reason shouldBe "Error authenticating with the Gateway"
-        failed.errorCode shouldBe EmailGatewayError
-      })
+    withThrowawayConsumerFor(topics.failed.v2) { consumer =>
+      val composedEmailEvent = arbitraryComposedEmailEvent
+      val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
+      whenReady(future) { _ =>
+        val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
+        failedEvents.size shouldBe 1
+        failedEvents.foreach(failed => {
+          failed.reason shouldBe "Error authenticating with the Gateway"
+          failed.errorCode shouldBe EmailGatewayError
+        })
+      }
     }
+
   }
 
   it should "create Failed event when get bad request from Mailgun" in {
     create400MailgunResponse()
 
-    val composedEmailEvent = arbitraryComposedEmailEvent
-    val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
+    withThrowawayConsumerFor(topics.failed.v2) { consumer =>
+      val composedEmailEvent = arbitraryComposedEmailEvent
+      val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
 
-    whenReady(future) { _ =>
-      val failedEvents = topics.failed.v2.pollConsumer(noOfEventsExpected = 1)
-      failedEvents.foreach(failed => {
-        failed.reason shouldBe "The Gateway did not like our request"
-        failed.errorCode shouldBe EmailGatewayError
-      })
+      whenReady(future) { _ =>
+        val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
+        failedEvents.foreach(failed => {
+          failed.reason shouldBe "The Gateway did not like our request"
+          failed.errorCode shouldBe EmailGatewayError
+        })
+      }
     }
   }
 
   it should "create IssuedForDelivery event when get OK from Mailgun" in {
     createOKMailgunResponse()
-    val composedEmailEvent = arbitraryComposedEmailEvent
-    val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
+    withThrowawayConsumerFor(topics.issuedForDelivery.v2) { consumer =>
+      val composedEmailEvent = arbitraryComposedEmailEvent
+      val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
 
-    whenReady(future) { _ =>
-      val issuedForDeliveryEvents = topics.issuedForDelivery.v2.pollConsumer(noOfEventsExpected = 1)
-      issuedForDeliveryEvents.foreach(issuedForDelivery => {
-        issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
-        issuedForDelivery.gateway shouldBe Mailgun
-        issuedForDelivery.channel shouldBe Email
-        issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
-        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
-      })
+      whenReady(future) { _ =>
+        val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
+        issuedForDeliveryEvents.foreach(issuedForDelivery => {
+          issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
+          issuedForDelivery.gateway shouldBe Mailgun
+          issuedForDelivery.channel shouldBe Email
+          issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
+          issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
+        })
+      }
     }
   }
 
   it should "retry when Mailgun returns an error response" in {
     createFlakyMailgunResponse()
 
-    val composedEmailEvent = arbitraryComposedEmailEvent
-    val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
-    whenReady(future) { _ =>
-      val issuedForDeliveryEvents = topics.issuedForDelivery.v2.pollConsumer(noOfEventsExpected = 1)
+    withThrowawayConsumerFor(topics.issuedForDelivery.v2) { consumer =>
+      val composedEmailEvent = arbitraryComposedEmailEvent
+      val future             = topics.composedEmail.v2.publisher.apply(composedEmailEvent)
+      whenReady(future) { _ =>
+        val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
 
-      issuedForDeliveryEvents.foreach(issuedForDelivery => {
-        issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
-        issuedForDelivery.gateway shouldBe Mailgun
-        issuedForDelivery.channel shouldBe Email
-        issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
-        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
-      })
+        issuedForDeliveryEvents.foreach(issuedForDelivery => {
+          issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
+          issuedForDelivery.gateway shouldBe Mailgun
+          issuedForDelivery.channel shouldBe Email
+          issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
+          issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
+        })
+      }
     }
   }
 
