@@ -3,7 +3,7 @@ import sbt._
 object Dependencies {
 
   val circeVersion        = "0.7.0"
-  val kafkaHelpersVersion = "2.16"
+  val kafkaHelpersVersion = "2.19"
 
   val all = Seq(
     "com.typesafe.akka"          %% "akka-stream-kafka"         % "0.16",
