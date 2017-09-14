@@ -20,6 +20,7 @@ import com.ovoenergy.delivery.service.sms.IssueSMS
 import com.ovoenergy.delivery.service.sms.twilio.TwilioClient
 import com.ovoenergy.delivery.service.validation.{BlackWhiteList, ExpiryCheck}
 import com.ovoenergy.delivery.config._
+import com.ovoenergy.delivery.service.ErrorHandling._
 import scala.language.implicitConversions
 import com.typesafe.config.ConfigFactory
 import com.ovoenergy.comms.serialisation.Codecs._
@@ -46,8 +47,11 @@ object Main extends App with LoggingWithMDC {
     case Right(res) => res
   }
 
-  val failedPublisher            = Kafka.aiven.failed.v2.publisher
-  val issuedForDeliveryPublisher = Kafka.aiven.issuedForDelivery.v2.publisher
+  val failedTopic     = Kafka.aiven.failed.v2
+  val failedPublisher = Kafka.aiven.failed.v2.publisher.exitAppOnFailure(failedTopic.name)
+
+  val issuedForDeliveryTopic     = Kafka.aiven.issuedForDelivery.v2
+  val issuedForDeliveryPublisher = issuedForDeliveryTopic.publisher.exitAppOnFailure(issuedForDeliveryTopic.name)
 
   val emailGraph = DeliveryServiceGraph[ComposedEmailV2](
     topic = Kafka.aiven.composedEmail.v2,

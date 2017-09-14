@@ -1,4 +1,4 @@
-package com.ovoenergy.delivery.service.service
+package servicetest
 
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
@@ -49,8 +49,9 @@ class SMSServiceTestIT
     createTwilioResponse(401, unauthenticatedResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV2]
-      val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
-      whenReady(future) { _ =>
+      val publisher        = throwExceptionIfFailed(Kafka.aiven.composedSms.v2.publisher)
+
+      whenReady(publisher.apply(composedSMSEvent)) { _ =>
         val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
         failedEvents.foreach { failed =>
           failed.errorCode shouldBe SMSGatewayError
@@ -64,8 +65,9 @@ class SMSServiceTestIT
     createTwilioResponse(400, badRequestResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV2]
-      val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
-      whenReady(future) { _ =>
+      val publisher        = throwExceptionIfFailed(Kafka.aiven.composedSms.v2.publisher)
+
+      whenReady(publisher.apply(composedSMSEvent)) { _ =>
         val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
         failedEvents.foreach { failed =>
           failed.errorCode shouldBe SMSGatewayError
@@ -80,9 +82,9 @@ class SMSServiceTestIT
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV2]
-      val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
+      val publisher        = throwExceptionIfFailed(Kafka.aiven.composedSms.v2.publisher)
 
-      whenReady(future) { _ =>
+      whenReady(publisher.apply(composedSMSEvent)) { _ =>
         val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
 
         issuedForDeliveryEvents.foreach(issuedForDelivery => {
@@ -102,9 +104,9 @@ class SMSServiceTestIT
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV2]
-      val future           = Kafka.aiven.composedSms.v2.publisher.apply(composedSMSEvent)
+      val publisher        = throwExceptionIfFailed(Kafka.aiven.composedSms.v2.publisher)
 
-      whenReady(future) { _ =>
+      whenReady(publisher.apply(composedSMSEvent)) { _ =>
         val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
         issuedForDeliveryEvents.foreach(issuedForDelivery => {
 

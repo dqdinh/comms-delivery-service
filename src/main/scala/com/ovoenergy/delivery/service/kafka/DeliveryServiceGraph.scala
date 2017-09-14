@@ -11,6 +11,7 @@ import com.ovoenergy.delivery.config.KafkaAppConfig
 import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
+import com.ovoenergy.delivery.service.ErrorHandling._
 import com.sksamuel.avro4s.{FromRecord, SchemaFor}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 
@@ -51,6 +52,8 @@ object DeliveryServiceGraph extends LoggingWithMDC {
         Supervision.Stop
     }
 
+    val consumerSettings = topic.consumerSettings.exitAppOnFailure(topic.name)
+
     def success(composedEvent: T, gatewayComm: GatewayComm) = {
       sendWithRetry(sendIssuedToGatewayEvent(composedEvent, gatewayComm),
                     composedEvent,
@@ -65,7 +68,7 @@ object DeliveryServiceGraph extends LoggingWithMDC {
     }
 
     val source = Consumer
-      .committableSource(topic.consumerSettings, Subscriptions.topics(topic.name))
+      .committableSource(consumerSettings, Subscriptions.topics(topic.name))
       .mapAsync(1) { msg =>
         log.debug(s"Event received $msg")
         val result = msg.record.value match {

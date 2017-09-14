@@ -1,5 +1,6 @@
 package com.ovoenergy.delivery.service.config
 
+import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.delivery.config.{
   ConstantDelayRetry,
   EmailAppConfig,
@@ -10,6 +11,7 @@ import com.ovoenergy.delivery.config.{
   TwilioAppConfig
 }
 import com.ovoenergy.delivery.service.ConfigLoader
+import com.typesafe.config.ConfigFactory
 import eu.timepit.refined.numeric.Positive
 import eu.timepit.refined._
 import org.scalatest.{FlatSpec, Matchers}
@@ -61,5 +63,4 @@ class ConfigLoaderSpec extends FlatSpec with Matchers {
     implicitly[EmailAppConfig] shouldBe expectedEmailConfig
     implicitly[SmsAppConfig] shouldBe expectedSmsConfig
   }
-
 }
