@@ -52,7 +52,7 @@ object DeliveryServiceGraph extends LoggingWithMDC {
         Supervision.Stop
     }
 
-    val consumerSettings = topic.consumerSettings.exitAppOnFailure(topic.name)
+    val consumerSettings = exitAppOnFailure(topic.consumerSettings, topic.name)
 
     def success(composedEvent: T, gatewayComm: GatewayComm) = {
       sendWithRetry(sendIssuedToGatewayEvent(composedEvent, gatewayComm),

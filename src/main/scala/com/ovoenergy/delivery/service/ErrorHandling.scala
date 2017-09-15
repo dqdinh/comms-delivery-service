@@ -5,21 +5,21 @@ import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 
 object ErrorHandling extends LoggingWithMDC {
 
-  implicit class eitherExtensions[LeftRes, RightRes](eitherval: Either[LeftRes, RightRes]) {
-    def exitAppOnFailure(topicName: String)(implicit errorBuidler: ErrorBuilder[LeftRes]): RightRes = {
-      eitherval match {
-        case Left(err)  => {
-          val loggableError = errorBuidler.buildError(topicName).apply(err)
-          log.error(loggableError.str, loggableError.exception)
-          sys.exit(1)
-        }
-        case Right(res) => res
+  def exitAppOnFailure[LeftRes, RightRes](eitherval: Either[LeftRes, RightRes], topicName: String)(
+      implicit errorBuidler: ErrorBuilder[LeftRes]): RightRes = {
+    eitherval match {
+      case Left(err) => {
+        val loggableError = errorBuidler.buildError(topicName).apply(err)
+        log.error(loggableError.str, loggableError.exception)
+        sys.exit(1)
       }
+      case Right(res) => res
     }
   }
+
   case class ErrorToLog(str: String, exception: Throwable)
 
-  trait ErrorBuilder[T]{
+  trait ErrorBuilder[T] {
     def buildError(topic: String): T => ErrorToLog
   }
 

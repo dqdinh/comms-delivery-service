@@ -48,10 +48,10 @@ object Main extends App with LoggingWithMDC {
   }
 
   val failedTopic     = Kafka.aiven.failed.v2
-  val failedPublisher = Kafka.aiven.failed.v2.publisher.exitAppOnFailure(failedTopic.name)
+  val failedPublisher = exitAppOnFailure(failedTopic.publisher, failedTopic.name)
 
   val issuedForDeliveryTopic     = Kafka.aiven.issuedForDelivery.v2
-  val issuedForDeliveryPublisher = issuedForDeliveryTopic.publisher.exitAppOnFailure(issuedForDeliveryTopic.name)
+  val issuedForDeliveryPublisher = exitAppOnFailure(issuedForDeliveryTopic.publisher, issuedForDeliveryTopic.name)
 
   val emailGraph = DeliveryServiceGraph[ComposedEmailV2](
     topic = Kafka.aiven.composedEmail.v2,
