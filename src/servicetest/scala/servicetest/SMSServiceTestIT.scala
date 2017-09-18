@@ -15,6 +15,7 @@ import org.scalatest.time.{Seconds, Span}
 import servicetest.DockerIntegrationTest
 import scala.language.reflectiveCalls
 import scala.io.Source
+import scala.concurrent.duration._
 
 //implicits
 import com.ovoenergy.comms.serialisation.Codecs._
@@ -49,14 +50,12 @@ class SMSServiceTestIT
     createTwilioResponse(401, unauthenticatedResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV2]
-      val publisher        = throwExceptionIfFailed(Kafka.aiven.composedSms.v2.publisher)
 
-      whenReady(publisher.apply(composedSMSEvent)) { _ =>
-        val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
-        failedEvents.foreach { failed =>
-          failed.errorCode shouldBe SMSGatewayError
-          failed.reason shouldBe "Error authenticating with the Gateway"
-        }
+      Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent, 10.seconds)
+      val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
+      failedEvents.foreach { failed =>
+        failed.errorCode shouldBe SMSGatewayError
+        failed.reason shouldBe "Error authenticating with the Gateway"
       }
     }
   }
@@ -65,14 +64,12 @@ class SMSServiceTestIT
     createTwilioResponse(400, badRequestResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV2]
-      val publisher        = throwExceptionIfFailed(Kafka.aiven.composedSms.v2.publisher)
 
-      whenReady(publisher.apply(composedSMSEvent)) { _ =>
-        val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
-        failedEvents.foreach { failed =>
-          failed.errorCode shouldBe SMSGatewayError
-          failed.reason shouldBe "The Gateway did not like our request"
-        }
+      Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent, 10.seconds)
+      val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
+      failedEvents.foreach { failed =>
+        failed.errorCode shouldBe SMSGatewayError
+        failed.reason shouldBe "The Gateway did not like our request"
       }
     }
   }
@@ -82,20 +79,18 @@ class SMSServiceTestIT
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV2]
-      val publisher        = throwExceptionIfFailed(Kafka.aiven.composedSms.v2.publisher)
 
-      whenReady(publisher.apply(composedSMSEvent)) { _ =>
-        val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
+      Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent, 10.seconds)
+      val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
 
-        issuedForDeliveryEvents.foreach(issuedForDelivery => {
+      issuedForDeliveryEvents.foreach(issuedForDelivery => {
 
-          issuedForDelivery.gatewayMessageId shouldBe "1234567890"
-          issuedForDelivery.gateway shouldBe Twilio
-          issuedForDelivery.channel shouldBe SMS
-          issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
-          issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
-        })
-      }
+        issuedForDelivery.gatewayMessageId shouldBe "1234567890"
+        issuedForDelivery.gateway shouldBe Twilio
+        issuedForDelivery.channel shouldBe SMS
+        issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
+        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
+      })
     }
   }
 
@@ -104,19 +99,17 @@ class SMSServiceTestIT
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV2]
-      val publisher        = throwExceptionIfFailed(Kafka.aiven.composedSms.v2.publisher)
 
-      whenReady(publisher.apply(composedSMSEvent)) { _ =>
-        val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
-        issuedForDeliveryEvents.foreach(issuedForDelivery => {
+      Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent, 10.seconds)
+      val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
+      issuedForDeliveryEvents.foreach(issuedForDelivery => {
 
-          issuedForDelivery.gatewayMessageId shouldBe "1234567890"
-          issuedForDelivery.gateway shouldBe Twilio
-          issuedForDelivery.channel shouldBe SMS
-          issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
-          issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
-        })
-      }
+        issuedForDelivery.gatewayMessageId shouldBe "1234567890"
+        issuedForDelivery.gateway shouldBe Twilio
+        issuedForDelivery.channel shouldBe SMS
+        issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
+        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
+      })
     }
   }
 
