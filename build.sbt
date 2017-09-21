@@ -34,6 +34,11 @@ lazy val service = (project in file("."))
     commsPackagingMaxMetaspaceSize := 128
   ).enablePlugins(JavaServerAppPackaging, DockerPlugin)
 
+startDynamoDBLocal := startDynamoDBLocal.dependsOn(compile in Test).value
+test in Test := (test in Test).dependsOn(startDynamoDBLocal).value
+testOnly in Test := (testOnly in Test).dependsOn(startDynamoDBLocal).value
+testOptions in Test += dynamoDBLocalTestCleanup.value
+
 lazy val ipAddress: String = {
   val addr = "./get_ip_address.sh".!!.trim
   println(s"My IP address appears to be $addr")

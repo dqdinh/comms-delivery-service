@@ -3,7 +3,7 @@ package servicetest
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email._
-import com.ovoenergy.delivery.service.util.ArbGenerator
+import com.ovoenergy.delivery.service.util.{ArbGenerator, LocalDynamoDb}
 import com.typesafe.config.ConfigFactory
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.matchers.Times
@@ -12,6 +12,9 @@ import org.mockserver.model.HttpResponse.response
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest._
+import servicetest.DockerIntegrationTest
+import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 //Implicits
 import com.ovoenergy.comms.serialisation.Codecs._
@@ -82,6 +85,39 @@ class EmailServiceTestIT
     }
   }
 
+  it should "raise failed event when a comm has already been delivered" in {
+    createOKMailgunResponse()
+    withThrowawayConsumerFor(topics.issuedForDelivery.v2, topics.failed.v2) {
+      (issuedForDeliveryConsumer, failedConsumer) =>
+        val composedEmailEvent = arbitraryComposedEmailEvent
+        val publisher          = topics.composedEmail.v2.publisher
+
+        val futures = List(
+          publisher(composedEmailEvent),
+          publisher(composedEmailEvent)
+        )
+
+        whenReady(Future.sequence(futures)) { _ =>
+          val issuedForDeliveryEvents = issuedForDeliveryConsumer.pollFor(noOfEventsExpected = 1)
+
+          issuedForDeliveryEvents.foreach(issuedForDelivery => {
+            issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
+            issuedForDelivery.gateway shouldBe Mailgun
+            issuedForDelivery.channel shouldBe Email
+            issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
+            issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
+          })
+
+          val failedEvents = failedConsumer.pollFor(noOfEventsExpected = 1)
+
+          failedEvents.foreach(failedEvent => {
+            failedEvent.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
+            failedEvent.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
+          })
+        }
+    }
+  }
+
   it should "retry when Mailgun returns an error response" in {
     createFlakyMailgunResponse()
 
@@ -98,6 +134,25 @@ class EmailServiceTestIT
         issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
       })
+    }
+  }
+
+  it should "Not do anything if dynamodb is unavailable" in {
+    LocalDynamoDb.client().deleteTable("commRecord")
+    withThrowawayConsumerFor(topics.issuedForDelivery.v2, topics.failed.v2) {
+      (issuedForDeliveryConsumer, failedConsumer) =>
+        val composedEmailEvent = arbitraryComposedEmailEvent
+        val publisher          = topics.composedEmail.v2.publisher
+
+        val futures = List(
+          publisher(composedEmailEvent),
+          publisher(composedEmailEvent)
+        )
+
+        whenReady(Future.sequence(futures)) { _ =>
+          issuedForDeliveryConsumer.checkNoMessages(30.seconds)
+          failedConsumer.checkNoMessages(30.seconds)
+        }
     }
   }
 

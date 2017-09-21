@@ -22,6 +22,8 @@ object Dependencies {
     "org.typelevel"              %% "cats-core"                 % "0.9.0",
     "com.squareup.okhttp3"       % "okhttp"                     % "3.4.2",
     "eu.timepit"                 %% "refined"                   % "0.8.0",
+    "com.gu"                     %% "scanamo"                   % "0.9.1",
+    "com.amazonaws"              % "aws-java-sdk-dynamodb"      % "1.11.201",
     "com.ovoenergy"              %% "comms-kafka-test-helpers"  % kafkaHelpersVersion % Test,
     "org.mockito"                % "mockito-all"                % "1.10.19" % Test,
     "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.4" % Test,

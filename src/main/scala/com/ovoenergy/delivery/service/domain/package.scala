@@ -45,4 +45,13 @@ package object domain {
     val errorCode   = model.CommExpired
   }
 
+  case class DynamoConnectionError(error: ErrorCode) extends DeliveryError {
+    val description = "An error occurred while trying to connect to DynamoDB"
+    val errorCode   = error
+  }
+
+  case class DuplicatedCommDeliveredError(commHash: String, error: ErrorCode) extends DeliveryError {
+    val description = s"CommHash $commHash has already been delivered!"
+    val errorCode   = error
+  }
 }

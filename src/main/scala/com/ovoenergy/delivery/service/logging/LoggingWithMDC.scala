@@ -29,6 +29,10 @@ trait LoggingWithMDC {
     log(event, log.error(message, error))
   }
 
+  def logError(event: LoggableEvent, message: String): Unit = {
+    log(event, log.error(message))
+  }
+
   private def log(event: LoggableEvent, writeToLog: => Unit) {
     event.mdcMap.foreach {
       case (k, v) => MDC.put(k, v)

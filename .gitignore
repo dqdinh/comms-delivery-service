@@ -8,6 +8,7 @@
 .lib/
 .idea/
 dist/*
+dynamodb-local/*
 target/
 lib_managed/
 src_managed/

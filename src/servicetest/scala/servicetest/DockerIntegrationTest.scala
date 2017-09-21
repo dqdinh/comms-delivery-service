@@ -7,17 +7,24 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 import cakesolutions.kafka.KafkaConsumer
-import com.whisk.docker.impl.dockerjava.DockerKitDockerJava
+import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType
+import com.github.dockerjava.core.DefaultDockerClientConfig
+import com.github.dockerjava.jaxrs.JerseyDockerCmdExecFactory
+import com.ovoenergy.delivery.service.util.LocalDynamoDb
+import com.whisk.docker.impl.dockerjava.{Docker, DockerJavaExecutorFactory, DockerKitDockerJava}
 import com.whisk.docker.{
   ContainerLink,
   DockerCommandExecutor,
   DockerContainer,
   DockerContainerState,
+  DockerFactory,
   DockerReadyChecker,
+  LogLineReceiver,
   VolumeMapping
 }
 import kafka.admin.AdminUtils
 import kafka.utils.ZkUtils
+import org.apache.commons.io.input.{Tailer, TailerListenerAdapter}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.protocol.Errors
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -25,45 +32,81 @@ import org.scalatest.concurrent.{Eventually, PatienceConfiguration, ScalaFutures
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 import scala.util.Try
-
-case class LogOutputAndWaitForLineThatContains(str: String, containerName: String) extends DockerReadyChecker {
-
-  val outputDir = Paths.get("target", "integration-test-logs")
-
-  val outputFile = outputDir.resolve(s"$containerName-${LocalDateTime.now().toString}.log")
-
-  override def apply(container: DockerContainerState)(implicit docker: DockerCommandExecutor,
-                                                      ec: ExecutionContext): Future[Boolean] = {
-    println(s"Waiting for container [$containerName] to become ready. Logs are being streamed to $outputFile.")
-
-    for {
-      id <- container.id
-      _ <- docker.withLogStreamLinesRequirement(id, withErr = true) { line =>
-        val lineWithLineEnding = if (line.endsWith("\n")) line else line + "\n"
-        Files.write(outputFile,
-                    lineWithLineEnding.getBytes(StandardCharsets.UTF_8),
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.APPEND)
-        val ready = line.contains(str)
-        if (ready)
-          println(s"Container [$containerName] is ready")
-        ready
-      }(docker, ec)
-    } yield {
-      true
-    }
-  }
-}
 
 trait DockerIntegrationTest
     extends DockerKitDockerJava
     with ScalaFutures
     with TestSuite
     with BeforeAndAfterAll
-    with Eventually {
+    with Eventually { self =>
+
+  implicit class RichDockerContainer(val dockerContainer: DockerContainer) {
+
+    /**
+      * Adds a log line receiver that writes the container output to a file
+      * and a ready checker that tails said file and waits for a line containing a given string
+      *
+      * @param stringToMatch The container is considered ready when a line containing this string is send to stderr or stdout
+      * @param containerName An arbitrary name for the container, used for generating the log file name
+      * @param onReady Extra processing to perform when the container is ready, e.g. creating DB tables
+      * @return
+      */
+    def withLogWritingAndReadyChecker(stringToMatch: String,
+                                      containerName: String,
+                                      onReady: () => Unit = () => ()): DockerContainer = {
+      val outputDir = Paths.get("target", "integration-test-logs")
+      val outputFile =
+        outputDir.resolve(s"${self.getClass.getSimpleName}-$containerName-${LocalDateTime.now().toString}.log")
+
+      val handleLine: String => Unit = (line: String) => {
+        val lineWithLineEnding = if (line.endsWith("\n")) line else line + "\n"
+        Files.write(outputFile,
+                    lineWithLineEnding.getBytes(StandardCharsets.UTF_8),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND)
+      }
+
+      val logLineReceiver = LogLineReceiver(withErr = true, f = handleLine)
+
+      val readyChecker = new DockerReadyChecker {
+        override def apply(container: DockerContainerState)(implicit docker: DockerCommandExecutor,
+                                                            ec: ExecutionContext): Future[Boolean] = {
+          println(s"Waiting for container [$containerName] to become ready. Logs are being streamed to $outputFile.")
+
+          val readyPromise = Promise[Boolean]
+
+          val readyCheckingTailListener = new TailerListenerAdapter {
+            var _tailer: Tailer = _
+
+            override def init(tailer: Tailer) = {
+              _tailer = tailer
+            }
+
+            override def handle(line: String) = {
+              if (line.contains(stringToMatch)) {
+                onReady()
+                println(s"Container [$containerName] is ready")
+                readyPromise.trySuccess(true)
+                _tailer.stop()
+              }
+            }
+          }
+
+          val tailer = new Tailer(outputFile.toFile, readyCheckingTailListener)
+          val thread = new Thread(tailer, s"log tailer for container $containerName")
+          thread.start()
+
+          readyPromise.future
+        }
+      }
+
+      dockerContainer.withLogLineReceiver(logLineReceiver).withReadyChecker(readyChecker)
+    }
+
+  }
 
   override val StartContainersTimeout = 5.minutes
 
@@ -71,6 +114,16 @@ trait DockerIntegrationTest
     // using Math.max to prevent unexpected zero length of docker containers
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Math.max(1, dockerContainers.length * 4)))
   }
+
+  override implicit val dockerFactory: DockerFactory = new DockerJavaExecutorFactory(
+    new Docker(
+      config = DefaultDockerClientConfig.createDefaultConfigBuilder().build(),
+      factory = new JerseyDockerCmdExecFactory()
+      // increase connection pool size so we can tail the logs of all containers
+        .withMaxTotalConnections(100)
+        .withMaxPerRouteConnections(20)
+    )
+  )
 
   val hostIpAddress = {
     import sys.process._
@@ -101,7 +154,20 @@ trait DockerIntegrationTest
       "ZOOKEEPER_TICK_TIME=2000",
       "KAFKA_HEAP_OPTS=-Xmx256M -Xms128M"
     )
-    .withReadyChecker(LogOutputAndWaitForLineThatContains("binding to port", "aivenZookeeper"))
+    .withLogWritingAndReadyChecker("binding to port", "aivenZookeeper")
+
+  val dynamodb = DockerContainer("forty8bit/dynamodb-local:latest", name = Some("dynamodb"))
+    .withPorts(8000 -> Some(8000))
+    .withCommand("-sharedDb")
+    .withLogWritingAndReadyChecker(
+      "Initializing DynamoDB Local",
+      "dynamodb",
+      onReady = () => {
+        println("Creating Dynamo table")
+        LocalDynamoDb.createTable(LocalDynamoDb.client())(tableName = "commRecord")(
+          attributes = 'commHash -> ScalarAttributeType.S)
+      }
+    )
 
   val kafka = {
     // create each topic with 1 partition and replication factor 1
@@ -120,7 +186,7 @@ trait DockerIntegrationTest
         "KAFKA_HEAP_OPTS=-Xmx256M -Xms128M",
         s"KAFKA_CREATE_TOPICS=$createTopicsString"
       )
-      .withReadyChecker(LogOutputAndWaitForLineThatContains(s"""Created topic "$lastTopicName"""", "aivenKafka")) // Note: this needs to be the last topic in the list of topics above
+      .withLogWritingAndReadyChecker(s"""Created topic "$lastTopicName"""", "aivenKafka") // Note: this needs to be the last topic in the list of topics above
   }
 
   val schemaRegistry = DockerContainer("confluentinc/cp-schema-registry:3.2.2", name = Some("schema-registry"))
@@ -134,15 +200,15 @@ trait DockerIntegrationTest
       "SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=aivenZookeeper:32182",
       s"SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://$hostIpAddress:29093"
     )
-    .withReadyChecker(LogOutputAndWaitForLineThatContains("Server started, listening for requests", "schema-registry"))
+    .withLogWritingAndReadyChecker("Server started, listening for requests", "schema-registry")
 
   val fakes3 = DockerContainer("lphoward/fake-s3:latest", name = Some("fakes3"))
     .withPorts(4569 -> Some(4569))
-    .withReadyChecker(LogOutputAndWaitForLineThatContains("WEBrick::HTTPServer#start", "fakes3"))
+    .withLogWritingAndReadyChecker("WEBrick::HTTPServer#start", "fakes3")
 
   val mockServers = DockerContainer("jamesdbloom/mockserver", name = Some("mockservers"))
     .withPorts(1080 -> Some(1080))
-    .withReadyChecker(LogOutputAndWaitForLineThatContains("MockServer proxy started", "mockservers"))
+    .withLogWritingAndReadyChecker("MockServer proxy started", "mockservers")
 
   val fakes3ssl = DockerContainer("cbachich/ssl-proxy:latest", name = Some("fakes3ssl"))
     .withPorts(443 -> Some(443))
@@ -151,14 +217,14 @@ trait DockerIntegrationTest
       "PORT=443",
       "TARGET_PORT=4569"
     )
-    .withReadyChecker(LogOutputAndWaitForLineThatContains("Starting Proxy: 443", "fakes3ssl"))
+    .withLogWritingAndReadyChecker("Starting Proxy: 443", "fakes3ssl")
 
   val deliveryService = {
     val envVars = List(
       Some("ENV=LOCAL"),
       Some("KAFKA_HOSTS_AIVEN=aivenKafka:29093"),
       Some("LOCAL_DYNAMO=http://dynamodb:8000"),
-      Some("DOCKER_COMPOSE=true"),
+      Some("RUNNING_IN_DOCKER=true"),
       Some("SCHEMA_REGISTRY_URL=http://schema-registry:8081"),
       Some("MAILGUN_DOMAIN=mailgun@email.com"),
       Some("MAILGUN_API_KEY=my_super_secret_api_key"),
@@ -178,17 +244,18 @@ trait DockerIntegrationTest
       .withLinks(
         ContainerLink(kafka, "aivenKafka"),
         ContainerLink(schemaRegistry, "schema-registry"),
+        ContainerLink(dynamodb, "dynamodb"),
         ContainerLink(fakes3ssl, "ovo-comms-audit.s3-eu-west-1.amazonaws.com"),
         ContainerLink(mockServers, "api.mailgun.net"),
         ContainerLink(mockServers, "api.twilio.com")
       )
       .withEnv(envVars: _*)
       .withVolumes(List(VolumeMapping(host = s"${sys.env("HOME")}/.aws", container = "/sbin/.aws"))) // share AWS creds so that credstash works
-      .withReadyChecker(LogOutputAndWaitForLineThatContains("Delivery Service started", "delivery-service")) // TODO check topics/consumers in the app and output a log when properly ready
+      .withLogWritingAndReadyChecker("Delivery Service started", "delivery-service") // TODO check topics/consumers in the app and output a log when properly ready
   }
 
   override def dockerContainers =
-    List(zookeeper, kafka, schemaRegistry, fakes3, fakes3ssl, mockServers, deliveryService)
+    List(zookeeper, kafka, dynamodb, schemaRegistry, fakes3, fakes3ssl, mockServers, deliveryService)
 
   lazy val zkUtils = ZkUtils("localhost:32182", 30000, 5000, isZkSecurityEnabled = false)
 

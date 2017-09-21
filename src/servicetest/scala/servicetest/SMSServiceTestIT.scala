@@ -3,7 +3,7 @@ package servicetest
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms._
-import com.ovoenergy.delivery.service.util.ArbGenerator
+import com.ovoenergy.delivery.service.util.{ArbGenerator, LocalDynamoDb}
 import com.typesafe.config.ConfigFactory
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.matchers.Times
@@ -13,6 +13,9 @@ import org.scalatest._
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
 import servicetest.DockerIntegrationTest
+
+import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 import scala.io.Source
 import scala.concurrent.duration._
@@ -74,6 +77,39 @@ class SMSServiceTestIT
     }
   }
 
+  it should "raise failed event when a comm has already been delivered" in {
+    createTwilioResponse(200, validResponse)
+    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2, Kafka.aiven.failed.v2) {
+      (issuedForDeliveryConsumer, failedConsumer) =>
+        val composedSMSEvent = generate[ComposedSMSV2]
+        val publisher        = Kafka.aiven.composedSms.v2.publisher
+
+        val futures = List(
+          publisher(composedSMSEvent),
+          publisher(composedSMSEvent)
+        )
+
+        whenReady(Future.sequence(futures)) { _ =>
+          val issuedForDeliveryEvents = issuedForDeliveryConsumer.pollFor(noOfEventsExpected = 1)
+
+          issuedForDeliveryEvents.foreach(issuedForDelivery => {
+            issuedForDelivery.gatewayMessageId shouldBe "1234567890"
+            issuedForDelivery.gateway shouldBe Twilio
+            issuedForDelivery.channel shouldBe SMS
+            issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
+            issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
+          })
+
+          val failedEvents = failedConsumer.pollFor(noOfEventsExpected = 1)
+
+          failedEvents.foreach(failedEvent => {
+            failedEvent.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
+            failedEvent.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
+          })
+        }
+    }
+  }
+
   it should "create issued for delivery events when get OK from Twilio" in {
     createTwilioResponse(200, validResponse)
 
@@ -110,6 +146,26 @@ class SMSServiceTestIT
         issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
         issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
       })
+    }
+  }
+
+  it should "Not do anything if dynamodb is unavailable" in {
+    createTwilioResponse(200, validResponse)
+    LocalDynamoDb.client().deleteTable("commRecord")
+    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2, Kafka.aiven.failed.v2) {
+      (issuedForDeliveryConsumer, failedConsumer) =>
+        val composedSMSEvent = generate[ComposedSMSV2]
+        val publisher        = Kafka.aiven.composedSms.v2.publisher
+
+        val futures = List(
+          publisher(composedSMSEvent),
+          publisher(composedSMSEvent)
+        )
+
+        whenReady(Future.sequence(futures)) { _ =>
+          issuedForDeliveryConsumer.checkNoMessages(30.seconds)
+          failedConsumer.checkNoMessages(30.seconds)
+        }
     }
   }
 

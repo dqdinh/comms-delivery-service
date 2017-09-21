@@ -8,7 +8,7 @@ import akka.stream.{ActorAttributes, Materializer, Supervision}
 import com.ovoenergy.comms.helpers.Topic
 import com.ovoenergy.comms.model.LoggableEvent
 import com.ovoenergy.delivery.config.KafkaAppConfig
-import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
+import com.ovoenergy.delivery.service.domain.{DeliveryError, DynamoConnectionError, GatewayComm}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
 import com.ovoenergy.delivery.service.ErrorHandling._
@@ -24,7 +24,7 @@ object DeliveryServiceGraph extends LoggingWithMDC {
 
   def apply[T <: LoggableEvent: SchemaFor: FromRecord: ClassTag](
       topic: Topic[T],
-      issueComm: (T) => Either[DeliveryError, GatewayComm],
+      deliverComm: (T) => Either[DeliveryError, GatewayComm],
       sendFailedEvent: (T, DeliveryError) => Future[_],
       sendIssuedToGatewayEvent: (T, GatewayComm) => Future[_])(
       implicit actorSystem: ActorSystem,
@@ -71,18 +71,25 @@ object DeliveryServiceGraph extends LoggingWithMDC {
       .committableSource(consumerSettings, Subscriptions.topics(topic.name))
       .mapAsync(1) { msg =>
         log.debug(s"Event received $msg")
+
         val result = msg.record.value match {
-          case Some(composedEvent) =>
-            issueComm(composedEvent) match {
+          case Some(composedEvent) => {
+            deliverComm(composedEvent) match {
               case Right(gatewayComm) =>
                 success(composedEvent, gatewayComm)
+              case Left(error: DynamoConnectionError) => {
+                logError(composedEvent, "Failed DynamoDB operation, shutting down JVM")
+                sys.exit(1)
+              }
               case Left(deliveryError) =>
                 failure(composedEvent, deliveryError)
             }
+          }
           case None =>
             log.error(s"Skipping event: $msg, failed to parse")
             Future.successful(())
         }
+
         result
           .flatMap(_ => msg.committableOffset.commitScaladsl())
           .recover {
