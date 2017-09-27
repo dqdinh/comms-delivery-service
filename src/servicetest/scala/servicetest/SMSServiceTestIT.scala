@@ -12,8 +12,6 @@ import org.mockserver.model.HttpResponse.response
 import org.scalatest._
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
-import servicetest.DockerIntegrationTest
-
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.reflectiveCalls
@@ -82,31 +80,26 @@ class SMSServiceTestIT
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2, Kafka.aiven.failed.v2) {
       (issuedForDeliveryConsumer, failedConsumer) =>
         val composedSMSEvent = generate[ComposedSMSV2]
-        val publisher        = Kafka.aiven.composedSms.v2.publisher
 
-        val futures = List(
-          publisher(composedSMSEvent),
-          publisher(composedSMSEvent)
-        )
+        Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent)
+        Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent)
 
-        whenReady(Future.sequence(futures)) { _ =>
-          val issuedForDeliveryEvents = issuedForDeliveryConsumer.pollFor(noOfEventsExpected = 1)
+        val issuedForDeliveryEvents = issuedForDeliveryConsumer.pollFor(noOfEventsExpected = 1)
 
-          issuedForDeliveryEvents.foreach(issuedForDelivery => {
-            issuedForDelivery.gatewayMessageId shouldBe "1234567890"
-            issuedForDelivery.gateway shouldBe Twilio
-            issuedForDelivery.channel shouldBe SMS
-            issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
-            issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
-          })
+        issuedForDeliveryEvents.foreach(issuedForDelivery => {
+          issuedForDelivery.gatewayMessageId shouldBe "1234567890"
+          issuedForDelivery.gateway shouldBe Twilio
+          issuedForDelivery.channel shouldBe SMS
+          issuedForDelivery.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
+          issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
+        })
 
-          val failedEvents = failedConsumer.pollFor(noOfEventsExpected = 1)
+        val failedEvents = failedConsumer.pollFor(noOfEventsExpected = 1)
 
-          failedEvents.foreach(failedEvent => {
-            failedEvent.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
-            failedEvent.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
-          })
-        }
+        failedEvents.foreach(failedEvent => {
+          failedEvent.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
+          failedEvent.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
+        })
     }
   }
 
@@ -155,17 +148,12 @@ class SMSServiceTestIT
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2, Kafka.aiven.failed.v2) {
       (issuedForDeliveryConsumer, failedConsumer) =>
         val composedSMSEvent = generate[ComposedSMSV2]
-        val publisher        = Kafka.aiven.composedSms.v2.publisher
 
-        val futures = List(
-          publisher(composedSMSEvent),
-          publisher(composedSMSEvent)
-        )
+        Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent)
+        Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent)
 
-        whenReady(Future.sequence(futures)) { _ =>
-          issuedForDeliveryConsumer.checkNoMessages(30.seconds)
-          failedConsumer.checkNoMessages(30.seconds)
-        }
+        issuedForDeliveryConsumer.checkNoMessages(30.seconds)
+        failedConsumer.checkNoMessages(30.seconds)
     }
   }
 

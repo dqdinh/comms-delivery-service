@@ -12,7 +12,6 @@ import org.mockserver.model.HttpResponse.response
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest._
-import servicetest.DockerIntegrationTest
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.reflectiveCalls
@@ -90,31 +89,26 @@ class EmailServiceTestIT
     withThrowawayConsumerFor(topics.issuedForDelivery.v2, topics.failed.v2) {
       (issuedForDeliveryConsumer, failedConsumer) =>
         val composedEmailEvent = arbitraryComposedEmailEvent
-        val publisher          = topics.composedEmail.v2.publisher
 
-        val futures = List(
-          publisher(composedEmailEvent),
-          publisher(composedEmailEvent)
-        )
+        topics.composedEmail.v2.publishOnce(composedEmailEvent)
+        topics.composedEmail.v2.publishOnce(composedEmailEvent)
 
-        whenReady(Future.sequence(futures)) { _ =>
-          val issuedForDeliveryEvents = issuedForDeliveryConsumer.pollFor(noOfEventsExpected = 1)
+        val issuedForDeliveryEvents = issuedForDeliveryConsumer.pollFor(noOfEventsExpected = 1)
 
-          issuedForDeliveryEvents.foreach(issuedForDelivery => {
-            issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
-            issuedForDelivery.gateway shouldBe Mailgun
-            issuedForDelivery.channel shouldBe Email
-            issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
-            issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
-          })
+        issuedForDeliveryEvents.foreach(issuedForDelivery => {
+          issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
+          issuedForDelivery.gateway shouldBe Mailgun
+          issuedForDelivery.channel shouldBe Email
+          issuedForDelivery.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
+          issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
+        })
 
-          val failedEvents = failedConsumer.pollFor(noOfEventsExpected = 1)
+        val failedEvents = failedConsumer.pollFor(noOfEventsExpected = 1)
 
-          failedEvents.foreach(failedEvent => {
-            failedEvent.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
-            failedEvent.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
-          })
-        }
+        failedEvents.foreach(failedEvent => {
+          failedEvent.metadata.traceToken shouldBe composedEmailEvent.metadata.traceToken
+          failedEvent.internalMetadata.internalTraceToken shouldBe composedEmailEvent.internalMetadata.internalTraceToken
+        })
     }
   }
 
@@ -142,17 +136,12 @@ class EmailServiceTestIT
     withThrowawayConsumerFor(topics.issuedForDelivery.v2, topics.failed.v2) {
       (issuedForDeliveryConsumer, failedConsumer) =>
         val composedEmailEvent = arbitraryComposedEmailEvent
-        val publisher          = topics.composedEmail.v2.publisher
 
-        val futures = List(
-          publisher(composedEmailEvent),
-          publisher(composedEmailEvent)
-        )
+        topics.composedEmail.v2.publishOnce(composedEmailEvent)
+        topics.composedEmail.v2.publishOnce(composedEmailEvent)
+        issuedForDeliveryConsumer.checkNoMessages(30.seconds)
+        failedConsumer.checkNoMessages(30.seconds)
 
-        whenReady(Future.sequence(futures)) { _ =>
-          issuedForDeliveryConsumer.checkNoMessages(30.seconds)
-          failedConsumer.checkNoMessages(30.seconds)
-        }
     }
   }
 
