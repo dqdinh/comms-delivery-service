@@ -60,13 +60,12 @@ object Main extends App with LoggingWithMDC {
   val issuedForDeliveryTopic     = Kafka.aiven.issuedForDelivery.v2
   val issuedForDeliveryPublisher = exitAppOnFailure(issuedForDeliveryTopic.publisher, issuedForDeliveryTopic.name)
 
-  val region = Regions.fromName(conf.getString("aws.region"))
   val isRunningInLocalDocker = sys.env.get("ENV").contains("LOCAL") && sys.env
       .get("RUNNING_IN_DOCKER")
       .contains("true")
 
   val dynamoPersistence = new DynamoPersistence(
-    Context(AwsProvider.dynamoClient(isRunningInLocalDocker, region), conf.getString("commRecord.persistence.table")))
+    Context(AwsProvider.dynamoClient(isRunningInLocalDocker), conf.getString("commRecord.persistence.table")))
 
   val issueEmailComm: (ComposedEmailV2) => Either[DeliveryError, GatewayComm] = IssueEmail.issue(
     checkBlackWhiteList = BlackWhiteList.buildForEmail,

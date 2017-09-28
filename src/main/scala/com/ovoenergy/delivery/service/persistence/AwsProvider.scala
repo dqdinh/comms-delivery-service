@@ -4,13 +4,15 @@ import com.amazonaws.auth._
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
+import com.ovoenergy.delivery.config.DynamoDbConfig
 import org.slf4j.LoggerFactory
 
 object AwsProvider {
 
   private val log = LoggerFactory.getLogger("AwsClientProvider")
 
-  def dynamoClient(isRunningInLocalDocker: Boolean, region: Regions): AmazonDynamoDBClient = {
+  def dynamoClient(isRunningInLocalDocker: Boolean)(implicit dynamoConfig: DynamoDbConfig): AmazonDynamoDBClient = {
+    val region = dynamoConfig.buildRegion
     if (isRunningInLocalDocker) {
       log.warn("Running in local docker")
       System.setProperty("com.amazonaws.sdk.disableCertChecking", "true")

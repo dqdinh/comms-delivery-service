@@ -97,7 +97,7 @@ Resources:
           Period: 60
           EvaluationPeriods: 3
           Statistic: Sum
-          Threshold: 240 # 4/sec * 60 seconds
+          Threshold: 550
 
       CommRecordTableWriteCapacityAlarm:
         Type: "AWS::CloudWatch::Alarm"
@@ -115,4 +115,4 @@ Resources:
           Period: 60
           EvaluationPeriods: 3
           Statistic: Sum
-          Threshold: 720 # 12/sec * 60 seconds
+          Threshold: 550

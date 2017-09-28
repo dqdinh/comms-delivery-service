@@ -1,8 +1,8 @@
 package com.ovoenergy.delivery.service
 
 import com.ovoenergy.delivery.service.domain.{DeliveryError, DuplicateCommError, GatewayComm}
-import com.ovoenergy.delivery.service.persistence.DynamoPersistence
-import com.ovoenergy.delivery.service.util.{CanExtractUniqueEvent, HashFactory}
+import com.ovoenergy.delivery.service.persistence.{CanExtractUniqueEvent, DynamoPersistence}
+import com.ovoenergy.delivery.service.util.HashFactory
 import cats.implicits._
 import com.ovoenergy.comms.model.UnexpectedDeliveryError
 

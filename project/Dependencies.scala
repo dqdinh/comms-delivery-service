@@ -19,6 +19,7 @@ object Dependencies {
     "org.apache.kafka"           %% "kafka"                     % "0.10.2.1",
     "io.logz.logback"            % "logzio-logback-appender"    % "1.0.11",
     "com.ovoenergy"              %% "comms-kafka-helpers"       % kafkaHelpersVersion,
+    "com.ovoenergy"              %% "comms-kafka-messages"      % "1.33",
     "org.typelevel"              %% "cats-core"                 % "0.9.0",
     "com.squareup.okhttp3"       % "okhttp"                     % "3.4.2",
     "eu.timepit"                 %% "refined"                   % "0.8.0",

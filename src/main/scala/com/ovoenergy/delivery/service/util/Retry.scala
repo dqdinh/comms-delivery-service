@@ -15,6 +15,15 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object Retry {
 
+  implicit class EitherExtensions[A, B](retryResult: Either[Failed[A], Succeeded[B]]) {
+    def flatten: Either[A, B] = {
+      retryResult match {
+        case Left(Failed(attempts, finalFailure)) => Left(finalFailure)
+        case Right(Succeeded(result, attempts))   => Right(result)
+      }
+    }
+  }
+
   case class Failed[A](attemptsMade: Int, finalFailure: A)
 
   case class Succeeded[A](result: A, attempts: Int)

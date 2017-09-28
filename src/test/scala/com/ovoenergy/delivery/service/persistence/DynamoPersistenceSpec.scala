@@ -4,19 +4,24 @@ import java.time.Instant
 
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType
 import com.ovoenergy.comms.model.{CommManifest, Service, UnexpectedDeliveryError}
+import com.ovoenergy.delivery.config.{ConstantDelayRetry, DynamoDbConfig}
 import com.ovoenergy.delivery.service.domain.DuplicateCommError
 import com.ovoenergy.delivery.service.persistence.DynamoPersistence.Context
 import com.ovoenergy.delivery.service.util.{CommRecord, LocalDynamoDb}
+import scala.concurrent.duration._
+import eu.timepit.refined.numeric.Positive
+import eu.timepit.refined.refineV
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
 
-  val keyString         = "asdfghjkl"
-  val now               = Instant.now
-  val localDynamo       = LocalDynamoDb.client()
-  val tableName         = "commRecord"
-  val context           = Context(localDynamo, tableName)
-  val dynamoPersistence = new DynamoPersistence(context)
+  val keyString   = "asdfghjkl"
+  val now         = Instant.now
+  val localDynamo = LocalDynamoDb.client()
+  val tableName   = "commRecord"
+  val context     = Context(localDynamo, tableName)
+  val dynamoPersistence = new DynamoPersistence(context)(
+    DynamoDbConfig(ConstantDelayRetry(refineV[Positive](1).right.get, 1.second), "eu-west-1"))
 
   val commRecords = List(
     CommRecord("54ter54ertt34tgr", now.minusSeconds(10)),
@@ -36,8 +41,7 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
 
     LocalDynamoDb.withTable(localDynamo)(tableName)('commHash -> ScalarAttributeType.S) {
       commRecords.foreach(dynamoPersistence.persistHashedComm)
-      dynamoPersistence.exists(CommRecord(keyString, now)) shouldBe Left(
-        DuplicateCommError(keyString, UnexpectedDeliveryError))
+      dynamoPersistence.exists(CommRecord(keyString, now)) shouldBe Right(true)
     }
 
   }
@@ -45,7 +49,7 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
   it should "return Right(commRecord) if the call is successful but the record does not exist" in {
     LocalDynamoDb.withTable(localDynamo)(tableName)('commHash -> ScalarAttributeType.S) {
       commRecords.foreach(dynamoPersistence.persistHashedComm)
-      dynamoPersistence.exists(CommRecord("nonExistingKey", now)) shouldBe Right(CommRecord("nonExistingKey", now))
+      dynamoPersistence.exists(CommRecord("nonExistingKey", now)) shouldBe Right(false)
     }
   }
 

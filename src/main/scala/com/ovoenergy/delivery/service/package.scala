@@ -1,5 +1,7 @@
 package com.ovoenergy.delivery
 
+import com.amazonaws.regions.Regions
+import com.ovoenergy.delivery.service.util.Retry.RetryConfig
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.Positive
 
@@ -11,7 +13,8 @@ package object config {
                                email: EmailAppConfig,
                                sms: SmsAppConfig,
                                twilio: TwilioAppConfig,
-                               kafka: KafkaAppConfig)
+                               kafka: KafkaAppConfig,
+                               dynamo: DynamoDbConfig)
   case class EmailAppConfig(whitelist: String, blacklist: List[String])
   case class SmsAppConfig(whitelist: List[String], blacklist: List[String])
   case class KafkaAppConfig(retry: ExponentialDelayRetry)
@@ -23,7 +26,12 @@ package object config {
   case class MailgunAppConfig(host: String, apiKey: String, domain: String, retry: ConstantDelayRetry)
   case class ConstantDelayRetry(attempts: Int Refined Positive, interval: FiniteDuration)
   case class ExponentialDelayRetry(attempts: Int Refined Positive, initialInterval: FiniteDuration, exponent: Double)
+  case class DynamoDbConfig(retryConfig: ConstantDelayRetry, awsRegion: String) {
+    def buildRegion = Regions.fromName(awsRegion)
+  }
 
+  implicit def configuration2Dynamo(implicit configuration: ApplicationConfig): DynamoDbConfig =
+    configuration.dynamo
   implicit def configuration2mailgun(implicit configuration: ApplicationConfig): MailgunAppConfig =
     configuration.mailgun
   implicit def configuration2Twilio(implicit configuration: ApplicationConfig): TwilioAppConfig = configuration.twilio
