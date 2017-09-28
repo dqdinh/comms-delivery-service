@@ -30,7 +30,7 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
   )
 
   override def beforeAll() = {
-    LocalDynamoDb.withTable(localDynamo)(tableName)('commHash -> ScalarAttributeType.S) {
+    LocalDynamoDb.withTable(localDynamo)(tableName)('hashedComm -> ScalarAttributeType.S) {
       commRecords.foreach(commRecord => {
         dynamoPersistence.persistHashedComm(commRecord) shouldBe Right(true)
       })
@@ -39,7 +39,7 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
 
   it should "retrieve commRecord which is already stored at Dynamo" in {
 
-    LocalDynamoDb.withTable(localDynamo)(tableName)('commHash -> ScalarAttributeType.S) {
+    LocalDynamoDb.withTable(localDynamo)(tableName)('hashedComm -> ScalarAttributeType.S) {
       commRecords.foreach(dynamoPersistence.persistHashedComm)
       dynamoPersistence.exists(CommRecord(keyString, now)) shouldBe Right(true)
     }
@@ -47,7 +47,7 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
   }
 
   it should "return Right(commRecord) if the call is successful but the record does not exist" in {
-    LocalDynamoDb.withTable(localDynamo)(tableName)('commHash -> ScalarAttributeType.S) {
+    LocalDynamoDb.withTable(localDynamo)(tableName)('hashedComm -> ScalarAttributeType.S) {
       commRecords.foreach(dynamoPersistence.persistHashedComm)
       dynamoPersistence.exists(CommRecord("nonExistingKey", now)) shouldBe Right(false)
     }

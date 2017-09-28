@@ -165,7 +165,7 @@ trait DockerIntegrationTest
       onReady = () => {
         println("Creating Dynamo table")
         LocalDynamoDb.createTable(LocalDynamoDb.client())(tableName = "commRecord")(
-          attributes = 'commHash -> ScalarAttributeType.S)
+          attributes = 'hashedComm -> ScalarAttributeType.S)
       }
     )
 
