@@ -7,6 +7,9 @@ Parameters:
     Type: String
     AllowedValues: [ UAT, PRD ]
 
+Conditions:
+  IsProd: !Equals [ !Ref Environment, "PRD" ]
+
 Resources:
 
   ECSTaskRole:
@@ -66,53 +69,51 @@ Resources:
               Resource:
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${CommRecordTable}*"
 
-    CommRecordTable:
-      Type: AWS::DynamoDB::Table
+  CommRecordTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: hashedComm
+        AttributeType: S
+      KeySchema:
+      - AttributeName: hashedComm
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: !If [ IsProd, 10, 5 ]
+        WriteCapacityUnits: !If [ IsProd, 10, 5 ]
+
+  CommRecordTableReadCapacityAlarm:
+      Type: "AWS::CloudWatch::Alarm"
       Properties:
-        AttributeDefinitions:
-        - AttributeName: hashedComm
-          AttributeType: S
-        - AttributeName: createdAt
-          AttributeType: N
-        KeySchema:
-        - AttributeName: hashedComm
-          KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: !If [ IsProd, 10, 5 ]
-          WriteCapacityUnits: !If [ IsProd, 10, 5 ]
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        Namespace: "AWS/DynamoDB"
+        Dimensions:
+          - Name: TableName
+            Value: !Ref CommRecordTable
+        MetricName: ConsumedReadCapacityUnits
+        AlarmActions:
+          - !ImportValue "CloudwatchPagerDutyTopic"
+        OKActions:
+          - !ImportValue "CloudwatchPagerDutyTopic"
+        Period: 60
+        EvaluationPeriods: 3
+        Statistic: Sum
+        Threshold: 550
 
-    CommRecordTableReadCapacityAlarm:
-        Type: "AWS::CloudWatch::Alarm"
-        Properties:
-          ComparisonOperator: GreaterThanOrEqualToThreshold
-          Namespace: "AWS/DynamoDB"
-          Dimensions:
-            - Name: TableName
-              Value: !Ref CommRecordTable
-          MetricName: ConsumedReadCapacityUnits
-          AlarmActions:
-            - !ImportValue "CloudwatchPagerDutyTopic"
-          OKActions:
-            - !ImportValue "CloudwatchPagerDutyTopic"
-          Period: 60
-          EvaluationPeriods: 3
-          Statistic: Sum
-          Threshold: 550
-
-      CommRecordTableWriteCapacityAlarm:
-        Type: "AWS::CloudWatch::Alarm"
-        Properties:
-          ComparisonOperator: GreaterThanOrEqualToThreshold
-          Namespace: "AWS/DynamoDB"
-          Dimensions:
-            - Name: TableName
-              Value: !Ref CommRecordTable
-          MetricName: ConsumedWriteCapacityUnits
-          AlarmActions:
-            - !ImportValue "CloudwatchPagerDutyTopic"
-          OKActions:
-            - !ImportValue "CloudwatchPagerDutyTopic"
-          Period: 60
-          EvaluationPeriods: 3
-          Statistic: Sum
-          Threshold: 550
+  CommRecordTableWriteCapacityAlarm:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Namespace: "AWS/DynamoDB"
+      Dimensions:
+        - Name: TableName
+          Value: !Ref CommRecordTable
+      MetricName: ConsumedWriteCapacityUnits
+      AlarmActions:
+        - !ImportValue "CloudwatchPagerDutyTopic"
+      OKActions:
+        - !ImportValue "CloudwatchPagerDutyTopic"
+      Period: 60
+      EvaluationPeriods: 3
+      Statistic: Sum
+      Threshold: 550
