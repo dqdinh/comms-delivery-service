@@ -27,7 +27,7 @@ class DynamoPersistence(context: Context)(implicit config: DynamoDbConfig) exten
     val retryResult: Either[Failed[DynamoError], Succeeded[Boolean]] =
       Retry.retry(Retry.constantDelay(config.retryConfig), onFailure) { () =>
         try {
-          Scanamo.get[CommRecord](context.db)(context.table.name)('commHash -> commRecord.commHash) match {
+          Scanamo.get[CommRecord](context.db)(context.table.name)('hashedComm -> commRecord.hashedComm) match {
             case Some(Right(_))  => Right(true)
             case None            => Right(false)
             case Some(Left(err)) => Left(DynamoError(UnexpectedDeliveryError))

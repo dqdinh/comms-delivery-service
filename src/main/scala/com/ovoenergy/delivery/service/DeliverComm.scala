@@ -16,7 +16,7 @@ object DeliverComm {
 
     def issueCommIfUnique(isDuplicate: Boolean): Either[DeliveryError, GatewayComm] = {
       if (isDuplicate)
-        Left(DuplicateCommError(commRecord.commHash, UnexpectedDeliveryError))
+        Left(DuplicateCommError(commRecord.hashedComm, UnexpectedDeliveryError))
       else
         issueComm(event)
     }

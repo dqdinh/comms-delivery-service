@@ -6,7 +6,7 @@ import java.security.MessageDigest
 import com.ovoenergy.comms.model.{CommManifest, DeliverTo, MetadataV2}
 import com.ovoenergy.delivery.service.persistence.CanExtractUniqueEvent
 
-case class CommRecord(commHash: String, createdAt: Instant)
+case class CommRecord(hashedComm: String, createdAt: Instant)
 case class CommRecordWithMetadata(commBody: String, metadataV2: MetadataV2) {
   def toHashableComm = HashableComm(metadataV2.deliverTo, commBody, metadataV2.commManifest)
 }
