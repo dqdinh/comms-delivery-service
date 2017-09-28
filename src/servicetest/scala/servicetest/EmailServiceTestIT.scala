@@ -139,8 +139,8 @@ class EmailServiceTestIT
 
         topics.composedEmail.v2.publishOnce(composedEmailEvent)
         topics.composedEmail.v2.publishOnce(composedEmailEvent)
-        issuedForDeliveryConsumer.checkNoMessages(30.seconds)
-        failedConsumer.checkNoMessages(30.seconds)
+        issuedForDeliveryConsumer.checkNoMessages(10.seconds)
+        failedConsumer.checkNoMessages(10.seconds)
 
     }
   }

@@ -8,7 +8,7 @@ import akka.stream.{ActorAttributes, Materializer, Supervision}
 import com.ovoenergy.comms.helpers.Topic
 import com.ovoenergy.comms.model.LoggableEvent
 import com.ovoenergy.delivery.config.KafkaAppConfig
-import com.ovoenergy.delivery.service.domain.{DeliveryError, DynamoConnectionError, GatewayComm}
+import com.ovoenergy.delivery.service.domain.{DeliveryError, DynamoError, GatewayComm}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
 import com.ovoenergy.delivery.service.ErrorHandling._
@@ -77,7 +77,7 @@ object DeliveryServiceGraph extends LoggingWithMDC {
             deliverComm(composedEvent) match {
               case Right(gatewayComm) =>
                 success(composedEvent, gatewayComm)
-              case Left(error: DynamoConnectionError) => {
+              case Left(error: DynamoError) => {
                 logError(composedEvent, "Failed DynamoDB operation, shutting down JVM")
                 sys.exit(1)
               }

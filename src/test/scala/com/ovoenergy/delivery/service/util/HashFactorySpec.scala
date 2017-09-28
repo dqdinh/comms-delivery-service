@@ -12,10 +12,10 @@ class HashFactorySpec extends FlatSpec with Matchers with ArbGenerator {
     val email = generate[ComposedEmailV2]
 
     val hashFactory = new HashFactory
-    val commRecord  = hashFactory.getHashedCommBody(email)
+    val commRecord  = hashFactory.getCommRecord(email)
 
     for (test <- 1 to 10) {
-      commRecord shouldBe hashFactory.getHashedCommBody(email)
+      commRecord shouldBe hashFactory.getCommRecord(email)
     }
   }
 
@@ -24,10 +24,10 @@ class HashFactorySpec extends FlatSpec with Matchers with ArbGenerator {
     val sms = generate[ComposedSMSV2]
 
     val hashFactory = new HashFactory
-    val commRecord  = hashFactory.getHashedCommBody(sms)
+    val commRecord  = hashFactory.getCommRecord(sms)
 
     for (test <- 1 to 10) {
-      commRecord shouldBe hashFactory.getHashedCommBody(sms)
+      commRecord shouldBe hashFactory.getCommRecord(sms)
     }
   }
 

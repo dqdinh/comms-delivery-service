@@ -4,7 +4,7 @@ import java.time.Instant
 
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType
 import com.ovoenergy.comms.model.{CommManifest, Service, UnexpectedDeliveryError}
-import com.ovoenergy.delivery.service.domain.DuplicatedCommDeliveredError
+import com.ovoenergy.delivery.service.domain.DuplicateCommError
 import com.ovoenergy.delivery.service.persistence.DynamoPersistence.Context
 import com.ovoenergy.delivery.service.util.{CommRecord, LocalDynamoDb}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
@@ -36,8 +36,8 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
 
     LocalDynamoDb.withTable(localDynamo)(tableName)('commHash -> ScalarAttributeType.S) {
       commRecords.foreach(dynamoPersistence.persistHashedComm)
-      dynamoPersistence.retrieveHashedComm(CommRecord(keyString, now)) shouldBe Left(
-        DuplicatedCommDeliveredError(keyString, UnexpectedDeliveryError))
+      dynamoPersistence.exists(CommRecord(keyString, now)) shouldBe Left(
+        DuplicateCommError(keyString, UnexpectedDeliveryError))
     }
 
   }
@@ -45,8 +45,7 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
   it should "return Right(commRecord) if the call is successful but the record does not exist" in {
     LocalDynamoDb.withTable(localDynamo)(tableName)('commHash -> ScalarAttributeType.S) {
       commRecords.foreach(dynamoPersistence.persistHashedComm)
-      dynamoPersistence.retrieveHashedComm(CommRecord("nonExistingKey", now)) shouldBe Right(
-        CommRecord("nonExistingKey", now))
+      dynamoPersistence.exists(CommRecord("nonExistingKey", now)) shouldBe Right(CommRecord("nonExistingKey", now))
     }
   }
 

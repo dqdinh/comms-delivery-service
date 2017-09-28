@@ -4,17 +4,29 @@ import com.ovoenergy.comms.model.email.ComposedEmailV2
 import com.ovoenergy.comms.model.sms.ComposedSMSV2
 
 trait CanExtractUniqueEvent[Event] {
-  def getCommBodyWithMetadata(event: Event): CommBodyWithMetadata
+  def getCommBodyWithMetadata(event: Event): UniqueEvent
 }
 
 object CanExtractUniqueEvent {
 
   implicit val canExtractComposedEmail = new CanExtractUniqueEvent[ComposedEmailV2] {
-    override def getCommBodyWithMetadata(event: ComposedEmailV2) = CommBodyWithMetadata(event.htmlBody, event.metadata)
+    override def getCommBodyWithMetadata(event: ComposedEmailV2) =
+      UniqueEvent(
+        event.metadata.deliverTo,
+        event.htmlBody,
+        event.metadata.commManifest,
+        event.metadata.createdAt
+      )
   }
 
   implicit val canExtractComposedSms = new CanExtractUniqueEvent[ComposedSMSV2] {
-    override def getCommBodyWithMetadata(event: ComposedSMSV2) = CommBodyWithMetadata(event.textBody, event.metadata)
+    override def getCommBodyWithMetadata(event: ComposedSMSV2) =
+      UniqueEvent(
+        event.metadata.deliverTo,
+        event.textBody,
+        event.metadata.commManifest,
+        event.metadata.createdAt
+      )
   }
 
 }
