@@ -10,7 +10,7 @@ import com.gu.scanamo.syntax._
 import com.ovoenergy.comms.model.UnexpectedDeliveryError
 import com.ovoenergy.delivery.config
 import com.ovoenergy.delivery.config.DynamoDbConfig
-import com.ovoenergy.delivery.service.domain.{DuplicateCommError, DynamoError}
+import com.ovoenergy.delivery.service.domain.DynamoError
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.{CommRecord, Retry}
 import com.ovoenergy.delivery.service.persistence.DynamoPersistence._

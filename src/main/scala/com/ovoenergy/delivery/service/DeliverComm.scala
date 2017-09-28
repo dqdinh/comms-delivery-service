@@ -1,6 +1,6 @@
 package com.ovoenergy.delivery.service
 
-import com.ovoenergy.delivery.service.domain.{DeliveryError, DuplicateCommError, GatewayComm}
+import com.ovoenergy.delivery.service.domain.{DeliveryError, DuplicateDeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.persistence.{CanExtractUniqueEvent, DynamoPersistence}
 import com.ovoenergy.delivery.service.util.HashFactory
 import cats.implicits._
@@ -16,7 +16,7 @@ object DeliverComm {
 
     def issueCommIfUnique(isDuplicate: Boolean): Either[DeliveryError, GatewayComm] = {
       if (isDuplicate)
-        Left(DuplicateCommError(commRecord.hashedComm, UnexpectedDeliveryError))
+        Left(DuplicateDeliveryError(commRecord.hashedComm))
       else
         issueComm(event)
     }

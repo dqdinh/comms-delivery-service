@@ -50,8 +50,8 @@ package object domain {
     val errorCode   = error
   }
 
-  case class DuplicateCommError(commHash: String, error: ErrorCode) extends DeliveryError {
+  case class DuplicateDeliveryError(commHash: String) extends DeliveryError {
     val description = s"CommHash $commHash has already been delivered!"
-    val errorCode   = error
+    val errorCode   = DuplicateCommError
   }
 }

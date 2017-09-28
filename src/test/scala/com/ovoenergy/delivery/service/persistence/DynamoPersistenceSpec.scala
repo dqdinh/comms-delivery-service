@@ -5,7 +5,6 @@ import java.time.Instant
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType
 import com.ovoenergy.comms.model.{CommManifest, Service, UnexpectedDeliveryError}
 import com.ovoenergy.delivery.config.{ConstantDelayRetry, DynamoDbConfig}
-import com.ovoenergy.delivery.service.domain.DuplicateCommError
 import com.ovoenergy.delivery.service.persistence.DynamoPersistence.Context
 import com.ovoenergy.delivery.service.util.{CommRecord, LocalDynamoDb}
 import scala.concurrent.duration._
