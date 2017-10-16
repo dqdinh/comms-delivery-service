@@ -27,7 +27,7 @@ import org.scalatest.{Failed => _, _}
 
 class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with EitherValues {
 
-  val composedSMS = generate[ComposedSMSV2]
+  val composedSMS = generate[ComposedSMSV3]
   implicit def arbTwilioConfig = Arbitrary {
     TwilioAppConfig(
       generate[String],

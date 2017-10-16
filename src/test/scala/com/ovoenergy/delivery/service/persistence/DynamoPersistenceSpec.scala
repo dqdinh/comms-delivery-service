@@ -3,10 +3,11 @@ package com.ovoenergy.delivery.service.persistence
 import java.time.Instant
 
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType
-import com.ovoenergy.comms.model.{CommManifest, Service, UnexpectedDeliveryError}
 import com.ovoenergy.delivery.config.{ConstantDelayRetry, DynamoDbConfig}
+import com.ovoenergy.delivery.service.domain.CommRecord
 import com.ovoenergy.delivery.service.persistence.DynamoPersistence.Context
-import com.ovoenergy.delivery.service.util.{CommRecord, LocalDynamoDb}
+import com.ovoenergy.delivery.service.util.LocalDynamoDb
+
 import scala.concurrent.duration._
 import eu.timepit.refined.numeric.Positive
 import eu.timepit.refined.refineV
@@ -40,7 +41,7 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
 
     LocalDynamoDb.withTable(localDynamo)(tableName)('hashedComm -> ScalarAttributeType.S) {
       commRecords.foreach(dynamoPersistence.persistHashedComm)
-      dynamoPersistence.exists(CommRecord(keyString, now)) shouldBe Right(true)
+      dynamoPersistence.exists(CommRecord(keyString, now.plusSeconds(10))) shouldBe Right(true)
     }
 
   }

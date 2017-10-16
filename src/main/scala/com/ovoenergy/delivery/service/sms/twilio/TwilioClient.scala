@@ -2,7 +2,7 @@ package com.ovoenergy.delivery.service.sms.twilio
 
 import cats.syntax.either._
 import com.ovoenergy.comms.model._
-import com.ovoenergy.comms.model.sms.ComposedSMSV2
+import com.ovoenergy.comms.model.sms.{ComposedSMSV2, ComposedSMSV3}
 import com.ovoenergy.delivery.config.TwilioAppConfig
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
@@ -20,7 +20,7 @@ object TwilioClient extends LoggingWithMDC {
   case class SuccessfulResponse(sid: String)
 
   def send(httpClient: (Request) => Try[Response])(
-      implicit config: TwilioAppConfig): ComposedSMSV2 => Either[DeliveryError, GatewayComm] = { event =>
+      implicit config: TwilioAppConfig): ComposedSMSV3 => Either[DeliveryError, GatewayComm] = { event =>
     val retryConfig = Retry.constantDelay(config.retry)
     val request = {
       val credentials = Credentials.basic(config.accountSid, config.authToken)
@@ -55,7 +55,7 @@ object TwilioClient extends LoggingWithMDC {
       .map(_.result)
   }
 
-  private def extractResponse(response: Response, composedSMS: ComposedSMSV2): Either[DeliveryError, GatewayComm] = {
+  private def extractResponse(response: Response, composedSMS: ComposedSMSV3): Either[DeliveryError, GatewayComm] = {
 
     val unknownResponseMsg = "Unknown response from twilio api"
     class Contains(r: Range) {

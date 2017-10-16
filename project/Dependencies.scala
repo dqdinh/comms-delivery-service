@@ -3,7 +3,7 @@ import sbt._
 object Dependencies {
 
   val circeVersion        = "0.7.0"
-  val kafkaHelpersVersion = "3.0"
+  val kafkaHelpersVersion = "3.3"
 
   val all = Seq(
     "com.typesafe.akka"          %% "akka-stream-kafka"         % "0.16",
@@ -19,7 +19,7 @@ object Dependencies {
     "org.apache.kafka"           %% "kafka"                     % "0.10.2.1",
     "io.logz.logback"            % "logzio-logback-appender"    % "1.0.11",
     "com.ovoenergy"              %% "comms-kafka-helpers"       % kafkaHelpersVersion,
-    "com.ovoenergy"              %% "comms-kafka-messages"      % "1.33",
+    "com.ovoenergy"              %% "comms-kafka-messages"      % "1.34",
     "org.typelevel"              %% "cats-core"                 % "0.9.0",
     "com.squareup.okhttp3"       % "okhttp"                     % "3.4.2",
     "eu.timepit"                 %% "refined"                   % "0.8.0",

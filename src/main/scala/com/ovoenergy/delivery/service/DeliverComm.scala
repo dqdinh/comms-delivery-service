@@ -1,18 +1,17 @@
 package com.ovoenergy.delivery.service
 
-import com.ovoenergy.delivery.service.domain.{DeliveryError, DuplicateDeliveryError, GatewayComm}
-import com.ovoenergy.delivery.service.persistence.{CanExtractUniqueEvent, DynamoPersistence}
-import com.ovoenergy.delivery.service.util.HashFactory
+import java.time.Instant
+
+import com.ovoenergy.delivery.service.domain.{CommRecord, DeliveryError, DuplicateDeliveryError, GatewayComm}
+import com.ovoenergy.delivery.service.persistence.{DynamoPersistence, CanExtractCommRecord}
 import cats.implicits._
 import com.ovoenergy.comms.model.UnexpectedDeliveryError
 
 object DeliverComm {
 
-  def apply[E: CanExtractUniqueEvent](
-      hashFactory: HashFactory,
-      dynamoPersistence: DynamoPersistence,
-      issueComm: E => Either[DeliveryError, GatewayComm]): E => Either[DeliveryError, GatewayComm] = { event =>
-    val commRecord = hashFactory.getCommRecord(event)
+  def apply[E](dynamoPersistence: DynamoPersistence, issueComm: E => Either[DeliveryError, GatewayComm])(
+      implicit canExtractCommRecord: CanExtractCommRecord[E]): E => Either[DeliveryError, GatewayComm] = { event =>
+    val commRecord = canExtractCommRecord.commRecord(event)
 
     def issueCommIfUnique(isDuplicate: Boolean): Either[DeliveryError, GatewayComm] = {
       if (isDuplicate)
