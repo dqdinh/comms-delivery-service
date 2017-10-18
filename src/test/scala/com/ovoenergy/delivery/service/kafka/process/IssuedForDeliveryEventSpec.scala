@@ -3,7 +3,7 @@ package com.ovoenergy.delivery.service.kafka.process
 import java.time.Clock
 
 import com.ovoenergy.comms.model.IssuedForDeliveryV2
-import com.ovoenergy.comms.model.email.ComposedEmailV2
+import com.ovoenergy.comms.model.email.{ComposedEmailV2, ComposedEmailV3}
 import com.ovoenergy.delivery.service.domain.GatewayComm
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import org.apache.kafka.clients.producer.RecordMetadata
@@ -20,7 +20,7 @@ class IssuedForDeliveryEventSpec extends FlatSpec with Matchers with ArbGenerato
   private implicit val clock = Clock.systemUTC()
 
   private val gatewayComm                     = generate[GatewayComm]
-  private val composedEmail                   = generate[ComposedEmailV2]
+  private val composedEmail                   = generate[ComposedEmailV3]
   private var issuedForDeliveryEventPublished = Option.empty[IssuedForDeliveryV2]
   private val publishEvent = (issuedForDelivery: IssuedForDeliveryV2) => {
     issuedForDeliveryEventPublished = Some(issuedForDelivery)

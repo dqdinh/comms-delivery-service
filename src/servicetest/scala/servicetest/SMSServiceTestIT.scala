@@ -50,9 +50,9 @@ class SMSServiceTestIT
   it should "create Failed event when authentication fails with Twilio" in {
     createTwilioResponse(401, unauthenticatedResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV2]
+      val composedSMSEvent = generate[ComposedSMSV3]
 
-      Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent, 10.seconds)
+      Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent, 10.seconds)
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
       failedEvents.foreach { failed =>
         failed.errorCode shouldBe SMSGatewayError
@@ -64,9 +64,9 @@ class SMSServiceTestIT
   it should "create Failed event when bad request from Twilio" in {
     createTwilioResponse(400, badRequestResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV2]
+      val composedSMSEvent = generate[ComposedSMSV3]
 
-      Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent, 10.seconds)
+      Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent, 10.seconds)
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
       failedEvents.foreach { failed =>
         failed.errorCode shouldBe SMSGatewayError
@@ -79,10 +79,10 @@ class SMSServiceTestIT
     createTwilioResponse(200, validResponse)
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2, Kafka.aiven.failed.v2) {
       (issuedForDeliveryConsumer, failedConsumer) =>
-        val composedSMSEvent = generate[ComposedSMSV2]
+        val composedSMSEvent = generate[ComposedSMSV3]
 
-        Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent)
-        Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent)
+        Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent)
+        Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent)
 
         val issuedForDeliveryEvents = issuedForDeliveryConsumer.pollFor(noOfEventsExpected = 1)
 
@@ -107,9 +107,9 @@ class SMSServiceTestIT
     createTwilioResponse(200, validResponse)
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV2]
+      val composedSMSEvent = generate[ComposedSMSV3]
 
-      Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent, 10.seconds)
+      Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent, 10.seconds)
       val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
@@ -127,9 +127,9 @@ class SMSServiceTestIT
     createFlakyTwilioResponse()
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV2]
+      val composedSMSEvent = generate[ComposedSMSV3]
 
-      Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent, 10.seconds)
+      Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent, 10.seconds)
       val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
 
@@ -147,10 +147,10 @@ class SMSServiceTestIT
     LocalDynamoDb.client().deleteTable("commRecord")
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2, Kafka.aiven.failed.v2) {
       (issuedForDeliveryConsumer, failedConsumer) =>
-        val composedSMSEvent = generate[ComposedSMSV2]
+        val composedSMSEvent = generate[ComposedSMSV3]
 
-        Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent)
-        Kafka.aiven.composedSms.v2.publishOnce(composedSMSEvent)
+        Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent)
+        Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent)
 
         issuedForDeliveryConsumer.checkNoMessages(30.seconds)
         failedConsumer.checkNoMessages(30.seconds)

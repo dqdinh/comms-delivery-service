@@ -1,7 +1,7 @@
 package com.ovoenergy.delivery.service.kafka.process
 
-import com.ovoenergy.comms.model.email.ComposedEmailV2
-import com.ovoenergy.comms.model.sms.ComposedSMSV2
+import com.ovoenergy.comms.model.email.{ComposedEmailV2, ComposedEmailV3}
+import com.ovoenergy.comms.model.sms.{ComposedSMSV2, ComposedSMSV3}
 import com.ovoenergy.comms.model.{Failed, FailedV2, MetadataV2}
 import com.ovoenergy.delivery.service.domain.DeliveryError
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
@@ -12,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object FailedEvent extends LoggingWithMDC {
 
   def email(publishEvent: FailedV2 => Future[RecordMetadata])(
-      composedEvent: ComposedEmailV2,
+      composedEvent: ComposedEmailV3,
       deliveryError: DeliveryError)(implicit ec: ExecutionContext): Future[RecordMetadata] = {
     val event = FailedV2(
       metadata = MetadataV2.fromSourceMetadata("delivery-service", composedEvent.metadata),
@@ -29,7 +29,7 @@ object FailedEvent extends LoggingWithMDC {
   }
 
   def sms(publishEvent: FailedV2 => Future[RecordMetadata])(
-      composedEvent: ComposedSMSV2,
+      composedEvent: ComposedSMSV3,
       deliveryError: DeliveryError)(implicit ec: ExecutionContext): Future[RecordMetadata] = {
     val event = FailedV2(
       metadata = MetadataV2.fromSourceMetadata("delivery-service", composedEvent.metadata),

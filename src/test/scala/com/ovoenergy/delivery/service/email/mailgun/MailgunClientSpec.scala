@@ -45,7 +45,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
 
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
 
-  val composedEmail = generate[ComposedEmailV2]
+  val composedEmail = generate[ComposedEmailV3]
   val emailSentRes  = generate[Done]
   val deliveryError = generate[DeliveryError]
 

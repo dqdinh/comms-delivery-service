@@ -41,7 +41,7 @@ class EmailServiceTestIT
 
     withThrowawayConsumerFor(topics.failed.v2) { consumer =>
       val composedEmailEvent = arbitraryComposedEmailEvent
-      topics.composedEmail.v2.publishOnce(composedEmailEvent, 10.seconds)
+      topics.composedEmail.v3.publishOnce(composedEmailEvent, 10.seconds)
 
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
       failedEvents.size shouldBe 1
@@ -57,7 +57,7 @@ class EmailServiceTestIT
 
     withThrowawayConsumerFor(topics.failed.v2) { consumer =>
       val composedEmailEvent = arbitraryComposedEmailEvent
-      topics.composedEmail.v2.publishOnce(composedEmailEvent, 10.seconds)
+      topics.composedEmail.v3.publishOnce(composedEmailEvent, 10.seconds)
 
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
       failedEvents.foreach(failed => {
@@ -72,7 +72,7 @@ class EmailServiceTestIT
     withThrowawayConsumerFor(topics.issuedForDelivery.v2) { consumer =>
       val composedEmailEvent = arbitraryComposedEmailEvent
 
-      topics.composedEmail.v2.publishOnce(composedEmailEvent, 10.seconds)
+      topics.composedEmail.v3.publishOnce(composedEmailEvent, 10.seconds)
       val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
@@ -90,8 +90,8 @@ class EmailServiceTestIT
       (issuedForDeliveryConsumer, failedConsumer) =>
         val composedEmailEvent = arbitraryComposedEmailEvent
 
-        topics.composedEmail.v2.publishOnce(composedEmailEvent)
-        topics.composedEmail.v2.publishOnce(composedEmailEvent)
+        topics.composedEmail.v3.publishOnce(composedEmailEvent)
+        topics.composedEmail.v3.publishOnce(composedEmailEvent)
 
         val issuedForDeliveryEvents = issuedForDeliveryConsumer.pollFor(noOfEventsExpected = 1)
 
@@ -118,7 +118,7 @@ class EmailServiceTestIT
     withThrowawayConsumerFor(topics.issuedForDelivery.v2) { consumer =>
       val composedEmailEvent = arbitraryComposedEmailEvent
 
-      topics.composedEmail.v2.publishOnce(composedEmailEvent, 10.seconds)
+      topics.composedEmail.v3.publishOnce(composedEmailEvent, 10.seconds)
       val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
@@ -137,8 +137,8 @@ class EmailServiceTestIT
       (issuedForDeliveryConsumer, failedConsumer) =>
         val composedEmailEvent = arbitraryComposedEmailEvent
 
-        topics.composedEmail.v2.publishOnce(composedEmailEvent)
-        topics.composedEmail.v2.publishOnce(composedEmailEvent)
+        topics.composedEmail.v3.publishOnce(composedEmailEvent)
+        topics.composedEmail.v3.publishOnce(composedEmailEvent)
         issuedForDeliveryConsumer.checkNoMessages(10.seconds)
         failedConsumer.checkNoMessages(10.seconds)
 
@@ -212,7 +212,7 @@ class EmailServiceTestIT
       )
   }
 
-  def arbitraryComposedEmailEvent: ComposedEmailV2 =
+  def arbitraryComposedEmailEvent: ComposedEmailV3 =
     // Make sure the recipient email address is whitelisted
-    generate[ComposedEmailV2].copy(recipient = "foo@ovoenergy.com")
+    generate[ComposedEmailV3].copy(recipient = "foo@ovoenergy.com")
 }

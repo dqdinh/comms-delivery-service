@@ -1,11 +1,14 @@
 package com.ovoenergy.delivery.service
 
+import java.time.Instant
+
 import com.ovoenergy.comms.model
 import com.ovoenergy.comms.model._
 
 package object domain {
 
   case class GatewayComm(gateway: Gateway, id: String, channel: Channel)
+  case class CommRecord(hashedComm: String, createdAt: Instant)
 
   sealed trait DeliveryError {
     def description: String

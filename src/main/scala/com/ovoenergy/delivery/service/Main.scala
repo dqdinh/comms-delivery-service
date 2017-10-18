@@ -9,8 +9,8 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.RunnableGraph
 import com.amazonaws.regions.Regions
 import com.ovoenergy.comms.helpers.{Kafka, Topic}
-import com.ovoenergy.comms.model.email.ComposedEmailV2
-import com.ovoenergy.comms.model.sms.ComposedSMSV2
+import com.ovoenergy.comms.model.email.{ComposedEmailV2, ComposedEmailV3}
+import com.ovoenergy.comms.model.sms.{ComposedSMSV2, ComposedSMSV3}
 import com.ovoenergy.delivery.service.email.IssueEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
@@ -29,7 +29,6 @@ import com.ovoenergy.comms.serialisation.Codecs._
 import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.persistence.DynamoPersistence.Context
 import com.ovoenergy.delivery.service.persistence.{AwsProvider, DynamoPersistence}
-import com.ovoenergy.delivery.service.util.HashFactory
 
 import scala.language.reflectiveCalls
 import scala.concurrent.duration.FiniteDuration
@@ -67,28 +66,28 @@ object Main extends App with LoggingWithMDC {
   val dynamoPersistence = new DynamoPersistence(
     Context(AwsProvider.dynamoClient(isRunningInLocalDocker), conf.getString("commRecord.persistence.table")))
 
-  val issueEmailComm: (ComposedEmailV2) => Either[DeliveryError, GatewayComm] = IssueEmail.issue(
+  val issueEmailComm: (ComposedEmailV3) => Either[DeliveryError, GatewayComm] = IssueEmail.issue(
     checkBlackWhiteList = BlackWhiteList.buildForEmail,
     isExpired = ExpiryCheck.isExpired,
     sendEmail = MailgunClient.sendEmail(HttpClient.apply)
   )
 
-  val emailGraph = DeliveryServiceGraph[ComposedEmailV2](
-    topic = Kafka.aiven.composedEmail.v2,
-    deliverComm = DeliverComm(new HashFactory, dynamoPersistence, issueEmailComm),
+  val emailGraph = DeliveryServiceGraph[ComposedEmailV3](
+    topic = Kafka.aiven.composedEmail.v3,
+    deliverComm = DeliverComm(dynamoPersistence, issueEmailComm),
     sendFailedEvent = FailedEvent.email(failedPublisher),
     sendIssuedToGatewayEvent = IssuedForDeliveryEvent.email(issuedForDeliveryPublisher)
   )
 
-  val issueSMSComm: (ComposedSMSV2) => Either[DeliveryError, GatewayComm] = IssueSMS.issue(
+  val issueSMSComm: (ComposedSMSV3) => Either[DeliveryError, GatewayComm] = IssueSMS.issue(
     checkBlackWhiteList = BlackWhiteList.buildForSms,
     isExpired = ExpiryCheck.isExpired,
     sendSMS = TwilioClient.send(HttpClient.apply)
   )
 
-  val smsGraph = DeliveryServiceGraph[ComposedSMSV2](
-    topic = Kafka.aiven.composedSms.v2,
-    deliverComm = DeliverComm(new HashFactory, dynamoPersistence, issueSMSComm),
+  val smsGraph = DeliveryServiceGraph[ComposedSMSV3](
+    topic = Kafka.aiven.composedSms.v3,
+    deliverComm = DeliverComm(dynamoPersistence, issueSMSComm),
     sendFailedEvent = FailedEvent.sms(failedPublisher),
     sendIssuedToGatewayEvent = IssuedForDeliveryEvent.sms(issuedForDeliveryPublisher)
   )

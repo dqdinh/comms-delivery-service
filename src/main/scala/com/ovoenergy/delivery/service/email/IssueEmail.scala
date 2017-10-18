@@ -2,7 +2,7 @@ package com.ovoenergy.delivery.service.email
 
 import java.time.Instant
 
-import com.ovoenergy.comms.model.email.ComposedEmailV2
+import com.ovoenergy.comms.model.email.ComposedEmailV3
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
@@ -11,8 +11,8 @@ object IssueEmail extends LoggingWithMDC {
 
   def issue(checkBlackWhiteList: (String) => BlackWhiteList.Verdict,
             isExpired: Option[Instant] => Boolean,
-            sendEmail: ComposedEmailV2 => Either[DeliveryError, GatewayComm])(
-      composedEmail: ComposedEmailV2): Either[DeliveryError, GatewayComm] = {
+            sendEmail: ComposedEmailV3 => Either[DeliveryError, GatewayComm])(
+      composedEmail: ComposedEmailV3): Either[DeliveryError, GatewayComm] = {
 
     def blackWhiteListCheck: Either[DeliveryError, Unit] = checkBlackWhiteList(composedEmail.recipient) match {
       case BlackWhiteList.OK =>
