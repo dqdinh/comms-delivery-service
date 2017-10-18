@@ -20,8 +20,8 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
   val localDynamo = LocalDynamoDb.client()
   val tableName   = "commRecord"
   val context     = Context(localDynamo, tableName)
-  val dynamoPersistence = new DynamoPersistence(context)(
-    DynamoDbConfig(ConstantDelayRetry(refineV[Positive](1).right.get, 1.second), "eu-west-1"))
+  val dynamoPersistence =
+    new DynamoPersistence(context)(DynamoDbConfig(ConstantDelayRetry(refineV[Positive](1).right.get, 1.second)))
 
   val commRecords = List(
     CommRecord("54ter54ertt34tgr", now.minusSeconds(10)),

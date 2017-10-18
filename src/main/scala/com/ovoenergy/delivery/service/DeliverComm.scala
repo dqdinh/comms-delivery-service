@@ -1,11 +1,8 @@
 package com.ovoenergy.delivery.service
 
-import java.time.Instant
-
-import com.ovoenergy.delivery.service.domain.{CommRecord, DeliveryError, DuplicateDeliveryError, GatewayComm}
+import com.ovoenergy.delivery.service.domain.{DeliveryError, DuplicateDeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.persistence.{DynamoPersistence, CanExtractCommRecord}
 import cats.implicits._
-import com.ovoenergy.comms.model.UnexpectedDeliveryError
 
 object DeliverComm {
 

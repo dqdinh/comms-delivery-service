@@ -30,12 +30,12 @@ class DynamoPersistence(context: Context)(implicit config: DynamoDbConfig) exten
           Scanamo.get[CommRecord](context.db)(context.table.name)('hashedComm -> commRecord.hashedComm) match {
             case Some(Right(_))  => Right(true)
             case None            => Right(false)
-            case Some(Left(err)) => Left(DynamoError(UnexpectedDeliveryError))
+            case Some(Left(err)) => Left(DynamoError(UnexpectedDeliveryError)) // TODO: error code???
           }
         } catch {
           case e: AmazonDynamoDBException => {
             log.warn("Failed dynamoDb operation", e)
-            Left(DynamoError(UnexpectedDeliveryError))
+            Left(DynamoError(UnexpectedDeliveryError)) // TODO: error code???
           }
         }
       }

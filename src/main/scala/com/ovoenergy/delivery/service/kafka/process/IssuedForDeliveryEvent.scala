@@ -2,6 +2,7 @@ package com.ovoenergy.delivery.service.kafka.process
 
 import com.ovoenergy.comms.model.email.{ComposedEmailV2, ComposedEmailV3}
 import com.ovoenergy.comms.model._
+import com.ovoenergy.comms.model.print.ComposedPrint
 import com.ovoenergy.comms.model.sms.{ComposedSMSV2, ComposedSMSV3}
 import com.ovoenergy.delivery.service.domain.GatewayComm
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
@@ -49,4 +50,22 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
     })
   }
 
+  def print(publishEvent: IssuedForDeliveryV2 => Future[RecordMetadata])(
+      composedEvent: ComposedPrint,
+      gatewayComm: GatewayComm)(implicit ec: ExecutionContext): Future[RecordMetadata] = {
+    val event = IssuedForDeliveryV2(
+      metadata = MetadataV2.fromSourceMetadata("delivery-service", composedEvent.metadata),
+      internalMetadata = composedEvent.internalMetadata,
+      channel = gatewayComm.channel,
+      gateway = gatewayComm.gateway,
+      gatewayMessageId = gatewayComm.id
+    )
+
+    publishEvent(event).map(record => {
+      logInfo(
+        event,
+        s"Published IssuedForDelivery event: ${event.gateway} - ${event.gatewayMessageId} - ${record.partition}/${record.offset}")
+      record
+    })
+  }
 }
