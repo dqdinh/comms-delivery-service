@@ -31,11 +31,11 @@ class IssuePrintSpec extends FlatSpec with Matchers with ArbGenerator with Gener
   val gatewayComm   = generate[GatewayComm]
   val composedPrint = generate[ComposedPrint]
   val deliveryError = generate[DeliveryError]
-  val pdfDocument = generate[PdfDocument]
+  val pdfDocument   = generate[PdfDocument]
 
   val getPdf                = (_: ComposedPrint) => Right(pdfDocument)
-  val successfullySendPrint = (_: PdfDocument) => Right(gatewayComm)
-  val failedSendPrint       = (_: PdfDocument) => Left(deliveryError)
+  val successfullySendPrint = (_: PdfDocument, _: ComposedPrint) => Right(gatewayComm)
+  val failedSendPrint       = (_: PdfDocument, _: ComposedPrint) => Left(deliveryError)
   val notExpired            = (_: Option[Instant]) => false
 
   behavior of "PrintDeliveryProcess"

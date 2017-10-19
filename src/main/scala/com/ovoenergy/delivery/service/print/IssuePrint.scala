@@ -13,9 +13,9 @@ object IssuePrint {
   type PdfDocument = Array[Byte]
 
   def issue(isExpired: Option[Instant] => Boolean,
-            getPdf   : ComposedPrint => Either[DeliveryError, PdfDocument],
-            sendPrint: PdfDocument => Either[DeliveryError, GatewayComm])(
-            composedPrint: ComposedPrint): Either[DeliveryError, GatewayComm] = {
+            getPdf: ComposedPrint => Either[DeliveryError, PdfDocument],
+            sendPrint: (PdfDocument, ComposedPrint) => Either[DeliveryError, GatewayComm])(
+      composedPrint: ComposedPrint): Either[DeliveryError, GatewayComm] = {
 
     def expiryCheck: Either[DeliveryError, Unit] = {
       if (isExpired(composedPrint.expireAt)) {
@@ -30,7 +30,7 @@ object IssuePrint {
     for {
       _           <- expiryCheck
       pdf         <- getPdf(composedPrint)
-      gatewayComm <- sendPrint(pdf)
+      gatewayComm <- sendPrint(pdf, composedPrint)
     } yield gatewayComm
   }
 }

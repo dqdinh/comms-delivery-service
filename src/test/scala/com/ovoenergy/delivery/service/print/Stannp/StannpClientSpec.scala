@@ -5,11 +5,10 @@ import java.time.{Clock, OffsetDateTime, ZoneId}
 
 import scala.concurrent.duration._
 import akka.Done
-import com.ovoenergy.comms.model.{Email, Mailgun, Print, Stannp}
-import com.ovoenergy.comms.model.email.ComposedEmailV3
+import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.print.ComposedPrint
 import com.ovoenergy.delivery.config.{ConstantDelayRetry, StannpConfig}
-import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
+import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.print.IssuePrint.PdfDocument
 import com.ovoenergy.delivery.service.print.stannp.StannpClient
 import com.ovoenergy.delivery.service.util.ArbGenerator
@@ -23,50 +22,67 @@ import org.scalatest.{Failed => _, _}
 
 import scala.util.Try
 
-class StannpClientSpec extends FlatSpec with Matchers with ArbGenerator with EitherValues{
+class StannpClientSpec extends FlatSpec with Matchers with ArbGenerator with EitherValues {
   val dateTime = OffsetDateTime.now(ZoneId.of("UTC"))
 
-  val url = "https://dash.stannp.com/api/v1/letters/post"
-  val test = "true"
-  val country = "GB"
-  val apiKey = ""
-  val retry = ConstantDelayRetry(refineV[Positive](1).right.get, 1.second)
+  val url      = "https://dash.stannp.com/api/v1/letters/post"
+  val test     = "true"
+  val country  = "GB"
+  val apiKey   = ""
+  val password = ""
+  val retry    = ConstantDelayRetry(refineV[Positive](1).right.get, 1.second)
 
-  implicit val clock = Clock.fixed(dateTime.toInstant, ZoneId.of("UTC"))
-  implicit val stannpConfig = StannpConfig(url, apiKey, country, test, retry)
+  implicit val clock        = Clock.fixed(dateTime.toInstant, ZoneId.of("UTC"))
+  implicit val stannpConfig = StannpConfig(url, apiKey, password, country, test, retry)
 
   val composedPrint = generate[ComposedPrint]
   val printSentRes  = generate[Done]
   val deliveryError = generate[DeliveryError]
   val pdfDocument   = generate[PdfDocument]
 
-  val successResponse = ""
+  val successResponse            = "{\"success\":true,\"data\":{\"id\":\"1234\"}}"
+  val authorisationErrorResponse = "{\"success\":false,\"error\":\"You do not have authorisation\"}"
 
-  it should "work" in {
+  val assertions: Request => Unit = (request: Request) => {
+    request.header("Authorization") shouldBe "Basic Og=="
+    request.url.toString shouldBe url
+  }
 
-    val assertions: Request => Unit = (request: Request) => {
-      request.header("Authorization") shouldBe "Basic YXBpOg=="
-      request.url.toString shouldBe url
+  def httpClient(responseCode: Int, responseBody: String) = (request: Request) => {
+    val out    = new ByteArrayOutputStream
+    val buffer = Okio.buffer(Okio.sink(out))
+    request.body().writeTo(buffer)
+    buffer.flush()
+
+    assertions(request)
+
+    Try[Response] {
+      new Response.Builder()
+        .protocol(Protocol.HTTP_1_1)
+        .request(request)
+        .code(responseCode)
+        .body(ResponseBody.create(MediaType.parse("UTF-8"), responseBody))
+        .build()
     }
+  }
 
-    val httpClient = (request: Request) => {
-      val out    = new ByteArrayOutputStream
-      val buffer = Okio.buffer(Okio.sink(out))
-      request.body().writeTo(buffer)
-      buffer.flush()
-      assertions(request)
+  it should "send correct request to Stannp API " in {
+    val result = StannpClient.send(httpClient(200, successResponse)).apply(pdfDocument, composedPrint)
+    result shouldBe Right(GatewayComm(gateway = Stannp, id = "1234", channel = Print))
+  }
 
-      Try[Response] {
-        new Response.Builder()
-          .protocol(Protocol.HTTP_1_1)
-          .request(request)
-          .code(200)
-          .body(ResponseBody.create(MediaType.parse("UTF-8"), successResponse))
-          .build()
-      }
-    }
+  it should "generate correct failure when wrong authentication is sent" in {
+    val result = StannpClient.send(httpClient(401, authorisationErrorResponse)).apply(pdfDocument, composedPrint)
+    result shouldBe Left(APIGatewayAuthenticationError(UnexpectedDeliveryError))
+  }
 
-    val result = StannpClient.send(httpClient).apply(pdfDocument, composedPrint)
-    result shouldBe Right(GatewayComm(gateway = Stannp, id = "", channel = Print))
+  it should "generate correct failure when Stannp has internal error" in {
+    val result = StannpClient.send(httpClient(500, authorisationErrorResponse)).apply(pdfDocument, composedPrint)
+    result shouldBe Left(APIGatewayInternalServerError(UnexpectedDeliveryError))
+  }
+
+  it should "generate correct failure when unspecified error received" in {
+    val result = StannpClient.send(httpClient(404, authorisationErrorResponse)).apply(pdfDocument, composedPrint)
+    result shouldBe Left(StannpConnectionError(UnexpectedDeliveryError))
   }
 }

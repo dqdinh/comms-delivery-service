@@ -136,8 +136,9 @@ trait DockerIntegrationTest
     "comms.triggered.v3",
     "comms.orchestrated.email.v3",
     "comms.orchestrated.sms.v2",
-    "comms.composed.email.v2",
-    "comms.composed.sms.v2",
+    "comms.composed.email.v3",
+    "comms.composed.sms.v3",
+    "comms.composed.print.v1",
     "comms.progressed.email.v2",
     "comms.progressed.sms.v2",
     "comms.link.clicked.v2",
@@ -247,7 +248,8 @@ trait DockerIntegrationTest
         ContainerLink(dynamodb, "dynamodb"),
         ContainerLink(fakes3ssl, "ovo-comms-audit.s3-eu-west-1.amazonaws.com"),
         ContainerLink(mockServers, "api.mailgun.net"),
-        ContainerLink(mockServers, "api.twilio.com")
+        ContainerLink(mockServers, "api.twilio.com"),
+        ContainerLink(mockServers, "dash.stannp.com")
       )
       .withEnv(envVars: _*)
       .withVolumes(List(VolumeMapping(host = s"${sys.env("HOME")}/.aws", container = "/sbin/.aws"))) // share AWS creds so that credstash works

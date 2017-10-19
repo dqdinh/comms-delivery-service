@@ -50,7 +50,8 @@ class ConfigLoaderSpec extends FlatSpec with Matchers {
 
   val testRetry = ConstantDelayRetry(refineV[Positive](5).right.get, 1.second)
 
-  val expectedStannpConfig = StannpConfig("https://dash.stannp.com/api/v1/letters/post", "", "GB", "true", testRetry)
+  val expectedStannpConfig =
+    StannpConfig("https://dash.stannp.com/api/v1/letters/post", "apiKeee", "pass", "GB", "true", testRetry)
 
   val expectedAwsConfig = AwsConfig("eu-west-1", DynamoDbConfig(testRetry), S3Config("dev-ovo-comms-pdfs", testRetry))
 

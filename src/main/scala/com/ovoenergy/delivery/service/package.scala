@@ -27,7 +27,12 @@ package object config {
   case class ConstantDelayRetry(attempts: Int Refined Positive, interval: FiniteDuration)
   case class ExponentialDelayRetry(attempts: Int Refined Positive, initialInterval: FiniteDuration, exponent: Double)
   case class DynamoDbConfig(retryConfig: ConstantDelayRetry)
-  case class StannpConfig(url: String, apiKey: String, country: String, test: String, retry: ConstantDelayRetry)
+  case class StannpConfig(url: String,
+                          apiKey: String,
+                          password: String,
+                          country: String,
+                          test: String,
+                          retry: ConstantDelayRetry)
   case class S3Config(printPdfBucketName: String, retryConfig: ConstantDelayRetry)
   case class AwsConfig(region: String, dynamo: DynamoDbConfig, s3: S3Config) {
     def buildRegion = Regions.fromName(region)

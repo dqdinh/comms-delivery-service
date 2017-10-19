@@ -30,7 +30,7 @@ object S3PdfRepo extends LoggingWithMDC {
 
     val result: Either[Failed[S3Error], Succeeded[PdfDocument]] =
       Retry.retry[S3Error, PdfDocument](Retry.constantDelay(s3Config.retryConfig), onFailure) { () =>
-        try{
+        try {
           Right(IOUtils.toByteArray(pdf.getObjectContent))
         } catch {
           case e: IOException => {
@@ -44,12 +44,12 @@ object S3PdfRepo extends LoggingWithMDC {
   }
 
   private def buildKey(composedPrint: ComposedPrint): String = {
-    val commName = composedPrint.metadata.commManifest.name
+    val commName  = composedPrint.metadata.commManifest.name
     val createdAt = composedPrint.metadata.createdAt
-    val tt = composedPrint.metadata.traceToken
-    val itt = composedPrint.internalMetadata.internalTraceToken
+    val tt        = composedPrint.metadata.traceToken
+    val itt       = composedPrint.internalMetadata.internalTraceToken
 
-    val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    val dateFormatter  = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     val dateOfCreation = LocalDateTime.ofInstant(createdAt, ZoneId.systemDefault()).format(dateFormatter)
 
     s"$commName/$dateOfCreation/${createdAt.toEpochMilli}-$tt-$itt.pdf"
