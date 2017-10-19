@@ -58,8 +58,13 @@ package object domain {
     val errorCode   = DuplicateCommError
   }
 
-  case class S3Error(error: ErrorCode, bucketName: String) extends DeliveryError {
+  case class S3ConnectionError(error: ErrorCode, bucketName: String) extends DeliveryError {
     val description = s"An error occurred while trying to connect to S3 bucket $bucketName."
+    val errorCode   = error
+  }
+
+  case class AmazonS3Error(error: ErrorCode, bucketName: String, key: String) extends DeliveryError {
+    val description = s"Key $key does not exist in bucket $bucketName."
     val errorCode   = error
   }
 

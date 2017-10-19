@@ -28,14 +28,17 @@ object StannpClient extends LoggingWithMDC {
 
       val request = new Request.Builder()
         .header("Authorization", credentials)
-        .url(stannpConfig.url)
+        .url(s"${stannpConfig.url}/api/v1/letters/post")
         .post(buildSendEmailForm(pdf, stannpConfig))
         .build()
 
       val result = Retry.retry[DeliveryError, GatewayComm](Retry.constantDelay(stannpConfig.retry), _ => ()) { () =>
         httpClient(request) match {
           case Success(response) => handleStannpResponse(response, event)
-          case Failure(e)        => Left(StannpConnectionError(UnexpectedDeliveryError))
+          case Failure(e) => {
+            logWarn(event, "Request to Stannp failed", e)
+            Left(StannpConnectionError(UnexpectedDeliveryError))
+          }
         }
       }
 

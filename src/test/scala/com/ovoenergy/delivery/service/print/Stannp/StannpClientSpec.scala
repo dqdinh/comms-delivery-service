@@ -25,7 +25,7 @@ import scala.util.Try
 class StannpClientSpec extends FlatSpec with Matchers with ArbGenerator with EitherValues {
   val dateTime = OffsetDateTime.now(ZoneId.of("UTC"))
 
-  val url      = "https://dash.stannp.com/api/v1/letters/post"
+  val url      = "https://dash.stannp.com"
   val test     = "true"
   val country  = "GB"
   val apiKey   = ""
@@ -45,7 +45,7 @@ class StannpClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
 
   val assertions: Request => Unit = (request: Request) => {
     request.header("Authorization") shouldBe "Basic Og=="
-    request.url.toString shouldBe url
+    request.url.toString shouldBe s"$url/api/v1/letters/post"
   }
 
   def httpClient(responseCode: Int, responseBody: String) = (request: Request) => {

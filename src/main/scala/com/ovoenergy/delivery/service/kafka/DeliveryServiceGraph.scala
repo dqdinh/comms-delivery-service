@@ -34,6 +34,7 @@ object DeliveryServiceGraph extends LoggingWithMDC {
 
     val retryConfig = Retry.exponentialDelay(config.retry)
 
+    log.error(s"${topic.name} started successfully")
     def sendWithRetry[A](future: Future[A], inputEvent: T, errorDescription: String)(implicit scheduler: Scheduler) = {
       val onFailure         = (e: Throwable) => logWarn(inputEvent, errorDescription, e)
       val futureWithRetries = Retry.retryAsync(retryConfig, onFailure)(() => future)

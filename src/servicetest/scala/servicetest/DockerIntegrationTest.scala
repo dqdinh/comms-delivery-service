@@ -220,6 +220,8 @@ trait DockerIntegrationTest
     )
     .withLogWritingAndReadyChecker("Starting Proxy: 443", "fakes3ssl")
 
+  val apiKey = sys.env.get("AWS_ACCESS_KEY_ID").map(key => s"AWS_ACCESS_KEY_ID=$key")
+
   val deliveryService = {
     val envVars = List(
       Some("ENV=LOCAL"),
@@ -231,6 +233,9 @@ trait DockerIntegrationTest
       Some("MAILGUN_API_KEY=my_super_secret_api_key"),
       Some("MAILGUN_HOST=http://api.mailgun.net:1080"),
       Some("TWILIO_HOST=http://api.twilio.com:1080"),
+      Some("STANNP_URL=http://dash.stannp.com:1080"),
+      Some("STANNP_API_KEY=stannp_api_key"),
+      Some("STANNP_PASSWORD=stannp_password"),
       sys.env.get("AWS_ACCESS_KEY_ID").map(envVar => s"AWS_ACCESS_KEY_ID=$envVar"),
       sys.env.get("AWS_ACCOUNT_ID").map(envVar => s"AWS_ACCOUNT_ID=$envVar"),
       sys.env.get("AWS_SECRET_ACCESS_KEY").map(envVar => s"AWS_SECRET_ACCESS_KEY=$envVar")
@@ -246,7 +251,7 @@ trait DockerIntegrationTest
         ContainerLink(kafka, "aivenKafka"),
         ContainerLink(schemaRegistry, "schema-registry"),
         ContainerLink(dynamodb, "dynamodb"),
-        ContainerLink(fakes3ssl, "ovo-comms-audit.s3-eu-west-1.amazonaws.com"),
+        ContainerLink(fakes3ssl, "dev-ovo-comms-pdfs.s3-eu-west-1.amazonaws.com"),
         ContainerLink(mockServers, "api.mailgun.net"),
         ContainerLink(mockServers, "api.twilio.com"),
         ContainerLink(mockServers, "dash.stannp.com")

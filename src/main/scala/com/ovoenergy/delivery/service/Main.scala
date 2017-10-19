@@ -116,6 +116,7 @@ object Main extends App with LoggingWithMDC {
   log.info("Delivery Service started")
   setupGraph(emailGraph, "Email Delivery")
   setupGraph(smsGraph, "SMS Delivery")
+  setupGraph(printGraph, "Print Delivery")
 
   private def setupGraph(graph: RunnableGraph[Control], graphName: String) = {
     val control: Control = graph.run()
