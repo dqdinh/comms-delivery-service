@@ -2,12 +2,16 @@ package com.ovoenergy.delivery.service.config
 
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.delivery.config.{
+  AwsConfig,
   ConstantDelayRetry,
+  DynamoDbConfig,
   EmailAppConfig,
   ExponentialDelayRetry,
   KafkaAppConfig,
   MailgunAppConfig,
+  S3Config,
   SmsAppConfig,
+  StannpConfig,
   TwilioAppConfig
 }
 import com.ovoenergy.delivery.service.ConfigLoader
@@ -44,6 +48,13 @@ class ConfigLoaderSpec extends FlatSpec with Matchers {
   val expectedEmailConfig = EmailAppConfig(".*@ovoenergy.com", List("some@email.com"))
   val expectedSmsConfig   = SmsAppConfig(List.empty, List.empty)
 
+  val testRetry = ConstantDelayRetry(refineV[Positive](5).right.get, 1.second)
+
+  val expectedStannpConfig =
+    StannpConfig("https://dash.stannp.com/api/v1/letters/post", "apiKeee", "pass", "GB", "true", testRetry)
+
+  val expectedAwsConfig = AwsConfig("eu-west-1", DynamoDbConfig(testRetry), S3Config("dev-ovo-comms-pdfs", testRetry))
+
   it should "load the configuration file" in {
 
     failuresOrConfig shouldBe 'right
@@ -53,6 +64,8 @@ class ConfigLoaderSpec extends FlatSpec with Matchers {
     config.mailgun shouldBe expectedMailgunConfig
     config.email shouldBe expectedEmailConfig
     config.sms shouldBe expectedSmsConfig
+    config.stannp shouldBe expectedStannpConfig
+    config.aws shouldBe expectedAwsConfig
   }
 
   it should "bring the correct configuration implicits into scope" in {
@@ -62,5 +75,7 @@ class ConfigLoaderSpec extends FlatSpec with Matchers {
     implicitly[MailgunAppConfig] shouldBe expectedMailgunConfig
     implicitly[EmailAppConfig] shouldBe expectedEmailConfig
     implicitly[SmsAppConfig] shouldBe expectedSmsConfig
+    implicitly[StannpConfig] shouldBe expectedStannpConfig
+    implicitly[AwsConfig] shouldBe expectedAwsConfig
   }
 }

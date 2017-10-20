@@ -15,6 +15,7 @@ import com.ovoenergy.delivery.service.email.mailgun.MailgunClient.CustomFormData
 import com.ovoenergy.delivery.service.util.{ArbGenerator, Retry}
 import eu.timepit.refined._
 import eu.timepit.refined.numeric.Positive
+import io.circe
 import io.circe.generic.extras.semiauto._
 import io.circe.parser._
 import io.circe.generic.auto._
@@ -194,7 +195,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
 
     val regex: Regex = "v:custom=(.*)".r
 
-    val data = formData
+    val data: Either[circe.Error, CustomFormData] = formData
       .collectFirst {
         case regex(customJson) => decode[CustomFormData](customJson)
       }

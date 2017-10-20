@@ -57,4 +57,24 @@ package object domain {
     val description = s"CommHash $commHash has already been delivered!"
     val errorCode   = DuplicateCommError
   }
+
+  case class S3ConnectionError(error: ErrorCode, bucketName: String) extends DeliveryError {
+    val description = s"An error occurred while trying to connect to S3 bucket $bucketName."
+    val errorCode   = error
+  }
+
+  case class AmazonS3Error(error: ErrorCode, bucketName: String, key: String) extends DeliveryError {
+    val description = s"Key $key does not exist in bucket $bucketName."
+    val errorCode   = error
+  }
+
+  case class StannpError(error: ErrorCode, message: String) extends DeliveryError {
+    val description = message
+    val errorCode   = error
+  }
+
+  case class StannpConnectionError(error: ErrorCode) extends DeliveryError {
+    val description = s"Failed to connect to Stannp."
+    val errorCode   = error
+  }
 }

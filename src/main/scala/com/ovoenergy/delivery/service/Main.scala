@@ -8,8 +8,10 @@ import akka.kafka.scaladsl.Consumer.Control
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.RunnableGraph
 import com.amazonaws.regions.Regions
+import com.amazonaws.services.s3.AmazonS3Client
 import com.ovoenergy.comms.helpers.{Kafka, Topic}
 import com.ovoenergy.comms.model.email.{ComposedEmailV2, ComposedEmailV3}
+import com.ovoenergy.comms.model.print.ComposedPrint
 import com.ovoenergy.comms.model.sms.{ComposedSMSV2, ComposedSMSV3}
 import com.ovoenergy.delivery.service.email.IssueEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
@@ -28,7 +30,9 @@ import com.typesafe.config.ConfigFactory
 import com.ovoenergy.comms.serialisation.Codecs._
 import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.persistence.DynamoPersistence.Context
-import com.ovoenergy.delivery.service.persistence.{AwsProvider, DynamoPersistence}
+import com.ovoenergy.delivery.service.persistence.{AwsProvider, DynamoPersistence, S3PdfRepo}
+import com.ovoenergy.delivery.service.print.IssuePrint
+import com.ovoenergy.delivery.service.print.stannp.StannpClient
 
 import scala.language.reflectiveCalls
 import scala.concurrent.duration.FiniteDuration
@@ -92,6 +96,19 @@ object Main extends App with LoggingWithMDC {
     sendIssuedToGatewayEvent = IssuedForDeliveryEvent.sms(issuedForDeliveryPublisher)
   )
 
+  val issuePrintComm: (ComposedPrint) => Either[DeliveryError, GatewayComm] = IssuePrint.issue(
+    isExpired = ExpiryCheck.isExpired,
+    getPdf = S3PdfRepo.getPdfDocument(AwsProvider.getS3Context(isRunningInLocalDocker)),
+    sendPrint = StannpClient.send(HttpClient.apply)
+  )
+
+  val printGraph = DeliveryServiceGraph[ComposedPrint](
+    topic = Kafka.aiven.composedPrint.v1,
+    deliverComm = DeliverComm(dynamoPersistence, issuePrintComm),
+    sendFailedEvent = FailedEvent.print(failedPublisher),
+    sendIssuedToGatewayEvent = IssuedForDeliveryEvent.print(issuedForDeliveryPublisher)
+  )
+
   for (line <- Source.fromFile("./banner.txt").getLines) {
     println(line)
   }
@@ -99,6 +116,7 @@ object Main extends App with LoggingWithMDC {
   log.info("Delivery Service started")
   setupGraph(emailGraph, "Email Delivery")
   setupGraph(smsGraph, "SMS Delivery")
+  setupGraph(printGraph, "Print Delivery")
 
   private def setupGraph(graph: RunnableGraph[Control], graphName: String) = {
     val control: Control = graph.run()
