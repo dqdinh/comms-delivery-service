@@ -161,7 +161,7 @@ class PrintServiceTestIT
   def arbitraryComposedPrintEvent: ComposedPrint =
     generate[ComposedPrint].copy(pdfIdentifier = "example.pdf")
 
-  lazy val clientMk2 = {
+  lazy val s3Client = {
     val creds           = new AWSStaticCredentialsProvider(new BasicAWSCredentials("service-test", "dummy"))
     val ep              = new EndpointConfiguration("http://localhost:4569", conf.getString("aws.region"))
     val s3clientOptions = S3ClientOptions.builder().setPathStyleAccess(true).disableChunkedEncoding().build()
@@ -175,39 +175,10 @@ class PrintServiceTestIT
       .build()
   }
 
-  private def uploadTemplateToS3(): Unit = {
-    // disable chunked encoding to work around https://github.com/jubos/fake-s3/issues/164
-
-    clientMk2.createBucket("ovo-comms-templates")
-    clientMk2.createBucket("dev-ovo-comms-pdfs")
-
-    // template
-    clientMk2.putObject("ovo-comms-templates",
-                        "service/composer-service-test/0.1/email/subject.txt",
-                        "SUBJECT {{profile.firstName}}")
-    clientMk2.putObject("ovo-comms-templates",
-                        "service/composer-service-test/0.1/email/body.html",
-                        "{{> header}} HTML BODY {{amount}}")
-    clientMk2.putObject("ovo-comms-templates",
-                        "service/composer-service-test/0.1/email/body.txt",
-                        "{{> header}} TEXT BODY {{amount}}")
-    clientMk2.putObject("ovo-comms-templates",
-                        "service/composer-service-test/0.1/sms/body.txt",
-                        "{{> header}} SMS BODY {{amount}}")
-    clientMk2.putObject("ovo-comms-templates",
-                        "service/composer-service-test/0.1/print/body.html",
-                        "Hello {{profile.firstName}}")
-
-    // fragments
-    clientMk2.putObject("ovo-comms-templates", "service/fragments/email/html/header.html", "HTML HEADER")
-    clientMk2.putObject("ovo-comms-templates", "service/fragments/email/txt/header.txt", "TEXT HEADER")
-    clientMk2.putObject("ovo-comms-templates", "service/fragments/sms/txt/header.txt", "SMS HEADER")
-  }
-
   def uploadTestPdf(pdfIdentifier: String) = {
-    clientMk2.createBucket("dev-ovo-comms-pdfs")
+    s3Client.createBucket("dev-ovo-comms-pdfs")
     println(s"Pdf ID: ${pdfIdentifier}")
     val f = new File("result.pdf")
-    clientMk2.putObject("dev-ovo-comms-pdfs", pdfIdentifier, f)
+    s3Client.putObject("dev-ovo-comms-pdfs", pdfIdentifier, f)
   }
 }
