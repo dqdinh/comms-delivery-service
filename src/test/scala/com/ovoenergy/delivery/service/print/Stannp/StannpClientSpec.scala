@@ -73,16 +73,16 @@ class StannpClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
 
   it should "generate correct failure when wrong authentication is sent" in {
     val result = StannpClient.send(httpClient(401, authorisationErrorResponse)).apply(pdfDocument, composedPrint)
-    result shouldBe Left(APIGatewayAuthenticationError(UnexpectedDeliveryError))
+    result shouldBe Left(APIGatewayAuthenticationError(PrintGatewayError))
   }
 
   it should "generate correct failure when Stannp has internal error" in {
     val result = StannpClient.send(httpClient(500, authorisationErrorResponse)).apply(pdfDocument, composedPrint)
-    result shouldBe Left(APIGatewayInternalServerError(UnexpectedDeliveryError))
+    result shouldBe Left(APIGatewayInternalServerError(PrintGatewayError))
   }
 
   it should "generate correct failure when unspecified error received" in {
     val result = StannpClient.send(httpClient(404, authorisationErrorResponse)).apply(pdfDocument, composedPrint)
-    result shouldBe Left(StannpConnectionError(UnexpectedDeliveryError))
+    result shouldBe Left(StannpConnectionError(PrintGatewayError))
   }
 }

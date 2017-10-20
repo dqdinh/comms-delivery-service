@@ -2,7 +2,7 @@ package com.ovoenergy.delivery.service.print.stannp
 
 import java.time.Clock
 
-import com.ovoenergy.comms.model.{Print, Stannp, UnexpectedDeliveryError}
+import com.ovoenergy.comms.model.{Print, PrintGatewayError, Stannp, UnexpectedDeliveryError}
 import com.ovoenergy.delivery.config.StannpConfig
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.print.IssuePrint.PdfDocument
@@ -58,21 +58,21 @@ object StannpClient extends LoggingWithMDC {
     def handleFailedResponse(errorCode: Int) = errorCode match {
       case 401 => {
         logWarn(event, "Error sending print via Stannp API, authorization with Stannp API failed")
-        Left(APIGatewayAuthenticationError(UnexpectedDeliveryError)) // TODO: update errorCode
+        Left(APIGatewayAuthenticationError(PrintGatewayError))
       }
       case 500 => {
         val error = parseResponse[SendPrintFailureResponse](responseBody)
           .map("- " + _.error)
           .getOrElse("Failed to parse error response from Stannp")
         logWarn(event, s"Error sending print via Stannp API, Stannp API internal error: ${response.code} - $error")
-        Left(APIGatewayInternalServerError(UnexpectedDeliveryError)) // TODO: update errorCode
+        Left(APIGatewayInternalServerError(PrintGatewayError))
       }
       case _ => {
         val error = parseResponse[SendPrintFailureResponse](responseBody)
           .map("- " + _.error)
           .getOrElse("Failed to parse error response from Stannp")
         logWarn(event, s"Error sending print via Stannp API, Stannp error code: $errorCode - $error")
-        Left(StannpConnectionError(UnexpectedDeliveryError)) // TODO: update errorCode
+        Left(StannpConnectionError(PrintGatewayError))
       }
     }
 

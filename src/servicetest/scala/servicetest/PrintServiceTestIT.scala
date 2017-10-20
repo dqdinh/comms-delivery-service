@@ -60,7 +60,7 @@ class PrintServiceTestIT
       failedEvents.size shouldBe 1
       failedEvents.foreach(failed => {
         failed.reason shouldBe "Error authenticating with the Gateway"
-        failed.errorCode shouldBe UnexpectedDeliveryError
+        failed.errorCode shouldBe PrintGatewayError
       })
     }
   }
@@ -77,7 +77,7 @@ class PrintServiceTestIT
       failedEvents.size shouldBe 1
       failedEvents.foreach(failed => {
         failed.reason shouldBe "The Gateway had an error"
-        failed.errorCode shouldBe UnexpectedDeliveryError
+        failed.errorCode shouldBe PrintGatewayError
       })
     }
   }
