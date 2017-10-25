@@ -5,10 +5,10 @@ Description: ECS task role for the comms delivery service
 Parameters:
   Environment:
     Type: String
-    AllowedValues: [ UAT, PRD ]
+    AllowedValues: [ uat, prd ]
 
 Conditions:
-  IsProd: !Equals [ !Ref Environment, "PRD" ]
+  IsProd: !Equals [ !Ref Environment, "prd" ]
 
 Resources:
 
@@ -52,6 +52,17 @@ Resources:
                 - 'dynamodb:Query'
               Resource:
                 - !Sub "arn:aws:dynamodb:eu-west-1:${AWS::AccountId}:table/credential-store"
+        -
+          PolicyName: read-pdf-bucket
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action:
+                - 's3:Get*'
+                - 's3:List*'
+              Resource:
+                - !Sub 'arn:aws:s3:::${Environment}-ovo-comms-pdfs'
+                - !Sub 'arn:aws:s3:::${Environment}-ovo-comms-pdfs/*'
         -
           PolicyName: read-write-dynamo-table
           PolicyDocument:
