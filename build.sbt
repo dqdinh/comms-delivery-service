@@ -15,7 +15,7 @@ lazy val buildSettings = Seq(
   organization            := "com.ovoenergy",
   organizationName        := "OVO Energy",
   organizationHomepage    := Some(url("http://www.ovoenergy.com")),
-  scalaVersion            := "2.11.8",
+  scalaVersion            := "2.12.4",
   scalacOptions           := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-feature")
 )
 
