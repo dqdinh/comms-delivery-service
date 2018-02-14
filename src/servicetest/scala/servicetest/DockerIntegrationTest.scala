@@ -207,7 +207,7 @@ trait DockerIntegrationTest
     .withPorts(4569 -> Some(4569))
     .withLogWritingAndReadyChecker("WEBrick::HTTPServer#start", "fakes3")
 
-  val mockServers = DockerContainer("jamesdbloom/mockserver", name = Some("mockservers"))
+  val mockServers = DockerContainer("jamesdbloom/mockserver:mockserver-3.12", name = Some("mockservers"))
     .withPorts(1080 -> Some(1080))
     .withLogWritingAndReadyChecker("MockServer proxy started", "mockservers")
 
