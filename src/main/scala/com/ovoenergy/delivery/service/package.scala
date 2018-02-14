@@ -31,7 +31,7 @@ package object config {
                           apiKey: String,
                           password: String,
                           country: String,
-                          test: String,
+                          test: Boolean,
                           retry: ConstantDelayRetry)
   case class S3Config(printPdfBucketName: String, retryConfig: ConstantDelayRetry)
   case class AwsConfig(region: String, dynamo: DynamoDbConfig, s3: S3Config) {

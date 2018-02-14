@@ -26,7 +26,7 @@ class StannpClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
   val dateTime = OffsetDateTime.now(ZoneId.of("UTC"))
 
   val url      = "https://dash.stannp.com"
-  val test     = "true"
+  val test     = true
   val country  = "GB"
   val apiKey   = ""
   val password = ""
