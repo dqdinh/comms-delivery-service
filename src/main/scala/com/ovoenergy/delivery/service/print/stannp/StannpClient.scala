@@ -26,10 +26,16 @@ object StannpClient extends LoggingWithMDC {
 
       val credentials = Credentials.basic(stannpConfig.apiKey, stannpConfig.password)
 
+      val testDocument =
+        if (event.metadata.canary || stannpConfig.test)
+          "true"
+        else
+          "false"
+
       val request = new Request.Builder()
         .header("Authorization", credentials)
         .url(s"${stannpConfig.url}/api/v1/letters/post")
-        .post(buildSendEmailForm(pdf, stannpConfig))
+        .post(buildSendEmailForm(pdf, stannpConfig, testDocument))
         .build()
 
       val result = Retry.retry[DeliveryError, GatewayComm](Retry.constantDelay(stannpConfig.retry), _ => ()) { () =>
@@ -85,10 +91,11 @@ object StannpClient extends LoggingWithMDC {
     }
   }
 
-  private def buildSendEmailForm(pdfDocument: PdfDocument, stannpConfig: StannpConfig)(implicit clock: Clock) = {
+  private def buildSendEmailForm(pdfDocument: PdfDocument, stannpConfig: StannpConfig, test: String)(
+      implicit clock: Clock) = {
     new MultipartBody.Builder()
       .setType(MultipartBody.FORM)
-      .addFormDataPart("test", stannpConfig.test)
+      .addFormDataPart("test", test)
       .addFormDataPart("country", stannpConfig.country)
       .addFormDataPart("pdf", "pdf", RequestBody.create(MediaType.parse("application/pdf"), pdfDocument))
       .build()

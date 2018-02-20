@@ -20,8 +20,8 @@ lazy val buildSettings = Seq(
 )
 
 val serviceTestDependencies = Seq(
-  "com.whisk" %% "docker-testkit-scalatest" % "0.9.3" % ServiceTest,
-  "com.whisk" %% "docker-testkit-impl-docker-java" % "0.9.3" % ServiceTest)
+  "com.whisk" %% "docker-testkit-scalatest" % "0.9.6" % ServiceTest,
+  "com.whisk" %% "docker-testkit-impl-docker-java" % "0.9.6" % ServiceTest)
 
 lazy val service = (project in file("."))
   .settings(

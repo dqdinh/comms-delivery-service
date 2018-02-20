@@ -10,7 +10,23 @@ jobs:
        - restore_cache:
            keys:
              - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-credstash"
-       - run: pip install credstash
+
+       - run:
+           name: Install python-dev, pip
+           command: sudo apt-get update && sudo apt-get install -y libpython2.7-dev python-pip
+
+       - run:
+          name: Install awscli and credstash
+          command: sudo pip install awscli credstash --upgrade
+
+       - run:
+           name: Login to AWS as circleci seems to ignore the setting
+           command: |
+             mkdir ~/.aws
+             echo "[default]" >> ~/.aws/credentials
+             echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
+             echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
+
        - save_cache:
            key: "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-credstash"
            paths:
