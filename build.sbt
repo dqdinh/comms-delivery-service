@@ -1,3 +1,5 @@
+import Dependencies._
+
 name := "delivery-service"
 
 // Make ScalaTest write test reports that CirceCI understands
@@ -19,9 +21,41 @@ lazy val buildSettings = Seq(
   scalacOptions           := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-feature")
 )
 
-val serviceTestDependencies = Seq(
-  "com.whisk" %% "docker-testkit-scalatest" % "0.9.6" % ServiceTest,
-  "com.whisk" %% "docker-testkit-impl-docker-java" % "0.9.6" % ServiceTest)
+val dependencies = Seq(
+  fs2.core,
+  fs2.io,
+  fs2.kafkaClient,
+  cats.core,
+  cats.mtl,
+  circe.core,
+  circe.generic,
+  circe.genericExtras,
+  circe.parser,
+  ovoEnergy.commsKafkaMessages,
+  ovoEnergy.commsKafkaHelpers exclude("com.typesafe.akka", "akka-stream-kafka_2.12"),
+  ovoEnergy.dockerKit,
+  kafkaSerialization.cats,
+  kafkaSerialization.core,
+  logging.logbackClassic,
+  logging.logbackGelf,
+  logging.logzIoLogbackAppender,
+  pureConfig.core,
+  pureConfig.refined,
+  okHttp,
+  refined,
+  scanamo,
+  dynamoDbSdk,
+  akkaSlf4J,
+
+  scalaCheck.scalacheck % Test,
+  scalaCheck.shapeless % Test,
+  whisk.scalaTest % Test,
+  whisk.javaImpl % Test,
+  ovoEnergy.commsKafkaTestHelpers % Test,
+  mockito % Test,
+  scalaTest % Test,
+  mockServer % Test
+)
 
 lazy val service = (project in file("."))
   .settings(
@@ -29,7 +63,7 @@ lazy val service = (project in file("."))
     resolvers += Resolver.bintrayRepo("ovotech", "maven"),
     resolvers += Resolver.bintrayRepo("cakesolutions", "maven"),
     resolvers += "confluent-release" at "http://packages.confluent.io/maven/",
-    libraryDependencies ++= Dependencies.all ++ serviceTestDependencies,
+    libraryDependencies ++= dependencies,
     commsPackagingHeapSize := 512,
     commsPackagingMaxMetaspaceSize := 128
   ).enablePlugins(JavaServerAppPackaging, DockerPlugin)

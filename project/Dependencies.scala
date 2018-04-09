@@ -2,33 +2,82 @@ import sbt._
 
 object Dependencies {
 
-  val circeVersion        = "0.7.0"
-  val kafkaHelpersVersion = "3.5"
+  val okHttp      = "com.squareup.okhttp3" % "okhttp"                % "3.4.2"
+  val refined     = "eu.timepit"           %% "refined"              % "0.8.0"
+  val scanamo     = "com.gu"               %% "scanamo"              % "1.0.0-M3"
+  val dynamoDbSdk = "com.amazonaws"        % "aws-java-sdk-dynamodb" % "1.11.201"
+  val akkaSlf4J   = "com.typesafe.akka"    %% "akka-slf4j"           % "2.4.18"
 
-  val all = Seq(
-    "com.typesafe.akka"          %% "akka-stream-kafka"         % "0.17",
-    "com.typesafe.akka"          %% "akka-slf4j"                % "2.4.18",
-    "ch.qos.logback"             % "logback-classic"            % "1.1.7",
-    "io.circe"                   %% "circe-core"                % circeVersion,
-    "io.circe"                   %% "circe-generic-extras"      % circeVersion,
-    "io.circe"                   %% "circe-parser"              % circeVersion,
-    "io.circe"                   %% "circe-generic"             % circeVersion,
-    "me.moocar"                  % "logback-gelf"               % "0.2",
-    "com.github.pureconfig"      %% "pureconfig"                % "0.7.2",
-    "eu.timepit"                 %% "refined-pureconfig"        % "0.8.0",
-    "io.logz.logback"            % "logzio-logback-appender"    % "1.0.11",
-    "com.ovoenergy"              %% "comms-kafka-helpers"       % kafkaHelpersVersion,
-    "com.ovoenergy"              %% "comms-kafka-messages"      % "1.40",
-    "org.typelevel"              %% "cats-core"                 % "0.9.0",
-    "com.squareup.okhttp3"       % "okhttp"                     % "3.4.2",
-    "eu.timepit"                 %% "refined"                   % "0.8.0",
-    "com.gu"                     %% "scanamo"                   % "0.9.1",
-    "com.amazonaws"              % "aws-java-sdk-dynamodb"      % "1.11.201",
-    "com.ovoenergy"              %% "comms-kafka-test-helpers"  % kafkaHelpersVersion % Test,
-    "org.mockito"                % "mockito-all"                % "1.10.19" % Test,
-    "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.4" % Test,
-    "org.scalatest"              %% "scalatest"                 % "3.0.1" % Test,
-    "org.scalacheck"             %% "scalacheck"                % "1.13.4" % Test,
-    "org.mock-server"            % "mockserver-client-java"     % "3.12" % Test
-  )
+  val mockito    = "org.mockito"     % "mockito-all"            % "1.10.19"
+  val scalaTest  = "org.scalatest"   %% "scalatest"             % "3.0.1"
+  val mockServer = "org.mock-server" % "mockserver-client-java" % "3.12"
+
+  object fs2 {
+    private val fs2Version            = "0.10.2"
+    private val fs2KafkaClientVersion = "0.1.9"
+
+    lazy val core = "co.fs2" %% "fs2-core" % fs2Version
+    lazy val io   = "co.fs2" %% "fs2-io"   % fs2Version
+
+    lazy val kafkaClient = "com.ovoenergy" %% "fs2-kafka-client" % fs2KafkaClientVersion
+  }
+
+  object cats {
+    private val catsVersion = "0.9.0"
+
+    val core = "org.typelevel" %% "cats-free"     % catsVersion
+    val mtl  = "org.typelevel" %% "cats-mtl-core" % "0.2.1"
+  }
+
+  object circe {
+    private val circeVersion = "0.9.0"
+
+    val core          = "io.circe" %% "circe-core"           % circeVersion
+    val genericExtras = "io.circe" %% "circe-generic-extras" % circeVersion
+    val parser        = "io.circe" %% "circe-parser"         % circeVersion
+    val generic       = "io.circe" %% "circe-generic"        % circeVersion
+  }
+
+  object kafkaSerialization {
+    private val kafkaSerializationVersion = "0.3.6"
+
+    lazy val core   = "com.ovoenergy" %% "kafka-serialization-core"   % kafkaSerializationVersion
+    lazy val cats   = "com.ovoenergy" %% "kafka-serialization-cats"   % kafkaSerializationVersion
+    lazy val avro   = "com.ovoenergy" %% "kafka-serialization-avro"   % kafkaSerializationVersion
+    lazy val avro4s = "com.ovoenergy" %% "kafka-serialization-avro4s" % kafkaSerializationVersion
+  }
+
+  object ovoEnergy {
+    private val kafkaMessagesVersion      = "1.44"
+    private val kafkaHelpersVersion       = "3.13"
+    private val commsDockerTestkitVersion = "1.8"
+
+    val commsKafkaMessages    = "com.ovoenergy" %% "comms-kafka-messages"     % kafkaMessagesVersion
+    val commsKafkaHelpers     = "com.ovoenergy" %% "comms-kafka-helpers"      % kafkaHelpersVersion
+    val commsKafkaTestHelpers = "com.ovoenergy" %% "comms-kafka-test-helpers" % kafkaHelpersVersion
+    val dockerKit             = "com.ovoenergy" %% "comms-docker-testkit"     % commsDockerTestkitVersion
+  }
+
+  object logging {
+    val logbackClassic        = "ch.qos.logback"  % "logback-classic"         % "1.1.7"
+    val logbackGelf           = "me.moocar"       % "logback-gelf"            % "0.2"
+    val logzIoLogbackAppender = "io.logz.logback" % "logzio-logback-appender" % "1.0.11"
+  }
+
+  object pureConfig {
+    val core    = "com.github.pureconfig" %% "pureconfig"         % "0.7.2"
+    val refined = "eu.timepit"            %% "refined-pureconfig" % "0.8.0"
+  }
+
+  object scalaCheck {
+    val scalacheck = "org.scalacheck"             %% "scalacheck"                % "1.13.4"
+    val shapeless  = "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.4"
+  }
+
+  object whisk {
+    private val version = "0.9.6"
+
+    lazy val scalaTest = "com.whisk" %% "docker-testkit-scalatest"        % version
+    lazy val javaImpl  = "com.whisk" %% "docker-testkit-impl-docker-java" % version
+  }
 }

@@ -38,7 +38,6 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
   }
 
   it should "retrieve commRecord which is already stored at Dynamo" in {
-
     LocalDynamoDb.withTable(localDynamo)(tableName)('hashedComm -> ScalarAttributeType.S) {
       commRecords.foreach(dynamoPersistence.persistHashedComm)
       dynamoPersistence.exists(CommRecord(keyString, now.plusSeconds(10))) shouldBe Right(true)

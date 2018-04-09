@@ -4,11 +4,11 @@ import java.time.Instant
 
 import com.ovoenergy.comms.model.print.ComposedPrint
 import com.ovoenergy.delivery.service.domain.{DeliveryError, Expired, GatewayComm}
+import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.persistence.AwsProvider.S3Context
 import com.ovoenergy.delivery.service.persistence.S3PdfRepo
-import com.ovoenergy.delivery.service.sms.IssueSMS.logInfo
 
-object IssuePrint {
+object IssuePrint extends LoggingWithMDC {
 
   type PdfDocument = Array[Byte]
 

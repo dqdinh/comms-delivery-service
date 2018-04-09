@@ -1,22 +1,21 @@
 package com.ovoenergy.delivery.service
 
+import java.nio.file.Paths
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
-import akka.kafka.scaladsl.Consumer.Control
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.RunnableGraph
+import cats.effect.{Effect, IO}
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.s3.AmazonS3Client
-import com.ovoenergy.comms.helpers.{Kafka, Topic}
-import com.ovoenergy.comms.model.email.{ComposedEmailV2, ComposedEmailV3}
-import com.ovoenergy.comms.model.print.ComposedPrint
-import com.ovoenergy.comms.model.sms.{ComposedSMSV2, ComposedSMSV3}
+import com.ovoenergy.comms.helpers.{Kafka, KafkaClusterConfig, Topic}
+import com.ovoenergy.comms.model.email.{ComposedEmailV2, ComposedEmailV3, OrchestratedEmailV3}
+import com.ovoenergy.comms.model.print.{ComposedPrint, OrchestratedPrint}
+import com.ovoenergy.comms.model.sms.{ComposedSMSV2, ComposedSMSV3, OrchestratedSMSV2}
 import com.ovoenergy.delivery.service.email.IssueEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
-import com.ovoenergy.delivery.service.kafka.DeliveryServiceGraph
+import com.ovoenergy.delivery.service.kafka.EventProcessor
 import com.ovoenergy.delivery.service.kafka.process.{FailedEvent, IssuedForDeliveryEvent}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.sms.IssueSMS
@@ -24,21 +23,32 @@ import com.ovoenergy.delivery.service.sms.twilio.TwilioClient
 import com.ovoenergy.delivery.service.validation.{BlackWhiteList, ExpiryCheck}
 import com.ovoenergy.delivery.config._
 import com.ovoenergy.delivery.service.ErrorHandling._
+import com.ovoenergy.fs2.kafka.{ConsumerSettings, Subscription, consumeProcessAndCommit}
+import com.ovoenergy.kafka.serialization.core.constDeserializer
 
 import scala.language.implicitConversions
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import com.ovoenergy.comms.serialisation.Codecs._
 import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.persistence.DynamoPersistence.Context
 import com.ovoenergy.delivery.service.persistence.{AwsProvider, DynamoPersistence, S3PdfRepo}
 import com.ovoenergy.delivery.service.print.IssuePrint
 import com.ovoenergy.delivery.service.print.stannp.StannpClient
+import com.sksamuel.avro4s.{FromRecord, SchemaFor, ToRecord}
+import fs2._
+import org.apache.kafka.clients.CommonClientConfigs
+import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
+import org.apache.kafka.common.config.SslConfigs
 
+import scala.concurrent.ExecutionContext
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.reflectiveCalls
 import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
+import scala.reflect.ClassTag
+import scala.concurrent.duration._
 
-object Main extends App with LoggingWithMDC {
+object Main extends StreamApp[IO] with LoggingWithMDC {
 
   implicit val clock = Clock.systemDefaultZone()
 
@@ -48,7 +58,6 @@ object Main extends App with LoggingWithMDC {
 
   implicit val conf             = ConfigFactory.load()
   implicit val actorSystem      = ActorSystem("kafka")
-  implicit val materializer     = ActorMaterializer()
   implicit val executionContext = actorSystem.dispatcher
   implicit val scheduler        = actorSystem.scheduler
 
@@ -76,24 +85,10 @@ object Main extends App with LoggingWithMDC {
     sendEmail = MailgunClient.sendEmail(HttpClient.apply)
   )
 
-  val emailGraph = DeliveryServiceGraph[ComposedEmailV3](
-    topic = Kafka.aiven.composedEmail.v3,
-    deliverComm = DeliverComm(dynamoPersistence, issueEmailComm),
-    sendFailedEvent = FailedEvent.email(failedPublisher),
-    sendIssuedToGatewayEvent = IssuedForDeliveryEvent.email(issuedForDeliveryPublisher)
-  )
-
   val issueSMSComm: (ComposedSMSV3) => Either[DeliveryError, GatewayComm] = IssueSMS.issue(
     checkBlackWhiteList = BlackWhiteList.buildForSms,
     isExpired = ExpiryCheck.isExpired,
     sendSMS = TwilioClient.send(HttpClient.apply)
-  )
-
-  val smsGraph = DeliveryServiceGraph[ComposedSMSV3](
-    topic = Kafka.aiven.composedSms.v3,
-    deliverComm = DeliverComm(dynamoPersistence, issueSMSComm),
-    sendFailedEvent = FailedEvent.sms(failedPublisher),
-    sendIssuedToGatewayEvent = IssuedForDeliveryEvent.sms(issuedForDeliveryPublisher)
   )
 
   val issuePrintComm: (ComposedPrint) => Either[DeliveryError, GatewayComm] = IssuePrint.issue(
@@ -102,27 +97,97 @@ object Main extends App with LoggingWithMDC {
     sendPrint = StannpClient.send(HttpClient.apply)
   )
 
-  val printGraph = DeliveryServiceGraph[ComposedPrint](
-    topic = Kafka.aiven.composedPrint.v1,
-    deliverComm = DeliverComm(dynamoPersistence, issuePrintComm),
-    sendFailedEvent = FailedEvent.print(failedPublisher),
-    sendIssuedToGatewayEvent = IssuedForDeliveryEvent.print(issuedForDeliveryPublisher)
-  )
-
   for (line <- Source.fromFile("./banner.txt").getLines) {
     println(line)
   }
 
-  log.info("Delivery Service started")
-  setupGraph(emailGraph, "Email Delivery")
-  setupGraph(smsGraph, "SMS Delivery")
-  setupGraph(printGraph, "Print Delivery")
+  val aivenCluster                           = Kafka.aiven
+  val kafkaClusterConfig: KafkaClusterConfig = aivenCluster.kafkaConfig
 
-  private def setupGraph(graph: RunnableGraph[Control], graphName: String) = {
-    val control: Control = graph.run()
-    control.isShutdown.foreach { _ =>
-      log.error(s"ARGH! The Kafka source has shut down for graph $graphName. Killing the JVM and nuking from orbit.")
-      System.exit(1)
-    }
+  val pollTimeout: FiniteDuration = 150.milliseconds
+
+  val consumerNativeSettings: Map[String, AnyRef] = {
+    Map(
+      ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG -> kafkaClusterConfig.hosts,
+      ConsumerConfig.GROUP_ID_CONFIG          -> kafkaClusterConfig.groupId
+    ) ++ kafkaClusterConfig.ssl
+      .map { ssl =>
+        Map(
+          CommonClientConfigs.SECURITY_PROTOCOL_CONFIG -> "SSL",
+          SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG      -> Paths.get(ssl.keystore.location).toAbsolutePath.toString,
+          SslConfigs.SSL_KEYSTORE_TYPE_CONFIG          -> "PKCS12",
+          SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG      -> ssl.keystore.password,
+          SslConfigs.SSL_KEY_PASSWORD_CONFIG           -> ssl.keyPassword,
+          SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG    -> Paths.get(ssl.truststore.location).toString,
+          SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG        -> "JKS",
+          SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG    -> ssl.truststore.password
+        )
+      }
+      .getOrElse(Map.empty) ++ kafkaClusterConfig.nativeProperties
+
   }
+
+  val consumerSettings: ConsumerSettings = ConsumerSettings(
+    pollTimeout = pollTimeout,
+    maxParallelism = Int.MaxValue,
+    nativeSettings = consumerNativeSettings
+  )
+
+  type Record[T] = ConsumerRecord[Unit, Option[T]]
+
+  def processEvent[F[_], T: SchemaFor: ToRecord: FromRecord: ClassTag, A](
+      f: Record[T] => F[A],
+      topic: Topic[T])(implicit F: Effect[F], config: Config, ec: ExecutionContext): fs2.Stream[F, A] = {
+
+    val valueDeserializer = topic.deserializer.right.get
+
+    consumeProcessAndCommit[F].apply(
+      Subscription.topics(topic.name),
+      constDeserializer[Unit](()),
+      valueDeserializer,
+      consumerSettings
+    )(f)
+  }
+
+  def emailProcessor =
+    EventProcessor[IO, ComposedEmailV3](
+      DeliverComm(dynamoPersistence, issueEmailComm),
+      FailedEvent.email(failedPublisher),
+      IssuedForDeliveryEvent.email(issuedForDeliveryPublisher)
+    )
+
+  def smsProcessor =
+    EventProcessor[IO, ComposedSMSV3](
+      DeliverComm(dynamoPersistence, issueSMSComm),
+      FailedEvent.sms(failedPublisher),
+      IssuedForDeliveryEvent.sms(issuedForDeliveryPublisher)
+    )
+
+  def printProcessor =
+    EventProcessor[IO, ComposedPrint](
+      DeliverComm(dynamoPersistence, issuePrintComm),
+      FailedEvent.print(failedPublisher),
+      IssuedForDeliveryEvent.print(issuedForDeliveryPublisher)
+    )
+
+  override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, StreamApp.ExitCode] = {
+
+    val emailStream: Stream[IO, Unit] =
+      processEvent[IO, ComposedEmailV3, Unit](emailProcessor, aivenCluster.composedEmail.v3)
+
+    val smsStream: Stream[IO, Unit] =
+      processEvent[IO, ComposedSMSV3, Unit](smsProcessor, aivenCluster.composedSms.v3)
+
+    val printStream: Stream[IO, Unit] =
+      processEvent[IO, ComposedPrint, Unit](printProcessor, aivenCluster.composedPrint.v1)
+
+    emailStream
+      .mergeHaltBoth(smsStream)
+      .mergeHaltBoth(printStream)
+      .drain
+      .covaryOutput[StreamApp.ExitCode] ++ Stream.emit(StreamApp.ExitCode.Error)
+
+  }
+
+  log.info("Delivery Service started")
 }

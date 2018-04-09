@@ -3,7 +3,7 @@ package com.ovoenergy.delivery.service.persistence
 import java.time.Instant
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
-import com.amazonaws.services.dynamodbv2.model.{AmazonDynamoDBException, ResourceNotFoundException}
+import com.amazonaws.services.dynamodbv2.model.{AmazonDynamoDBException, PutItemResult, ResourceNotFoundException}
 import com.gu.scanamo._
 import com.gu.scanamo.error.DynamoReadError
 import com.gu.scanamo.syntax._
@@ -50,9 +50,13 @@ class DynamoPersistence(context: Context)(implicit config: DynamoDbConfig) exten
 
     val retryResult: Either[Failed[DynamoError], Succeeded[Boolean]] =
       Retry.retry(Retry.constantDelay(config.retryConfig), onFailure) { () =>
-        Scanamo.exec(context.db)(context.table.put(commRecord)).getSdkHttpMetadata.getHttpStatusCode match {
-          case 200 => Right(true)
-          case _ => {
+        Scanamo.exec(context.db)(context.table.put(commRecord)) match {
+          case None => Right(true)
+          case Some(Right(_)) => {
+            log.error(s"Comm hash persisted already exists in DB and is a duplicate.")
+            Left(DynamoError(UnexpectedDeliveryError))
+          }
+          case Some(Left(_)) => {
             log.warn(s"Failed to save commRecord $commRecord to DynamoDB.")
             Left(DynamoError(UnexpectedDeliveryError))
           }
