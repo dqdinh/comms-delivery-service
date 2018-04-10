@@ -98,4 +98,3 @@ class RetryEffectSpec extends WordSpec with Matchers with ScalaFutures with Befo
     super.afterAll()
   }
 }
-

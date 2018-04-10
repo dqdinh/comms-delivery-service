@@ -1,6 +1,5 @@
 package com.ovoenergy.delivery.service.util
 
-
 import cats.syntax.flatMap._
 import cats.effect.{Async, IO}
 import com.ovoenergy.delivery.service.util.RetryEffect.Strategy
@@ -56,9 +55,9 @@ object RetryEffect {
 class RetryEffect(delay: FiniteDuration, maxRetries: Int, strategy: Strategy) {
 
   def apply[F[_], A](fa: F[A], isRetriable: Throwable => Boolean = NonFatal.apply)(
-    implicit F: Async[F],
-    ec: ExecutionContext,
-    s: Scheduler = RetryEffect.defaultScheduler): F[A] = {
+      implicit F: Async[F],
+      ec: ExecutionContext,
+      s: Scheduler = RetryEffect.defaultScheduler): F[A] = {
 
     s.retry(fa, delay, strategy, maxRetries, isRetriable).compile.last.flatMap {
       case Some(x) => Async[F].pure(x)

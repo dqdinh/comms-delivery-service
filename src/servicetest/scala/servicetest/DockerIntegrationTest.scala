@@ -61,9 +61,11 @@ trait DockerIntegrationTest
   val DynamoTableName           = "comms-events"
   val DefaultDynamoDbPort       = 8000
   val DefaultKafkaPort          = 29093
+  val DefaultZookeeperPort      = 32182
   val DefaultLegacyKafkaPort    = 29094
   val DefaultSchemaRegistryPort = 8081
   val ComposerHttpPort          = 8080
+  val MockserverPort            = 1080
 
   override val StartContainersTimeout = 5.minutes
   override val StopContainersTimeout  = 1.minute
@@ -92,49 +94,41 @@ trait DockerIntegrationTest
 
   lazy val mockServers = {
     DockerContainer("jamesdbloom/mockserver:mockserver-3.12", name = Some("mockservers"))
-      .withPorts(1080 -> Some(1080))
+      .withPorts(MockserverPort -> Some(MockserverPort))
       .withLogWritingAndReadyChecker("MockServer proxy started", "mockservers")
   }
 
-  lazy val zookeeperContainer = DockerContainer("confluentinc/cp-zookeeper:3.1.1", name = Some("zookeeper"))
-    .withPorts(32182 -> Some(32182))
+  lazy val zookeeperContainer = DockerContainer("confluentinc/cp-zookeeper:3.3.1", name = Some("zookeeper"))
+    .withPorts(DefaultZookeeperPort -> Some(DefaultZookeeperPort))
     .withEnv(
-      "ZOOKEEPER_CLIENT_PORT=32182",
+      s"ZOOKEEPER_CLIENT_PORT=$DefaultZookeeperPort",
       "ZOOKEEPER_TICK_TIME=2000",
       "KAFKA_HEAP_OPTS=-Xmx256M -Xms128M"
     )
     .withLogWritingAndReadyChecker("binding to port", "zookeeper")
 
   lazy val kafkaContainer = {
-    // create each topic with 1 partition and replication factor 1
-    val createTopicsString = TopicNames.map(t => s"$t:1:1").mkString(",")
-    val lastTopicName      = TopicNames.last
-
-    DockerContainer("wurstmeister/kafka:0.10.2.1", name = Some("kafka"))
+    DockerContainer("confluentinc/cp-kafka:3.3.1", name = Some("kafka"))
       .withPorts(DefaultKafkaPort -> Some(DefaultKafkaPort))
       .withLinks(ContainerLink(zookeeperContainer, "zookeeper"))
       .withEnv(
-        "KAFKA_BROKER_ID=2",
-        "KAFKA_ZOOKEEPER_CONNECT=zookeeper:32182",
-        s"KAFKA_PORT=${DefaultKafkaPort}",
-        s"KAFKA_ADVERTISED_PORT=${DefaultKafkaPort}",
+        s"KAFKA_ZOOKEEPER_CONNECT=zookeeper:$DefaultZookeeperPort",
+        "KAFKA_BROKER_ID=1",
         s"KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://$hostIp:$DefaultKafkaPort",
-        "KAFKA_HEAP_OPTS=-Xmx256M -Xms128M",
-        s"KAFKA_CREATE_TOPICS=$createTopicsString"
+        "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1"
       )
-      .withLogWritingAndReadyChecker(s"""Created topic "$lastTopicName"""", "kafka") // Note: this needs to be the last topic in the list of topics above
+      .withLogWritingAndReadyChecker(s"""started (kafka.server.KafkaServer)""", "kafka")
   }
 
   lazy val schemaRegistryContainer =
-    DockerContainer("confluentinc/cp-schema-registry:3.2.2", name = Some("schema-registry"))
+    DockerContainer("confluentinc/cp-schema-registry:3.3.1", name = Some("schema-registry"))
       .withPorts(DefaultSchemaRegistryPort -> Some(DefaultSchemaRegistryPort))
       .withLinks(
-        ContainerLink(zookeeperContainer, "zookeeper"),
-        ContainerLink(kafkaContainer, "kafka")
+        ContainerLink(zookeeperContainer, "zookeeper")
       )
       .withEnv(
         "SCHEMA_REGISTRY_HOST_NAME=schema-registry",
-        "SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:32182",
+        s"SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:$DefaultZookeeperPort",
         s"SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://$hostIp:$DefaultKafkaPort"
       )
       .withLogWritingAndReadyChecker("Server started, listening for requests", "schema-registry")
@@ -142,15 +136,15 @@ trait DockerIntegrationTest
   val deliveryService = {
     val envVars = List(
       Some("ENV=LOCAL"),
-      Some("KAFKA_HOSTS_AIVEN=aivenKafka:29093"),
+      Some(s"KAFKA_HOSTS_AIVEN=$hostIp:$DefaultKafkaPort"),
       Some("LOCAL_DYNAMO=http://dynamodb:8000"),
       Some("RUNNING_IN_DOCKER=true"),
-      Some("SCHEMA_REGISTRY_URL=http://schema-registry:8081"),
+      Some(s"SCHEMA_REGISTRY_URL=http://schema-registry:$DefaultSchemaRegistryPort"),
       Some("MAILGUN_DOMAIN=mailgun@email.com"),
       Some("MAILGUN_API_KEY=my_super_secret_api_key"),
-      Some("MAILGUN_HOST=http://api.mailgun.net:1080"),
-      Some("TWILIO_HOST=http://api.twilio.com:1080"),
-      Some("STANNP_URL=http://dash.stannp.com:1080"),
+      Some(s"MAILGUN_HOST=http://api.mailgun.net:$MockserverPort"),
+      Some(s"TWILIO_HOST=http://api.twilio.com:$MockserverPort"),
+      Some(s"STANNP_URL=http://dash.stannp.com:$MockserverPort"),
       Some("STANNP_API_KEY=stannp_api_key"),
       Some("STANNP_PASSWORD=stannp_password"),
       sys.env.get("AWS_ACCESS_KEY_ID").map(envVar => s"AWS_ACCESS_KEY_ID=$envVar"),
@@ -165,7 +159,6 @@ trait DockerIntegrationTest
     DockerContainer(s"$awsAccountId.dkr.ecr.eu-west-1.amazonaws.com/delivery-service:0.1-SNAPSHOT",
                     name = Some("delivery-service"))
       .withLinks(
-        ContainerLink(kafkaContainer, "aivenKafka"),
         ContainerLink(schemaRegistryContainer, "schema-registry"),
         ContainerLink(dynamodb, "dynamodb"),
         ContainerLink(fakes3ssl, "dev-ovo-comms-pdfs.s3-eu-west-1.amazonaws.com"),

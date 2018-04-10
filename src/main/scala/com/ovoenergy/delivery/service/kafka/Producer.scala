@@ -55,7 +55,6 @@ object Producer {
 
 class Producer[E](getKey: E => String, producer: KafkaProducer[String, E], topicName: String) {
 
-
   def apply[F[_]: Async](t: E): F[RecordMetadata] = {
 
     val record = new ProducerRecord[String, E](
@@ -75,6 +74,5 @@ class Producer[E](getKey: E => String, producer: KafkaProducer[String, E], topic
       )
     }
   }
-
 
 }

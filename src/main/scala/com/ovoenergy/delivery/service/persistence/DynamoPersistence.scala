@@ -79,9 +79,7 @@ class DynamoPersistence(context: Context)(implicit config: DynamoDbConfig) exten
 
   def retry[F[_]: Async](fa: F[Either[DynamoError, Boolean]],
                          commRecord: CommRecord): F[Either[DynamoError, Boolean]] = {
-    RetryEffect.fixed(retryMaxRetries, retryDelay)(
-      fa,
-      _.isInstanceOf[ProvisionedThroughputExceededException]) recoverWith {
+    RetryEffect.fixed(retryMaxRetries, retryDelay)(fa, _.isInstanceOf[ProvisionedThroughputExceededException]) recoverWith {
       case e: ProvisionedThroughputExceededException =>
         logError(commRecord, "Failed to write comm record to DynamoDb, failing the stream", e)
         Async[F].raiseError(e)
