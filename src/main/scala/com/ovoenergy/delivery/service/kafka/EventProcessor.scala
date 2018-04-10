@@ -26,58 +26,32 @@ object EventProcessor extends LoggingWithMDC {
   implicit def consumerRecordLoggable[K, V]: Loggable[ConsumerRecord[K, V]] =
     Loggable.instance(
       record =>
-        Map("kafkaTopic" -> record.topic(),
-          "kafkaPartition" -> record.partition().toString,
-          "kafkaOffset" -> record.offset().toString))
+        Map("kafkaTopic"     -> record.topic(),
+            "kafkaPartition" -> record.partition().toString,
+            "kafkaOffset"    -> record.offset().toString))
 
   def apply[F[_]: Effect, InEvent <: LoggableEvent: SchemaFor: FromRecord: ClassTag](
-       deliverComm: (InEvent) => Either[DeliveryError, GatewayComm],
-       sendFailedEvent: (InEvent, DeliveryError) => Future[_],
-       sendIssuedToGatewayEvent: (InEvent, GatewayComm) => Future[_])(implicit ec: ExecutionContext, config: KafkaAppConfig, scheduler: Scheduler): Record[InEvent] => F[Unit] = {
+      deliverComm: (InEvent) => F[Either[DeliveryError, GatewayComm]],
+      sendFailedEvent: (InEvent, DeliveryError) => F[Unit],
+      sendIssuedToGatewayEvent: (InEvent, GatewayComm) => F[Unit])(
+      implicit ec: ExecutionContext,
+      config: KafkaAppConfig): Record[InEvent] => F[Unit] = {
 
-    val retryConfig = Retry.exponentialDelay(config.retry)
-
-    def sendWithRetry[A](future: Future[A], inputEvent: InEvent, errorDescription: String)(implicit scheduler: Scheduler) = {
-      val onFailure         = (e: Throwable) => logWarn(inputEvent, errorDescription, e)
-      val futureWithRetries = Retry.retryAsync(retryConfig, onFailure)(() => future)
-
-      futureWithRetries recover {
-        case NonFatal(e) =>
-          logWarn(inputEvent,
-            s"$errorDescription even after retrying. Will give up and commit Kafka consumer offset.",
-            e)
-      }
-    }
-
-    def success(composedEvent: InEvent, gatewayComm: GatewayComm) = {
-      sendWithRetry(sendIssuedToGatewayEvent(composedEvent, gatewayComm),
-        composedEvent,
-        "Error raising IssuedForDelivery event for a successful comm")
-    }
-
-    def failure(composedEvent: InEvent, deliveryError: DeliveryError) = {
-      logWarn(composedEvent, s"Unable to send comm due to $deliveryError")
-      sendWithRetry(sendFailedEvent(composedEvent, deliveryError),
-        composedEvent,
-        "Error raising Failed event for a failed comm")
-    }
-
-    def result[F[_]: Effect]: Record[InEvent] => F[Unit] = (record: Record[InEvent]) => {
+    def result: Record[InEvent] => F[Unit] = (record: Record[InEvent]) => {
       Async[F].delay(logInfo(record, s"Consumed ${record.show}")) >> (record.value match {
-        case Some(composedEvent) => {
-          deliverComm(composedEvent) match {
+        case Some(composedEvent) =>
+          deliverComm(composedEvent) flatMap {
             case Right(gatewayComm) =>
-              success(composedEvent, gatewayComm)
-              Async[F].pure(())
+              sendIssuedToGatewayEvent(composedEvent, gatewayComm)
+
             case Left(error: DynamoError) => {
               logError(composedEvent, "Failed DynamoDB operation, shutting down JVM")
-              Async[F].pure(())
+              Async[F].raiseError(new RuntimeException(error.description))
             }
             case Left(deliveryError) =>
-              failure(composedEvent, deliveryError)
-              Async[F].pure(())
+              logWarn(composedEvent, s"Unable to send comm due to $deliveryError")
+              sendFailedEvent(composedEvent, deliveryError)
           }
-        }
         case None =>
           log.error(s"Skipping event: ${record.show}, failed to parse")
           Async[F].pure(())
@@ -85,7 +59,7 @@ object EventProcessor extends LoggingWithMDC {
       })
     }
 
-    result[F]
+    result
   }
 
   private def consumerRecordToString(consumerRecord: ConsumerRecord[String, _]) = {

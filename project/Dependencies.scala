@@ -5,7 +5,7 @@ object Dependencies {
   val okHttp      = "com.squareup.okhttp3" % "okhttp"                % "3.4.2"
   val refined     = "eu.timepit"           %% "refined"              % "0.8.0"
   val scanamo     = "com.gu"               %% "scanamo"              % "1.0.0-M3"
-  val dynamoDbSdk = "com.amazonaws"        % "aws-java-sdk-dynamodb" % "1.11.201"
+  val dynamoDbSdk = "com.amazonaws"        % "aws-java-sdk-dynamodb" % "1.11.225"
   val akkaSlf4J   = "com.typesafe.akka"    %% "akka-slf4j"           % "2.4.18"
 
   val mockito    = "org.mockito"     % "mockito-all"            % "1.10.19"

@@ -1,20 +1,21 @@
 package com.ovoenergy.delivery.service.kafka.process
 
-import com.ovoenergy.comms.model.email.{ComposedEmailV2, ComposedEmailV3}
+import cats.Functor
+import cats.syntax.functor._
+
+import com.ovoenergy.comms.model.email.ComposedEmailV3
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.print.ComposedPrint
-import com.ovoenergy.comms.model.sms.{ComposedSMSV2, ComposedSMSV3}
+import com.ovoenergy.comms.model.sms.ComposedSMSV3
 import com.ovoenergy.delivery.service.domain.GatewayComm
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import org.apache.kafka.clients.producer.RecordMetadata
 
-import scala.concurrent.{ExecutionContext, Future}
-
 object IssuedForDeliveryEvent extends LoggingWithMDC {
 
-  def email(publishEvent: IssuedForDeliveryV2 => Future[RecordMetadata])(
+  def email[F[_]: Functor](publishEvent: IssuedForDeliveryV2 => F[RecordMetadata])(
       composedEvent: ComposedEmailV3,
-      gatewayComm: GatewayComm)(implicit ec: ExecutionContext): Future[RecordMetadata] = {
+      gatewayComm: GatewayComm): F[Unit] = {
     val event = IssuedForDeliveryV2(
       metadata = MetadataV2.fromSourceMetadata("delivery-service", composedEvent.metadata),
       internalMetadata = composedEvent.internalMetadata,
@@ -27,13 +28,11 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
       logInfo(
         event,
         s"Published IssuedForDelivery event: ${event.gateway} - ${event.gatewayMessageId} - ${record.partition}/${record.offset}")
-      record
     })
   }
 
-  def sms(publishEvent: IssuedForDeliveryV2 => Future[RecordMetadata])(
-      composedEvent: ComposedSMSV3,
-      gatewayComm: GatewayComm)(implicit ec: ExecutionContext): Future[RecordMetadata] = {
+  def sms[F[_]: Functor](publishEvent: IssuedForDeliveryV2 => F[RecordMetadata])(composedEvent: ComposedSMSV3,
+                                                                                 gatewayComm: GatewayComm): F[Unit] = {
     val event = IssuedForDeliveryV2(
       metadata = MetadataV2.fromSourceMetadata("delivery-service", composedEvent.metadata),
       internalMetadata = composedEvent.internalMetadata,
@@ -46,13 +45,12 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
       logInfo(
         event,
         s"Published IssuedForDelivery event: ${event.gateway} - ${event.gatewayMessageId} - ${record.partition}/${record.offset}")
-      record
     })
   }
 
-  def print(publishEvent: IssuedForDeliveryV2 => Future[RecordMetadata])(
+  def print[F[_]: Functor](publishEvent: IssuedForDeliveryV2 => F[RecordMetadata])(
       composedEvent: ComposedPrint,
-      gatewayComm: GatewayComm)(implicit ec: ExecutionContext): Future[RecordMetadata] = {
+      gatewayComm: GatewayComm): F[Unit] = {
     val event = IssuedForDeliveryV2(
       metadata = MetadataV2.fromSourceMetadata("delivery-service", composedEvent.metadata),
       internalMetadata = composedEvent.internalMetadata,
@@ -65,7 +63,6 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
       logInfo(
         event,
         s"Published IssuedForDelivery event: ${event.gateway} - ${event.gatewayMessageId} - ${record.partition}/${record.offset}")
-      record
     })
   }
 }

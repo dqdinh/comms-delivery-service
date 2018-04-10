@@ -2,8 +2,9 @@ package com.ovoenergy.delivery.service.persistence
 
 import com.amazonaws.auth._
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.regions.Regions
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder, AmazonDynamoDBClient}
 import com.amazonaws.services.s3.AmazonS3Client
 import com.ovoenergy.delivery.config.{AwsConfig, S3Config}
 import org.slf4j.LoggerFactory
@@ -12,18 +13,22 @@ object AwsProvider {
 
   private val log = LoggerFactory.getLogger("AwsClientProvider")
 
-  def dynamoClient(isRunningInLocalDocker: Boolean)(implicit awsConfig: AwsConfig): AmazonDynamoDBClient = {
+  def dynamoClient(isRunningInLocalDocker: Boolean)(implicit awsConfig: AwsConfig): AmazonDynamoDBAsync = {
     val region = awsConfig.buildRegion
     if (isRunningInLocalDocker) {
       log.warn("Running in local docker")
       System.setProperty("com.amazonaws.sdk.disableCertChecking", "true")
-      val awsCreds                           = getCreds(isRunningInLocalDocker, region)
-      val dynamoClient: AmazonDynamoDBClient = new AmazonDynamoDBClient(awsCreds).withRegion(region)
-      dynamoClient.setEndpoint(sys.env("LOCAL_DYNAMO"))
-      dynamoClient
+      AmazonDynamoDBAsyncClientBuilder
+        .standard()
+        .withEndpointConfiguration(new EndpointConfiguration(sys.env("LOCAL_DYNAMO"), region.getName))
+        .build()
     } else {
       val awsCreds = getCreds(isRunningInLocalDocker, region)
-      new AmazonDynamoDBClient(awsCreds).withRegion(region)
+      AmazonDynamoDBAsyncClientBuilder
+        .standard()
+        .withCredentials(awsCreds)
+        .withRegion(region)
+        .build()
     }
   }
 

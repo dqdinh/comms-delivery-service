@@ -1,16 +1,27 @@
 package com.ovoenergy.delivery.service.util
 
 import com.amazonaws.auth.{AWSStaticCredentialsProvider, BasicAWSCredentials}
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2._
 import com.amazonaws.services.dynamodbv2.model._
 
 import scala.collection.JavaConverters._
 
 object LocalDynamoDb {
+
+  val region = "eu-west-1"
+
+  val creds = new AWSStaticCredentialsProvider(new BasicAWSCredentials("key", "secret"))
+
+  println("In LocalDynamoDb")
+
   def client(endPoint: String = s"http://localhost:8000") = {
-    val c = new AmazonDynamoDBClient(new AWSStaticCredentialsProvider(new BasicAWSCredentials("key", "secret")))
-    c.setEndpoint(endPoint)
-    c
+    println("In method Client")
+    AmazonDynamoDBAsyncClientBuilder
+      .standard()
+      .withCredentials(creds)
+      .withEndpointConfiguration(new EndpointConfiguration(endPoint, region))
+      .build()
   }
 
   def doesTableExist(client: AmazonDynamoDB, tableName: String) = {

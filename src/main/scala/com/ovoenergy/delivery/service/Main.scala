@@ -5,17 +5,18 @@ import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
-import cats.effect.{Effect, IO}
+import cats.effect.{Async, Effect, IO}
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.s3.AmazonS3Client
 import com.ovoenergy.comms.helpers.{Kafka, KafkaClusterConfig, Topic}
+import com.ovoenergy.comms.model.{FailedV2, IssuedForDeliveryV2}
 import com.ovoenergy.comms.model.email.{ComposedEmailV2, ComposedEmailV3, OrchestratedEmailV3}
 import com.ovoenergy.comms.model.print.{ComposedPrint, OrchestratedPrint}
 import com.ovoenergy.comms.model.sms.{ComposedSMSV2, ComposedSMSV3, OrchestratedSMSV2}
 import com.ovoenergy.delivery.service.email.IssueEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
-import com.ovoenergy.delivery.service.kafka.EventProcessor
+import com.ovoenergy.delivery.service.kafka.{EventProcessor, Producer}
 import com.ovoenergy.delivery.service.kafka.process.{FailedEvent, IssuedForDeliveryEvent}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.sms.IssueSMS
@@ -38,9 +39,10 @@ import com.sksamuel.avro4s.{FromRecord, SchemaFor, ToRecord}
 import fs2._
 import org.apache.kafka.clients.CommonClientConfigs
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
+import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.config.SslConfigs
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.reflectiveCalls
 import scala.concurrent.duration.FiniteDuration
@@ -66,11 +68,17 @@ object Main extends StreamApp[IO] with LoggingWithMDC {
     case Right(res) => res
   }
 
-  val failedTopic     = Kafka.aiven.failed.v2
-  val failedPublisher = exitAppOnFailure(failedTopic.publisher, failedTopic.name)
+  val failedTopic = Kafka.aiven.failed.v2
+  val failedProducer = Producer
+    .produce[FailedV2](_.metadata.eventId, exitAppOnFailure(Producer(failedTopic), failedTopic.name), failedTopic.name)
+  val failedPublisher: FailedV2 => IO[RecordMetadata] = failedProducer.apply[IO]
 
-  val issuedForDeliveryTopic     = Kafka.aiven.issuedForDelivery.v2
-  val issuedForDeliveryPublisher = exitAppOnFailure(issuedForDeliveryTopic.publisher, issuedForDeliveryTopic.name)
+  val issuedForDeliveryTopic = Kafka.aiven.issuedForDelivery.v2
+  val issuedForDeliveryProducer = Producer.produce[IssuedForDeliveryV2](
+    _.metadata.eventId,
+    exitAppOnFailure(Producer(issuedForDeliveryTopic), issuedForDeliveryTopic.name),
+    issuedForDeliveryTopic.name)
+  val issuedForDeliveryPublisher: IssuedForDeliveryV2 => IO[RecordMetadata] = issuedForDeliveryProducer.apply[IO]
 
   val isRunningInLocalDocker = sys.env.get("ENV").contains("LOCAL") && sys.env
       .get("RUNNING_IN_DOCKER")
@@ -151,23 +159,23 @@ object Main extends StreamApp[IO] with LoggingWithMDC {
 
   def emailProcessor =
     EventProcessor[IO, ComposedEmailV3](
-      DeliverComm(dynamoPersistence, issueEmailComm),
-      FailedEvent.email(failedPublisher),
-      IssuedForDeliveryEvent.email(issuedForDeliveryPublisher)
+      DeliverComm[IO, ComposedEmailV3](dynamoPersistence, issueEmailComm),
+      FailedEvent.email[IO](failedPublisher),
+      IssuedForDeliveryEvent.email[IO](issuedForDeliveryPublisher)
     )
 
   def smsProcessor =
     EventProcessor[IO, ComposedSMSV3](
-      DeliverComm(dynamoPersistence, issueSMSComm),
-      FailedEvent.sms(failedPublisher),
-      IssuedForDeliveryEvent.sms(issuedForDeliveryPublisher)
+      DeliverComm[IO, ComposedSMSV3](dynamoPersistence, issueSMSComm),
+      FailedEvent.sms[IO](failedPublisher),
+      IssuedForDeliveryEvent.sms[IO](issuedForDeliveryPublisher)
     )
 
   def printProcessor =
     EventProcessor[IO, ComposedPrint](
-      DeliverComm(dynamoPersistence, issuePrintComm),
-      FailedEvent.print(failedPublisher),
-      IssuedForDeliveryEvent.print(issuedForDeliveryPublisher)
+      DeliverComm[IO, ComposedPrint](dynamoPersistence, issuePrintComm),
+      FailedEvent.print[IO](failedPublisher),
+      IssuedForDeliveryEvent.print[IO](issuedForDeliveryPublisher)
     )
 
   override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, StreamApp.ExitCode] = {
