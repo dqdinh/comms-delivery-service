@@ -9,7 +9,8 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric._
 import akka.pattern.after
-import com.ovoenergy.delivery.config.{ExponentialDelayRetry, ConstantDelayRetry}
+import com.ovoenergy.delivery.config.{ConstantDelayRetry, ExponentialDelayRetry}
+import com.ovoenergy.delivery.service.domain.DynamoError
 
 import scala.concurrent.{ExecutionContext, Future}
 

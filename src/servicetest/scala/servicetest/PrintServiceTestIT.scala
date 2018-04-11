@@ -177,7 +177,6 @@ class PrintServiceTestIT
 
   def uploadTestPdf(pdfIdentifier: String) = {
     s3Client.createBucket("dev-ovo-comms-pdfs")
-    println(s"Pdf ID: ${pdfIdentifier}")
     val f = new File("result.pdf")
     s3Client.putObject("dev-ovo-comms-pdfs", pdfIdentifier, f)
   }

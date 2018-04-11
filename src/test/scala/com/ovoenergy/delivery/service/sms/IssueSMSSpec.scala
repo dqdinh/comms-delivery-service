@@ -8,6 +8,7 @@ import com.ovoenergy.delivery.service.util.ArbGenerator
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
 import org.scalacheck.Shapeless._
 import org.scalatest.{FlatSpec, Matchers}
+import cats.implicits._
 
 class IssueSMSSpec extends FlatSpec with Matchers with ArbGenerator {
 
