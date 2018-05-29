@@ -5,7 +5,7 @@ import java.time.{Clock, OffsetDateTime}
 
 import cats.syntax.either._
 import com.ovoenergy.comms.model._
-import com.ovoenergy.comms.model.email.ComposedEmailV3
+import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.delivery.config.MailgunAppConfig
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
@@ -39,11 +39,11 @@ object MailgunClient extends LoggingWithMDC {
 
   def sendEmail(httpClient: (Request) => Try[Response])(
       implicit mailgunConfig: MailgunAppConfig,
-      clock: Clock): (ComposedEmailV3) => Either[DeliveryError, GatewayComm] = {
+      clock: Clock): (ComposedEmailV4) => Either[DeliveryError, GatewayComm] = {
     val retryConfig =
       RetryConfig(mailgunConfig.retry.attempts, Retry.Backoff.constantDelay(mailgunConfig.retry.interval))
 
-    (composedEmail: ComposedEmailV3) =>
+    (composedEmail: ComposedEmailV4) =>
       {
 
         val credentials = Credentials.basic("api", mailgunConfig.apiKey)
@@ -68,7 +68,7 @@ object MailgunClient extends LoggingWithMDC {
       }
   }
 
-  private def buildSendEmailForm(composedEmail: ComposedEmailV3)(implicit clock: Clock) = {
+  private def buildSendEmailForm(composedEmail: ComposedEmailV4)(implicit clock: Clock) = {
     val form = new FormBody.Builder()
       .add("from", composedEmail.sender)
       .add("to", composedEmail.recipient)
@@ -79,25 +79,32 @@ object MailgunClient extends LoggingWithMDC {
     composedEmail.textBody.fold(form.build())(textBody => form.add("text", textBody).build())
   }
 
-  private def buildCustomJson(composedEmail: ComposedEmailV3)(implicit clock: Clock): String = {
+  private def buildCustomJson(composedEmail: ComposedEmailV4)(implicit clock: Clock): String = {
     val customerId = composedEmail.metadata.deliverTo match {
       case Customer(cId) => Some(cId)
       case _             => None
     }
+
+    val commManifest =
+      CommManifest(
+        composedEmail.metadata.commType,
+        composedEmail.metadata.commName,
+        composedEmail.metadata.templateManifest.version
+      )
 
     CustomFormData(
       createdAt = OffsetDateTime.now(clock).format(dtf),
       customerId = customerId,
       traceToken = composedEmail.metadata.traceToken,
       canary = composedEmail.metadata.canary,
-      commManifest = composedEmail.metadata.commManifest,
+      commManifest = commManifest,
       internalTraceToken = composedEmail.internalMetadata.internalTraceToken,
       triggerSource = composedEmail.metadata.triggerSource,
       friendlyDescription = composedEmail.metadata.friendlyDescription
     ).asJson.noSpaces
   }
 
-  private def mapResponseToEither(response: Response, composedEmail: ComposedEmailV3)(
+  private def mapResponseToEither(response: Response, composedEmail: ComposedEmailV4)(
       implicit clock: Clock): Either[DeliveryError, GatewayComm] = {
     case class SendEmailSuccessResponse(id: String, message: String)
     case class SendEmailFailureResponse(message: String)

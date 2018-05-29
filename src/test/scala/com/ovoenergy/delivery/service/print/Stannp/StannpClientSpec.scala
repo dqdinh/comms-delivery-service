@@ -6,7 +6,7 @@ import java.time.{Clock, OffsetDateTime, ZoneId}
 import scala.concurrent.duration._
 import akka.Done
 import com.ovoenergy.comms.model._
-import com.ovoenergy.comms.model.print.ComposedPrint
+import com.ovoenergy.comms.model.print.{ComposedPrint, ComposedPrintV2}
 import com.ovoenergy.delivery.config.{ConstantDelayRetry, StannpConfig}
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.http.HttpClient
@@ -42,11 +42,11 @@ class StannpClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
   implicit val clock        = Clock.fixed(dateTime.toInstant, ZoneId.of("UTC"))
   implicit val stannpConfig = StannpConfig(url, apiKey, password, country, test, retry)
 
-  val composedPrint                                             = generate[ComposedPrint]
+  val composedPrint                                             = generate[ComposedPrintV2]
   val printSentRes                                              = generate[Done]
   val deliveryError                                             = generate[DeliveryError]
   val pdfDocument                                               = generate[PdfDocument]
-  val metadata                                                  = generate[MetadataV2]
+  val metadata                                                  = generate[MetadataV3]
   val canaryMetadata                                            = metadata.copy(canary = true)
   val productionMetadata                                        = metadata.copy(canary = false)
   val httpClient: (Request => Unit) => Request => Try[Response] = httpClient(200, successResponse)

@@ -9,7 +9,7 @@ import com.ovoenergy.delivery.service.print.IssuePrint.PdfDocument
 import com.ovoenergy.delivery.service.util.Retry
 import okhttp3._
 import cats.syntax.either._
-import com.ovoenergy.comms.model.print.ComposedPrint
+import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import io.circe.Decoder
 import io.circe.generic.auto._
@@ -21,8 +21,8 @@ object StannpClient extends LoggingWithMDC {
 
   def send(httpClient: (Request) => Try[Response])(
       implicit stannpConfig: StannpConfig,
-      clock: Clock): (PdfDocument, ComposedPrint) => Either[DeliveryError, GatewayComm] =
-    (pdf: PdfDocument, event: ComposedPrint) => {
+      clock: Clock): (PdfDocument, ComposedPrintV2) => Either[DeliveryError, GatewayComm] =
+    (pdf: PdfDocument, event: ComposedPrintV2) => {
 
       val credentials = Credentials.basic(stannpConfig.apiKey, stannpConfig.password)
 
@@ -57,7 +57,7 @@ object StannpClient extends LoggingWithMDC {
   case class SendPrintSuccessResponse(success: Boolean, data: Data)
   case class SendPrintFailureResponse(success: Boolean, error: String)
 
-  private def handleStannpResponse(response: Response, event: ComposedPrint): Either[DeliveryError, GatewayComm] = {
+  private def handleStannpResponse(response: Response, event: ComposedPrintV2): Either[DeliveryError, GatewayComm] = {
 
     val responseBody = response.body().string()
 

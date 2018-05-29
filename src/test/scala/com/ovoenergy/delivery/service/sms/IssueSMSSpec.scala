@@ -2,7 +2,7 @@ package com.ovoenergy.delivery.service.sms
 
 import java.time.{Clock, Instant}
 
-import com.ovoenergy.comms.model.sms.ComposedSMSV3
+import com.ovoenergy.comms.model.sms.ComposedSMSV4
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
@@ -15,11 +15,11 @@ class IssueSMSSpec extends FlatSpec with Matchers with ArbGenerator {
   private implicit val clock = Clock.systemUTC()
 
   private val gatewayComm   = generate[GatewayComm]
-  private val composedSMS   = generate[ComposedSMSV3]
+  private val composedSMS   = generate[ComposedSMSV4]
   private val deliveryError = generate[DeliveryError]
 
   private val blackWhiteListOK    = (_: String) => BlackWhiteList.OK
-  private val successfullySendSMS = (_: ComposedSMSV3) => Right(gatewayComm)
+  private val successfullySendSMS = (_: ComposedSMSV4) => Right(gatewayComm)
   private val notExpired          = (_: Option[Instant]) => false
 
   behavior of "IssueSMS"
@@ -30,7 +30,7 @@ class IssueSMSSpec extends FlatSpec with Matchers with ArbGenerator {
   }
 
   it should "Handle SMS which has failed to send, generating appropriate delivery error" in {
-    val failToSendSMS = (_: ComposedSMSV3) => Left(deliveryError)
+    val failToSendSMS = (_: ComposedSMSV4) => Left(deliveryError)
 
     val result = IssueSMS.issue(blackWhiteListOK, notExpired, failToSendSMS)(composedSMS)
     result shouldBe Left(deliveryError)

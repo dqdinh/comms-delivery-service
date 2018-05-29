@@ -46,7 +46,7 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
 
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
 
-  val composedEmail = generate[ComposedEmailV3]
+  val composedEmail = generate[ComposedEmailV4]
   val emailSentRes  = generate[Done]
   val deliveryError = generate[DeliveryError]
 
@@ -216,9 +216,9 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
         customJson.internalTraceToken shouldBe composedEmail.internalMetadata.internalTraceToken
         customJson.triggerSource shouldBe composedEmail.metadata.triggerSource
         customJson.friendlyDescription shouldBe composedEmail.metadata.friendlyDescription
-        commManifestRes.commType shouldBe composedEmail.metadata.commManifest.commType
-        commManifestRes.name shouldBe composedEmail.metadata.commManifest.name
-        commManifestRes.version shouldBe composedEmail.metadata.commManifest.version
+        commManifestRes.commType shouldBe composedEmail.metadata.commType
+        commManifestRes.name shouldBe composedEmail.metadata.commName
+        commManifestRes.version shouldBe composedEmail.metadata.templateManifest.version
       }
     }
   }
