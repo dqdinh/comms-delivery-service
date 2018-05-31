@@ -204,7 +204,6 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
     data match {
       case Left(error) => fail
       case Right(customJson) => {
-        val commManifestRes = customJson.commManifest
 
         customJson.createdAt shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
         composedEmail.metadata.deliverTo match {
@@ -216,9 +215,9 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
         customJson.internalTraceToken shouldBe composedEmail.internalMetadata.internalTraceToken
         customJson.triggerSource shouldBe composedEmail.metadata.triggerSource
         customJson.friendlyDescription shouldBe composedEmail.metadata.friendlyDescription
-        commManifestRes.commType shouldBe composedEmail.metadata.commType
-        commManifestRes.name shouldBe composedEmail.metadata.commName
-        commManifestRes.version shouldBe composedEmail.metadata.templateManifest.version
+        customJson.commType shouldBe composedEmail.metadata.commType
+        customJson.commName shouldBe composedEmail.metadata.commName
+        customJson.templateManifest.version shouldBe composedEmail.metadata.templateManifest.version
       }
     }
   }
