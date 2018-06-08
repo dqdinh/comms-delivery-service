@@ -32,10 +32,7 @@ object MailgunClient extends LoggingWithMDC {
                             internalTraceToken: String,
                             triggerSource: String,
                             friendlyDescription: String,
-                            commId: String,
-                            commName: String,
-                            commType: CommType,
-                            brand: Brand)
+                            commId: String)
 
   val dtf = DateTimeFormatter.ISO_OFFSET_DATE_TIME
 
@@ -89,13 +86,6 @@ object MailgunClient extends LoggingWithMDC {
       case _             => None
     }
 
-    val commManifest =
-      CommManifest(
-        composedEmail.metadata.commType,
-        composedEmail.metadata.commName,
-        composedEmail.metadata.templateManifest.version
-      )
-
     CustomFormData(
       createdAt = OffsetDateTime.now(clock).format(dtf),
       customerId = customerId,
@@ -105,10 +95,7 @@ object MailgunClient extends LoggingWithMDC {
       internalTraceToken = composedEmail.internalMetadata.internalTraceToken,
       triggerSource = composedEmail.metadata.triggerSource,
       friendlyDescription = composedEmail.metadata.friendlyDescription,
-      commId = composedEmail.metadata.commId,
-      commName = composedEmail.metadata.commName,
-      commType = composedEmail.metadata.commType,
-      brand = composedEmail.metadata.brand
+      commId = composedEmail.metadata.commId
     ).asJson.noSpaces
   }
 

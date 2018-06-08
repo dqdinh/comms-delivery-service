@@ -215,8 +215,6 @@ class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with Ei
         customJson.internalTraceToken shouldBe composedEmail.internalMetadata.internalTraceToken
         customJson.triggerSource shouldBe composedEmail.metadata.triggerSource
         customJson.friendlyDescription shouldBe composedEmail.metadata.friendlyDescription
-        customJson.commType shouldBe composedEmail.metadata.commType
-        customJson.commName shouldBe composedEmail.metadata.commName
         customJson.templateManifest.version shouldBe composedEmail.metadata.templateManifest.version
       }
     }
