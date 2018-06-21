@@ -49,10 +49,10 @@ class SMSServiceTestIT
 
   it should "create Failed event when authentication fails with Twilio" in {
     createTwilioResponse(401, unauthenticatedResponse)
-    withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV3]
+    withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
+      val composedSMSEvent = generate[ComposedSMSV4]
 
-      Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent, 10.seconds)
+      Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent, 10.seconds)
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
       failedEvents.foreach { failed =>
         failed.errorCode shouldBe SMSGatewayError
@@ -63,10 +63,10 @@ class SMSServiceTestIT
 
   it should "create Failed event when bad request from Twilio" in {
     createTwilioResponse(400, badRequestResponse)
-    withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV3]
+    withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
+      val composedSMSEvent = generate[ComposedSMSV4]
 
-      Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent, 10.seconds)
+      Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent, 10.seconds)
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
       failedEvents.foreach { failed =>
         failed.errorCode shouldBe SMSGatewayError
@@ -77,12 +77,12 @@ class SMSServiceTestIT
 
   it should "raise failed event when a comm has already been delivered" in {
     createTwilioResponse(200, validResponse)
-    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2, Kafka.aiven.failed.v2) {
+    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3, Kafka.aiven.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
-        val composedSMSEvent = generate[ComposedSMSV3]
+        val composedSMSEvent = generate[ComposedSMSV4]
 
-        Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent)
-        Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent)
+        Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
+        Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
 
         val issuedForDeliveryEvents = issuedForDeliveryConsumer.pollFor(noOfEventsExpected = 1)
 
@@ -106,10 +106,10 @@ class SMSServiceTestIT
   it should "create issued for delivery events when get OK from Twilio" in {
     createTwilioResponse(200, validResponse)
 
-    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV3]
+    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3) { consumer =>
+      val composedSMSEvent = generate[ComposedSMSV4]
 
-      Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent, 10.seconds)
+      Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent, 10.seconds)
       val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
@@ -126,10 +126,10 @@ class SMSServiceTestIT
   it should "retry when Twilio returns an error response" in {
     createFlakyTwilioResponse()
 
-    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV3]
+    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3) { consumer =>
+      val composedSMSEvent = generate[ComposedSMSV4]
 
-      Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent, 10.seconds)
+      Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent, 10.seconds)
       val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
 
@@ -145,12 +145,12 @@ class SMSServiceTestIT
   it should "Not do anything if dynamodb is unavailable" in {
     createTwilioResponse(200, validResponse)
     LocalDynamoDb.client().deleteTable("commRecord")
-    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v2, Kafka.aiven.failed.v2) {
+    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3, Kafka.aiven.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
-        val composedSMSEvent = generate[ComposedSMSV3]
+        val composedSMSEvent = generate[ComposedSMSV4]
 
-        Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent)
-        Kafka.aiven.composedSms.v3.publishOnce(composedSMSEvent)
+        Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
+        Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
 
         issuedForDeliveryConsumer.checkNoMessages(30.seconds)
         failedConsumer.checkNoMessages(30.seconds)

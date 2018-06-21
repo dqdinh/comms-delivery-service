@@ -4,7 +4,7 @@ import java.time.Clock
 
 import cats.effect.IO
 import com.ovoenergy.comms.model._
-import com.ovoenergy.comms.model.email.{ComposedEmailV2, ComposedEmailV3}
+import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import org.apache.kafka.clients.producer.RecordMetadata
@@ -20,9 +20,9 @@ class FailedEventSpec extends FlatSpec with Matchers with ArbGenerator with Gene
 
   private implicit val clock = Clock.systemUTC()
 
-  private val composedEmail        = generate[ComposedEmailV3]
-  private var failedEventPublished = Option.empty[FailedV2]
-  private val publishEvent = (failed: FailedV2) =>
+  private val composedEmail        = generate[ComposedEmailV4]
+  private var failedEventPublished = Option.empty[FailedV3]
+  private val publishEvent = (failed: FailedV3) =>
     IO {
       failedEventPublished = Some(failed)
       new RecordMetadata(new TopicPartition("", 1), 1l, 1l, 1l, java.lang.Long.valueOf(1), 1, 1)

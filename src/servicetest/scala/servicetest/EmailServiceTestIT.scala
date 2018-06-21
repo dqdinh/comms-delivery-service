@@ -39,9 +39,9 @@ class EmailServiceTestIT
   it should "create Failed event when authentication fails with Mailgun" in {
     create401MailgunResponse()
 
-    withThrowawayConsumerFor(topics.failed.v2) { consumer =>
+    withThrowawayConsumerFor(topics.failed.v3) { consumer =>
       val composedEmailEvent = arbitraryComposedEmailEvent
-      topics.composedEmail.v3.publishOnce(composedEmailEvent, 10.seconds)
+      topics.composedEmail.v4.publishOnce(composedEmailEvent, 10.seconds)
 
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
       failedEvents.size shouldBe 1
@@ -55,9 +55,9 @@ class EmailServiceTestIT
   it should "create Failed event when get bad request from Mailgun" in {
     create400MailgunResponse()
 
-    withThrowawayConsumerFor(topics.failed.v2) { consumer =>
+    withThrowawayConsumerFor(topics.failed.v3) { consumer =>
       val composedEmailEvent = arbitraryComposedEmailEvent
-      topics.composedEmail.v3.publishOnce(composedEmailEvent, 10.seconds)
+      topics.composedEmail.v4.publishOnce(composedEmailEvent, 10.seconds)
 
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
       failedEvents.foreach(failed => {
@@ -69,10 +69,10 @@ class EmailServiceTestIT
 
   it should "create IssuedForDelivery event when get OK from Mailgun" in {
     createOKMailgunResponse()
-    withThrowawayConsumerFor(topics.issuedForDelivery.v2) { consumer =>
+    withThrowawayConsumerFor(topics.issuedForDelivery.v3) { consumer =>
       val composedEmailEvent = arbitraryComposedEmailEvent
 
-      topics.composedEmail.v3.publishOnce(composedEmailEvent, 10.seconds)
+      topics.composedEmail.v4.publishOnce(composedEmailEvent, 10.seconds)
       val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "ABCDEFGHIJKL1234"
@@ -86,12 +86,12 @@ class EmailServiceTestIT
 
   it should "raise failed event when a comm has already been delivered" in {
     createOKMailgunResponse()
-    withThrowawayConsumerFor(topics.issuedForDelivery.v2, topics.failed.v2) {
+    withThrowawayConsumerFor(topics.issuedForDelivery.v3, topics.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
         val composedEmailEvent = arbitraryComposedEmailEvent
 
-        topics.composedEmail.v3.publishOnce(composedEmailEvent)
-        topics.composedEmail.v3.publishOnce(composedEmailEvent)
+        topics.composedEmail.v4.publishOnce(composedEmailEvent)
+        topics.composedEmail.v4.publishOnce(composedEmailEvent)
 
         val issuedForDeliveryEvents = issuedForDeliveryConsumer.pollFor(noOfEventsExpected = 1)
 
@@ -115,10 +115,10 @@ class EmailServiceTestIT
   it should "retry when Mailgun returns an error response" in {
     createFlakyMailgunResponse()
 
-    withThrowawayConsumerFor(topics.issuedForDelivery.v2) { consumer =>
+    withThrowawayConsumerFor(topics.issuedForDelivery.v3) { consumer =>
       val composedEmailEvent = arbitraryComposedEmailEvent
 
-      topics.composedEmail.v3.publishOnce(composedEmailEvent, 10.seconds)
+      topics.composedEmail.v4.publishOnce(composedEmailEvent, 10.seconds)
       val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
 
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
@@ -133,12 +133,12 @@ class EmailServiceTestIT
 
   it should "Not do anything if dynamodb is unavailable" in {
     LocalDynamoDb.client().deleteTable("commRecord")
-    withThrowawayConsumerFor(topics.issuedForDelivery.v2, topics.failed.v2) {
+    withThrowawayConsumerFor(topics.issuedForDelivery.v3, topics.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
         val composedEmailEvent = arbitraryComposedEmailEvent
 
-        topics.composedEmail.v3.publishOnce(composedEmailEvent)
-        topics.composedEmail.v3.publishOnce(composedEmailEvent)
+        topics.composedEmail.v4.publishOnce(composedEmailEvent)
+        topics.composedEmail.v4.publishOnce(composedEmailEvent)
         issuedForDeliveryConsumer.checkNoMessages(10.seconds)
         failedConsumer.checkNoMessages(10.seconds)
 
@@ -212,7 +212,7 @@ class EmailServiceTestIT
       )
   }
 
-  def arbitraryComposedEmailEvent: ComposedEmailV3 =
+  def arbitraryComposedEmailEvent: ComposedEmailV4 =
     // Make sure the recipient email address is whitelisted
-    generate[ComposedEmailV3].copy(recipient = "foo@ovoenergy.com")
+    generate[ComposedEmailV4].copy(recipient = "foo@ovoenergy.com")
 }

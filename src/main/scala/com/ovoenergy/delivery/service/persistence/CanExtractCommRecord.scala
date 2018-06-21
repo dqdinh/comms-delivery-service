@@ -1,8 +1,8 @@
 package com.ovoenergy.delivery.service.persistence
 
-import com.ovoenergy.comms.model.email.ComposedEmailV3
-import com.ovoenergy.comms.model.print.ComposedPrint
-import com.ovoenergy.comms.model.sms.ComposedSMSV3
+import com.ovoenergy.comms.model.email.ComposedEmailV4
+import com.ovoenergy.comms.model.print.ComposedPrintV2
+import com.ovoenergy.comms.model.sms.ComposedSMSV4
 import com.ovoenergy.delivery.service.domain.CommRecord
 
 trait CanExtractCommRecord[Event] {
@@ -11,18 +11,18 @@ trait CanExtractCommRecord[Event] {
 
 object CanExtractCommRecord {
 
-  implicit val canExtractComposedEmail = new CanExtractCommRecord[ComposedEmailV3] {
-    override def commRecord(event: ComposedEmailV3): CommRecord =
+  implicit val canExtractComposedEmail = new CanExtractCommRecord[ComposedEmailV4] {
+    override def commRecord(event: ComposedEmailV4): CommRecord =
       CommRecord(event.hashedComm, event.metadata.createdAt)
   }
 
-  implicit val canExtractComposedSms = new CanExtractCommRecord[ComposedSMSV3] {
-    override def commRecord(event: ComposedSMSV3): CommRecord =
+  implicit val canExtractComposedSms = new CanExtractCommRecord[ComposedSMSV4] {
+    override def commRecord(event: ComposedSMSV4): CommRecord =
       CommRecord(event.hashedComm, event.metadata.createdAt)
   }
 
-  implicit val canExtractComposedPrint = new CanExtractCommRecord[ComposedPrint] {
-    override def commRecord(event: ComposedPrint): CommRecord =
+  implicit val canExtractComposedPrint = new CanExtractCommRecord[ComposedPrintV2] {
+    override def commRecord(event: ComposedPrintV2): CommRecord =
       CommRecord(event.hashedComm, event.metadata.createdAt)
   }
 

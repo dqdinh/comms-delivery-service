@@ -5,7 +5,7 @@ import java.time.{Clock, Instant}
 import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.s3.{AmazonS3Client, S3ClientOptions}
-import com.ovoenergy.comms.model.print.ComposedPrint
+import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.delivery.config
 import com.ovoenergy.delivery.config.{AwsConfig, ConstantDelayRetry, DynamoDbConfig, S3Config}
 import com.ovoenergy.delivery.service.domain.{DeliveryError, Expired, GatewayComm}
@@ -29,13 +29,13 @@ class IssuePrintSpec extends FlatSpec with Matchers with ArbGenerator with Gener
   implicit val clock = Clock.systemUTC()
 
   val gatewayComm   = generate[GatewayComm]
-  val composedPrint = generate[ComposedPrint]
+  val composedPrint = generate[ComposedPrintV2]
   val deliveryError = generate[DeliveryError]
   val pdfDocument   = generate[PdfDocument]
 
-  val getPdf                = (_: ComposedPrint) => Right(pdfDocument)
-  val successfullySendPrint = (_: PdfDocument, _: ComposedPrint) => Right(gatewayComm)
-  val failedSendPrint       = (_: PdfDocument, _: ComposedPrint) => Left(deliveryError)
+  val getPdf                = (_: ComposedPrintV2) => Right(pdfDocument)
+  val successfullySendPrint = (_: PdfDocument, _: ComposedPrintV2) => Right(gatewayComm)
+  val failedSendPrint       = (_: PdfDocument, _: ComposedPrintV2) => Left(deliveryError)
   val notExpired            = (_: Option[Instant]) => false
 
   behavior of "PrintDeliveryProcess"

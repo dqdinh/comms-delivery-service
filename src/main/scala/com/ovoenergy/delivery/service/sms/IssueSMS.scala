@@ -2,7 +2,7 @@ package com.ovoenergy.delivery.service.sms
 
 import java.time.Instant
 
-import com.ovoenergy.comms.model.sms.ComposedSMSV3
+import com.ovoenergy.comms.model.sms.ComposedSMSV4
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
@@ -11,8 +11,8 @@ object IssueSMS extends LoggingWithMDC {
 
   def issue(checkBlackWhiteList: (String) => BlackWhiteList.Verdict,
             isExpired: Option[Instant] => Boolean,
-            sendSMS: ComposedSMSV3 => Either[DeliveryError, GatewayComm])(
-      composedSMS: ComposedSMSV3): Either[DeliveryError, GatewayComm] = {
+            sendSMS: ComposedSMSV4 => Either[DeliveryError, GatewayComm])(
+      composedSMS: ComposedSMSV4): Either[DeliveryError, GatewayComm] = {
 
     def blackWhiteListCheck: Either[DeliveryError, Unit] = checkBlackWhiteList(composedSMS.recipient) match {
       case BlackWhiteList.OK =>

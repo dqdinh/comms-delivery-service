@@ -5,7 +5,7 @@ import java.io.IOException
 import com.amazonaws.services.s3.model.AmazonS3Exception
 import com.amazonaws.util.IOUtils
 import com.ovoenergy.comms.model.TemplateDownloadFailed
-import com.ovoenergy.comms.model.print.ComposedPrint
+import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.delivery.service.domain.{AmazonS3Error, DeliveryError, S3ConnectionError}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.persistence.AwsProvider.S3Context
@@ -15,7 +15,7 @@ import com.ovoenergy.delivery.service.util.Retry.{Failed, Succeeded}
 
 object S3PdfRepo extends LoggingWithMDC {
 
-  def getPdfDocument(s3Context: S3Context)(composedPrint: ComposedPrint): Either[DeliveryError, PdfDocument] = {
+  def getPdfDocument(s3Context: S3Context)(composedPrint: ComposedPrintV2): Either[DeliveryError, PdfDocument] = {
 
     val s3Config = s3Context.s3Config
     val s3Client = s3Context.s3Client

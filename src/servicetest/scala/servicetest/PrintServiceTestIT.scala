@@ -11,7 +11,7 @@ import com.amazonaws.services.s3.{AmazonS3, AmazonS3Client, AmazonS3ClientBuilde
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email.ComposedEmailV2
-import com.ovoenergy.comms.model.print.ComposedPrint
+import com.ovoenergy.comms.model.print.{ComposedPrint, ComposedPrintV2}
 import com.ovoenergy.comms.testhelpers.KafkaTestHelpers.withThrowawayConsumerFor
 import com.ovoenergy.delivery.config
 import com.ovoenergy.delivery.service.util.ArbGenerator
@@ -53,8 +53,8 @@ class PrintServiceTestIT
     create401StannpResponse()
     uploadTestPdf(composedPrintEvent.pdfIdentifier)
 
-    withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
-      topics.composedPrint.v1.publishOnce(composedPrintEvent, 10.seconds)
+    withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
+      topics.composedPrint.v2.publishOnce(composedPrintEvent, 10.seconds)
 
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
       failedEvents.size shouldBe 1
@@ -70,8 +70,8 @@ class PrintServiceTestIT
     create500StannpResponse
     uploadTestPdf(composedPrintEvent.pdfIdentifier)
 
-    withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
-      topics.composedPrint.v1.publishOnce(composedPrintEvent, 10.seconds)
+    withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
+      topics.composedPrint.v2.publishOnce(composedPrintEvent, 10.seconds)
 
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
       failedEvents.size shouldBe 1
@@ -87,8 +87,8 @@ class PrintServiceTestIT
     createOKStannpResponse()
     uploadTestPdf(composedPrintEvent.pdfIdentifier)
 
-    withThrowawayConsumerFor(topics.issuedForDelivery.v2) { consumer =>
-      topics.composedPrint.v1.publishOnce(composedPrintEvent, 10.seconds)
+    withThrowawayConsumerFor(topics.issuedForDelivery.v3) { consumer =>
+      topics.composedPrint.v2.publishOnce(composedPrintEvent, 10.seconds)
       val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
       issuedForDeliveryEvents.foreach(issuedForDelivery => {
         issuedForDelivery.gatewayMessageId shouldBe "1234"
@@ -104,8 +104,8 @@ class PrintServiceTestIT
     val composedPrintEvent = arbitraryComposedPrintEvent.copy(pdfIdentifier = "i-dont-exist.pdf")
     createOKStannpResponse()
 
-    withThrowawayConsumerFor(Kafka.aiven.failed.v2) { consumer =>
-      topics.composedPrint.v1.publishOnce(composedPrintEvent, 10.seconds)
+    withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
+      topics.composedPrint.v2.publishOnce(composedPrintEvent, 10.seconds)
 
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
       failedEvents.size shouldBe 1
@@ -158,8 +158,8 @@ class PrintServiceTestIT
       )
   }
 
-  def arbitraryComposedPrintEvent: ComposedPrint =
-    generate[ComposedPrint].copy(pdfIdentifier = "example.pdf")
+  def arbitraryComposedPrintEvent: ComposedPrintV2 =
+    generate[ComposedPrintV2].copy(pdfIdentifier = "example.pdf")
 
   lazy val s3Client = {
     val creds           = new AWSStaticCredentialsProvider(new BasicAWSCredentials("service-test", "dummy"))
