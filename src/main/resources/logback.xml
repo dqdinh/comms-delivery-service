@@ -10,7 +10,7 @@
 
     <logger name="akka" level="INFO" />
     <logger name="org.apache" level="WARN" />
-
+    <logger name="org.apache.kafka.clients.consumer.ConsumerConfig" level="INFO" />
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
     </root>
