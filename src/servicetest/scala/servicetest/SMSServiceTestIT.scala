@@ -5,7 +5,7 @@ import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms._
 import com.ovoenergy.comms.templates.model.template.metadata.{TemplateId, TemplateSummary}
 import com.ovoenergy.delivery.service.ConfigLoader
-import com.ovoenergy.delivery.service.util.ArbGenerator
+import com.ovoenergy.delivery.service.util.{ArbGenerator, LocalDynamoDb}
 import com.typesafe.config.ConfigFactory
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.matchers.Times
@@ -14,7 +14,6 @@ import org.mockserver.model.HttpResponse.response
 import org.scalatest._
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
-import servicetest.dynamo.LocalDynamoDB
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -190,7 +189,7 @@ class SMSServiceTestIT
 
   it should "Not do anything if dynamodb is unavailable" in {
     createTwilioResponse(200, validResponse)
-    LocalDynamoDB.client().deleteTable("commRecord")
+    LocalDynamoDb.client().deleteTable("commRecord")
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3, Kafka.aiven.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
         val composedSMSEvent = generate[ComposedSMSV4]

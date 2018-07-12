@@ -15,15 +15,7 @@ trait DynamoFormats extends TemplateMetadataDynamoFormats {
   implicit val instantDynamoFormat =
     DynamoFormat.coercedXmap[Instant, Long, DateTimeException](Instant.ofEpochMilli)(_.toEpochMilli)
 
-  implicit val commTypeDynamoFormat = DynamoFormat.coercedXmap[CommType, String, MatchError] {
-    case "Service"    => Service
-    case "Regulatory" => Regulatory
-    case "Marketing"  => Marketing
-  } {
-    case Service    => "Service"
-    case Regulatory => "Regulatory"
-    case Marketing  => "Marketing"
-  }
+  implicit val commTypeDynamoFormat = DynamoFormat.coercedXmap[CommType, String, MatchError](CommType.unsafeFromString)(CommType.toString)
 
 }
 

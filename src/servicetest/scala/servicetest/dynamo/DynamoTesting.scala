@@ -7,11 +7,12 @@ import com.ovoenergy.comms.model.{CommManifest, Service, TemplateManifest}
 import com.ovoenergy.comms.templates.model.Brand
 import com.ovoenergy.comms.templates.model.template.metadata.{TemplateId, TemplateSummary}
 import com.ovoenergy.comms.templates.util.Hash
+import com.ovoenergy.delivery.service.util.LocalDynamoDb
 
 trait DynamoTesting extends DynamoFormats {
 
   val dynamoUrl                = "http://localhost:8000"
-  val dynamoClient             = LocalDynamoDB.client(dynamoUrl)
+  val dynamoClient             = LocalDynamoDb.client(dynamoUrl)
   val templateSummaryTableName = "templateSummaryTable"
   val templateSummaryTable     = Table[TemplateSummary](templateSummaryTableName)
 
@@ -43,7 +44,7 @@ trait DynamoTesting extends DynamoFormats {
 
   def createTemplateSummaryTable() = {
 
-    LocalDynamoDB.createTable(dynamoClient)(templateSummaryTableName)('templateId -> S)
+    LocalDynamoDb.createTable(dynamoClient)(templateSummaryTableName)('templateId -> S)
     waitUntilTableMade(50)
 
     def waitUntilTableMade(noAttemptsLeft: Int): (String) = {
