@@ -10,7 +10,6 @@ import com.ovoenergy.comms.templates.util.Hash
 
 trait DynamoTesting extends DynamoFormats {
 
-
   val dynamoUrl                = "http://localhost:8000"
   val dynamoClient             = LocalDynamoDB.client(dynamoUrl)
   val templateSummaryTableName = "templateSummaryTable"

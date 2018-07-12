@@ -42,7 +42,7 @@ object LocalDynamoDB {
   case class SecondaryIndexData(indexName: String, attributes: Seq[(Symbol, ScalarAttributeType)])
 
   def createTableWithSecondaryIndex(client: AmazonDynamoDB, tableName: String)(
-    primaryIndexAttributes: Seq[(Symbol, ScalarAttributeType)])(secondaryIndexes: Seq[SecondaryIndexData]) = {
+      primaryIndexAttributes: Seq[(Symbol, ScalarAttributeType)])(secondaryIndexes: Seq[SecondaryIndexData]) = {
 
     val s: util.Collection[GlobalSecondaryIndex] = secondaryIndexes
       .map(
@@ -67,7 +67,7 @@ object LocalDynamoDB {
   }
 
   def withTable[T](client: AmazonDynamoDB)(tableName: String)(attributeDefinitions: (Symbol, ScalarAttributeType)*)(
-    thunk: => T
+      thunk: => T
   ): T = {
     createTable(client)(tableName)(attributeDefinitions: _*)
     val res = try {
@@ -80,15 +80,15 @@ object LocalDynamoDB {
   }
 
   def usingTable[T](client: AmazonDynamoDB)(tableName: String)(attributeDefinitions: (Symbol, ScalarAttributeType)*)(
-    thunk: => T
+      thunk: => T
   ): Unit = {
     withTable(client)(tableName)(attributeDefinitions: _*)(thunk)
     ()
   }
 
   def withTableWithSecondaryIndex[T](client: AmazonDynamoDB, tableName: String)(
-    primaryIndexAttributes: Seq[(Symbol, ScalarAttributeType)])(secondaryIndexes: Seq[SecondaryIndexData])(
-                                      thunk: => T): T = {
+      primaryIndexAttributes: Seq[(Symbol, ScalarAttributeType)])(secondaryIndexes: Seq[SecondaryIndexData])(
+      thunk: => T): T = {
     try {
       createTableWithSecondaryIndex(client, tableName)(primaryIndexAttributes)(secondaryIndexes)
       thunk
@@ -110,4 +110,3 @@ object LocalDynamoDB {
 
   private val arbitraryThroughputThatIsIgnoredByDynamoDBLocal = new ProvisionedThroughput(1L, 1L)
 }
-

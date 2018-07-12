@@ -201,8 +201,6 @@ trait DockerIntegrationTest
         println("Creating Dynamo table")
         LocalDynamoDb.createTable(LocalDynamoDb.client())(tableName = "commRecord")(
           attributes = 'hashedComm -> ScalarAttributeType.S)
-        LocalDynamoDb.createTable(LocalDynamoDb.client())(tableName = "templateSummaryTable")(
-          attributes = 'templateId -> ScalarAttributeType.S)
       }
     )
 
