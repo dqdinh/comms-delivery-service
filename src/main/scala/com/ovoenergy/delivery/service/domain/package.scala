@@ -77,4 +77,9 @@ package object domain {
     val description = s"Failed to connect to Stannp."
     val errorCode   = error
   }
+
+  case object TemplateDetailsNotFoundError extends DeliveryError {
+    val description = s"Failed to retrieve template details"
+    val errorCode   = model.UnexpectedDeliveryError
+  }
 }

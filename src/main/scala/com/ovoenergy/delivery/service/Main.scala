@@ -28,6 +28,8 @@ import com.ovoenergy.kafka.serialization.core.constDeserializer
 import scala.language.implicitConversions
 import com.typesafe.config.{Config, ConfigFactory}
 import com.ovoenergy.comms.serialisation.Codecs._
+import com.ovoenergy.comms.templates.model.template.metadata.{TemplateId, TemplateSummary}
+import com.ovoenergy.comms.templates.{ErrorsOr, TemplateMetadataContext, TemplateMetadataRepo}
 import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.persistence.DynamoPersistence.Context
 import com.ovoenergy.delivery.service.persistence.{AwsProvider, DynamoPersistence, S3PdfRepo}
@@ -82,8 +84,12 @@ object Main extends StreamApp[IO] with LoggingWithMDC {
       .get("RUNNING_IN_DOCKER")
       .contains("true")
 
-  val dynamoPersistence = new DynamoPersistence(
-    Context(AwsProvider.dynamoClient(isRunningInLocalDocker), conf.getString("commRecord.persistence.table")))
+  val dynamoClient = AwsProvider.dynamoClient(isRunningInLocalDocker)
+
+  val dynamoPersistence = new DynamoPersistence(Context(dynamoClient, conf.getString("commRecord.persistence.table")))
+
+  val templateMetadataContext = TemplateMetadataContext(dynamoClient, "templateSummaryTable")
+  val templateMetadataRepo    = TemplateMetadataRepo.getTemplateSummary(templateMetadataContext, _: TemplateId)
 
   val issueEmailComm: (ComposedEmailV4) => Either[DeliveryError, GatewayComm] = IssueEmail.issue(
     checkBlackWhiteList = BlackWhiteList.buildForEmail,
@@ -94,6 +100,7 @@ object Main extends StreamApp[IO] with LoggingWithMDC {
   val issueSMSComm: (ComposedSMSV4) => Either[DeliveryError, GatewayComm] = IssueSMS.issue(
     checkBlackWhiteList = BlackWhiteList.buildForSms,
     isExpired = ExpiryCheck.isExpired,
+    templateMetadataRepo = templateMetadataRepo,
     sendSMS = TwilioClient.send(HttpClient.apply)
   )
 

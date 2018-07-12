@@ -18,9 +18,10 @@ package object config {
   case class EmailAppConfig(whitelist: String, blacklist: List[String])
   case class SmsAppConfig(whitelist: List[String], blacklist: List[String])
   case class KafkaAppConfig(retry: ExponentialDelayRetry)
+  case class TwilioServiceSids(ovo: String, boost: String, lumo: String, corgi: String, vnet: String)
   case class TwilioAppConfig(accountSid: String,
                              authToken: String,
-                             serviceSid: String,
+                             serviceSids: TwilioServiceSids,
                              apiUrl: String,
                              retry: ConstantDelayRetry)
   case class MailgunAppConfig(host: String, apiKey: String, domain: String, retry: ConstantDelayRetry)

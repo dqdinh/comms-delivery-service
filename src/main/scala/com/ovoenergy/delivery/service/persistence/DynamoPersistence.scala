@@ -49,7 +49,6 @@ class DynamoPersistence(context: Context)(implicit config: DynamoDbConfig) exten
 
   def persistHashedComm[F[_]: Async](commRecord: CommRecord): F[Either[DynamoError, Boolean]] = {
 
-    println("in persist")
     val storeCommRecord = Async[F].async[Either[DynamoError, Boolean]] { cb =>
       ScanamoAsync.exec(context.db)(context.table.put(commRecord)) onComplete {
         case Success(None) => cb(Right(Right(true)))
@@ -68,9 +67,7 @@ class DynamoPersistence(context: Context)(implicit config: DynamoDbConfig) exten
       }
     }
 
-    val res = retry(storeCommRecord, commRecord)
-    println("Return from persist")
-    res
+    retry(storeCommRecord, commRecord)
   }
 
   val retryMaxRetries: Int       = 5

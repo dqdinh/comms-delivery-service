@@ -1,9 +1,14 @@
 package com.ovoenergy.delivery.service.sms.twilio
 
+import cats.data.Validated.{Invalid, Valid}
+import cats.effect.IO
 import cats.syntax.either._
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
-import com.ovoenergy.delivery.config.TwilioAppConfig
+import com.ovoenergy.comms.templates.ErrorsOr
+import com.ovoenergy.comms.templates.model.Brand
+import com.ovoenergy.comms.templates.model.Brand._
+import com.ovoenergy.delivery.config.{TwilioAppConfig, TwilioServiceSids}
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.util.Retry
@@ -20,39 +25,40 @@ object TwilioClient extends LoggingWithMDC {
   case class SuccessfulResponse(sid: String)
 
   def send(httpClient: (Request) => Try[Response])(
-      implicit config: TwilioAppConfig): ComposedSMSV4 => Either[DeliveryError, GatewayComm] = { event =>
-    val retryConfig = Retry.constantDelay(config.retry)
-    val request = {
-      val credentials = Credentials.basic(config.accountSid, config.authToken)
+      implicit config: TwilioAppConfig): (ComposedSMSV4, Brand) => Either[DeliveryError, GatewayComm] = {
+    (event, brand) =>
+      val retryConfig = Retry.constantDelay(config.retry)
+      val request = {
+        val credentials = Credentials.basic(config.accountSid, config.authToken)
 
-      val requestBody = new FormBody.Builder()
-        .add("Body", event.textBody)
-        .add("To", event.recipient)
-        .add("MessagingServiceSid", config.serviceSid)
-        .build()
+        val requestBody = new FormBody.Builder()
+          .add("Body", event.textBody)
+          .add("To", event.recipient)
+          .add("MessagingServiceSid", serviceSid(config.serviceSids, brand))
+          .build()
 
-      new Request.Builder()
-        .header("Authorization", credentials)
-        .url(s"${config.apiUrl}/2010-04-01/Accounts/${config.accountSid}/Messages.json")
-        .post(requestBody)
-        .build()
-    }
+        new Request.Builder()
+          .header("Authorization", credentials)
+          .url(s"${config.apiUrl}/2010-04-01/Accounts/${config.accountSid}/Messages.json")
+          .post(requestBody)
+          .build()
+      }
 
-    val result = Retry.retry[DeliveryError, GatewayComm](config = retryConfig, onFailure = _ => ()) { () =>
-      httpClient(request) match {
-        case Success(response) => {
-          extractResponse(response, event)
-        }
-        case Failure(err) => {
-          logWarn(event, "Error sending SMS via twilio API", err)
-          Left(ExceptionOccurred(SMSGatewayError))
+      val result = Retry.retry[DeliveryError, GatewayComm](config = retryConfig, onFailure = _ => ()) { () =>
+        httpClient(request) match {
+          case Success(response) => {
+            extractResponse(response, event)
+          }
+          case Failure(err) => {
+            logWarn(event, "Error sending SMS via twilio API", err)
+            Left(ExceptionOccurred(SMSGatewayError))
+          }
         }
       }
-    }
 
-    result
-      .leftMap(_.finalFailure)
-      .map(_.result)
+      result
+        .leftMap(_.finalFailure)
+        .map(_.result)
   }
 
   private def extractResponse(response: Response, composedSMS: ComposedSMSV4): Either[DeliveryError, GatewayComm] = {
@@ -96,5 +102,13 @@ object TwilioClient extends LoggingWithMDC {
         logWarn(composedSMS, s"Error sending SMS via Twilio API, response code: ${response.code} $message")
         Left(APIGatewayUnspecifiedError(SMSGatewayError))
     }
+  }
+
+  private def serviceSid(sids: TwilioServiceSids, brand: Brand) = brand match {
+    case Ovo   => sids.ovo
+    case Boost => sids.boost
+    case Corgi => sids.corgi
+    case Lumo  => sids.lumo
+    case Vnet  => sids.vnet
   }
 }

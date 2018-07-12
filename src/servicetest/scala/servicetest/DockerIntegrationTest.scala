@@ -36,6 +36,7 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest._
 import org.scalatest.concurrent.{Eventually, PatienceConfiguration, ScalaFutures}
 import org.scalatest.time.{Seconds, Span}
+import servicetest.dynamo.DynamoTesting
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
@@ -44,6 +45,7 @@ import scala.util.Try
 
 trait DockerIntegrationTest
     extends DockerKitDockerJava
+    with DynamoTesting
     with ScalaFutures
     with TestSuite
     with BeforeAndAfterAll
@@ -199,6 +201,8 @@ trait DockerIntegrationTest
         println("Creating Dynamo table")
         LocalDynamoDb.createTable(LocalDynamoDb.client())(tableName = "commRecord")(
           attributes = 'hashedComm -> ScalarAttributeType.S)
+        LocalDynamoDb.createTable(LocalDynamoDb.client())(tableName = "templateSummaryTable")(
+          attributes = 'templateId -> ScalarAttributeType.S)
       }
     )
 

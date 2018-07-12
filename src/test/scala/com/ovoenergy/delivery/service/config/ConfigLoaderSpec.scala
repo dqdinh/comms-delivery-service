@@ -12,7 +12,8 @@ import com.ovoenergy.delivery.config.{
   S3Config,
   SmsAppConfig,
   StannpConfig,
-  TwilioAppConfig
+  TwilioAppConfig,
+  TwilioServiceSids
 }
 import com.ovoenergy.delivery.service.ConfigLoader
 import com.typesafe.config.ConfigFactory
@@ -28,11 +29,19 @@ class ConfigLoaderSpec extends FlatSpec with Matchers {
   val failuresOrConfig = ConfigLoader.applicationConfig("test.conf")
 
   val expectedTwilioConfig =
-    TwilioAppConfig("test_account_SIIID",
-                    "test_auth_TOKEEEN",
-                    "test_service_SIIID",
-                    "twilio_url_test",
-                    ConstantDelayRetry(refineV[Positive](5).right.get, 1.second))
+    TwilioAppConfig(
+      "test_account_SIIID",
+      "test_auth_TOKEEEN",
+      TwilioServiceSids(
+        "test_service_SIIID_ovo",
+        "test_service_SIIID_boost",
+        "test_service_SIIID_lumo",
+        "test_service_SIIID_corgi",
+        "test_service_SIIID_vnet"
+      ),
+      "twilio_url_test",
+      ConstantDelayRetry(refineV[Positive](5).right.get, 1.second)
+    )
 
   val expectedKafkaConfig =
     KafkaAppConfig(ExponentialDelayRetry(refineV[Positive](6).right.get, 2.second, 2))
