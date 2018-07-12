@@ -13,7 +13,8 @@ import com.ovoenergy.delivery.config.{
   SmsAppConfig,
   StannpConfig,
   TwilioAppConfig,
-  TwilioServiceSids
+  TwilioServiceSids,
+  TableNames
 }
 import com.ovoenergy.delivery.service.ConfigLoader
 import com.typesafe.config.ConfigFactory
@@ -57,12 +58,14 @@ class ConfigLoaderSpec extends FlatSpec with Matchers {
   val expectedEmailConfig = EmailAppConfig(".*@ovoenergy.com", List("some@email.com"))
   val expectedSmsConfig   = SmsAppConfig(List.empty, List.empty)
 
-  val testRetry = ConstantDelayRetry(refineV[Positive](5).right.get, 1.second)
+  val testRetry  = ConstantDelayRetry(refineV[Positive](5).right.get, 1.second)
+  val tableNames = TableNames("commRecord")
 
   val expectedStannpConfig =
     StannpConfig("https://dash.stannp.com/api/v1/letters/post", "apiKeee", "pass", "GB", true, testRetry)
 
-  val expectedAwsConfig = AwsConfig("eu-west-1", DynamoDbConfig(testRetry), S3Config("dev-ovo-comms-pdfs", testRetry))
+  val expectedAwsConfig =
+    AwsConfig("eu-west-1", DynamoDbConfig(testRetry, tableNames), S3Config("dev-ovo-comms-pdfs", testRetry))
 
   it should "load the configuration file" in {
 

@@ -27,7 +27,8 @@ package object config {
   case class MailgunAppConfig(host: String, apiKey: String, domain: String, retry: ConstantDelayRetry)
   case class ConstantDelayRetry(attempts: Int Refined Positive, interval: FiniteDuration)
   case class ExponentialDelayRetry(attempts: Int Refined Positive, initialInterval: FiniteDuration, exponent: Double)
-  case class DynamoDbConfig(retryConfig: ConstantDelayRetry)
+  case class TableNames(commRecord: String)
+  case class DynamoDbConfig(retryConfig: ConstantDelayRetry, tableNames: TableNames)
   case class StannpConfig(url: String,
                           apiKey: String,
                           password: String,
@@ -50,4 +51,8 @@ package object config {
   implicit def configuration2Email(implicit configuration: ApplicationConfig): EmailAppConfig   = configuration.email
   implicit def configuration2Sms(implicit configuration: ApplicationConfig): SmsAppConfig       = configuration.sms
   implicit def configuration2Stannp(implicit configuration: ApplicationConfig): StannpConfig    = configuration.stannp
+  implicit def configuration3TableNames(implicit configuration: ApplicationConfig): TableNames =
+    configuration.aws.dynamo.tableNames
+  implicit def configuration3Retry(implicit configuration: ApplicationConfig): ConstantDelayRetry =
+    configuration.aws.dynamo.retryConfig
 }

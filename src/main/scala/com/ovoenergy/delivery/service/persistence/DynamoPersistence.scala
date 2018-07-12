@@ -20,17 +20,19 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 
-class DynamoPersistence(context: Context)(implicit config: DynamoDbConfig) extends LoggingWithMDC {
+class DynamoPersistence(dbClient: AmazonDynamoDBAsync)(implicit config: DynamoDbConfig) extends LoggingWithMDC {
 
   implicit def commRecordLoggable: Loggable[CommRecord] =
     Loggable.instance(record => Map("hashedComm" -> record.hashedComm, "createdAt" -> record.createdAt.toString))
+
+  val commRecordsTable = Table[CommRecord](config.tableNames.commRecord)
 
   def exists[F[_]: Async](commRecord: CommRecord): F[Either[DynamoError, Boolean]] = {
 
     val getCommRecord: F[Either[DynamoError, Boolean]] =
       try {
         Async[F].async[Either[DynamoError, Boolean]] { cb =>
-          ScanamoAsync.get[CommRecord](context.db)(context.table.name)('hashedComm -> commRecord.hashedComm) onComplete {
+          ScanamoAsync.get[CommRecord](dbClient)(config.tableNames.commRecord)('hashedComm -> commRecord.hashedComm) onComplete {
             case Success(Some(Right(_)))  => cb(Right(Right(true)))
             case Success(None)            => cb(Right(Right(false)))
             case Success(Some(Left(err))) => cb(Right(Left(DynamoError(UnexpectedDeliveryError))))
@@ -50,7 +52,7 @@ class DynamoPersistence(context: Context)(implicit config: DynamoDbConfig) exten
   def persistHashedComm[F[_]: Async](commRecord: CommRecord): F[Either[DynamoError, Boolean]] = {
 
     val storeCommRecord = Async[F].async[Either[DynamoError, Boolean]] { cb =>
-      ScanamoAsync.exec(context.db)(context.table.put(commRecord)) onComplete {
+      ScanamoAsync.exec(dbClient)(commRecordsTable.put(commRecord)) onComplete {
         case Success(None) => cb(Right(Right(true)))
         case Success(Some(Right(_))) => {
           log.error(s"Comm hash persisted already exists in DB and is a duplicate.")
@@ -97,14 +99,4 @@ object DynamoPersistence {
   implicit val instantDynamoFormat: DynamoFormat[Instant] =
     DynamoFormat.iso[Instant, Long](x => Instant.ofEpochMilli(x))(_.toEpochMilli)
 
-  case class Context(db: AmazonDynamoDBAsync, table: Table[CommRecord])
-
-  object Context {
-    def apply(db: AmazonDynamoDBAsync, tableName: String): Context = {
-      Context(
-        db,
-        Table[CommRecord](tableName)
-      )
-    }
-  }
 }

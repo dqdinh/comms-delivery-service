@@ -31,7 +31,6 @@ import com.ovoenergy.comms.serialisation.Codecs._
 import com.ovoenergy.comms.templates.model.template.metadata.{TemplateId, TemplateSummary}
 import com.ovoenergy.comms.templates.{ErrorsOr, TemplateMetadataContext, TemplateMetadataRepo}
 import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
-import com.ovoenergy.delivery.service.persistence.DynamoPersistence.Context
 import com.ovoenergy.delivery.service.persistence.{AwsProvider, DynamoPersistence, S3PdfRepo}
 import com.ovoenergy.delivery.service.print.IssuePrint
 import com.ovoenergy.delivery.service.print.stannp.StannpClient
@@ -86,7 +85,7 @@ object Main extends StreamApp[IO] with LoggingWithMDC {
 
   val dynamoClient = AwsProvider.dynamoClient(isRunningInLocalDocker)
 
-  val dynamoPersistence = new DynamoPersistence(Context(dynamoClient, conf.getString("commRecord.persistence.table")))
+  val dynamoPersistence = new DynamoPersistence(dynamoClient)
 
   val templateMetadataContext = TemplateMetadataContext(dynamoClient, "templateSummaryTable")
   val templateMetadataRepo    = TemplateMetadataRepo.getTemplateSummary(templateMetadataContext, _: TemplateId)

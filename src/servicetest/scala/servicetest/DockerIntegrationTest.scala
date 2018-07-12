@@ -163,7 +163,7 @@ trait DockerIntegrationTest
       .withLinks(
         ContainerLink(schemaRegistryContainer, "schema-registry"),
         ContainerLink(dynamodb, "dynamodb"),
-        ContainerLink(fakes3ssl, "dev-ovo-comms-pdfs.s3-eu-west-1.amazonaws.com"),
+        ContainerLink(fakes3ssl, "dev-ovo-comms-pdfs.s3.eu-west-1.amazonaws.com"),
         ContainerLink(mockServers, "api.mailgun.net"),
         ContainerLink(mockServers, "api.twilio.com"),
         ContainerLink(mockServers, "dash.stannp.com")
@@ -201,6 +201,7 @@ trait DockerIntegrationTest
         println("Creating Dynamo table")
         LocalDynamoDb.createTable(LocalDynamoDb.client())(tableName = "commRecord")(
           attributes = 'hashedComm -> ScalarAttributeType.S)
+        createTemplateSummaryTable()
       }
     )
 
