@@ -4,28 +4,32 @@ import java.time.Instant
 
 import cats.effect.IO
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType
-import com.ovoenergy.delivery.config.{ConstantDelayRetry, DynamoDbConfig}
-import com.ovoenergy.delivery.service.domain
+import com.ovoenergy.delivery.config.{ConstantDelayRetry, DynamoDbConfig, TableNames}
+import com.ovoenergy.delivery.service.{ConfigLoader, domain}
 import com.ovoenergy.delivery.service.domain.CommRecord
-import com.ovoenergy.delivery.service.persistence.DynamoPersistence.Context
 import com.ovoenergy.delivery.service.util.LocalDynamoDb
 
 import scala.concurrent.duration._
 import eu.timepit.refined.numeric.Positive
 import eu.timepit.refined.refineV
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
-
 import cats.implicits._
+import com.ovoenergy.delivery.config
 
 class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
+
+  implicit val dynamConf: config.DynamoDbConfig =
+    DynamoDbConfig(
+      ConstantDelayRetry(refineV[Positive](1).right.get, 1.second),
+      TableNames("commRecord")
+    )
 
   val keyString   = "asdfghjkl"
   val now         = Instant.now
   val localDynamo = LocalDynamoDb.client()
   val tableName   = "commRecord"
-  val context     = Context(localDynamo, tableName)
   val dynamoPersistence =
-    new DynamoPersistence(context)(DynamoDbConfig(ConstantDelayRetry(refineV[Positive](1).right.get, 1.second)))
+    new DynamoPersistence(localDynamo)
 
   val commRecords = List(
     CommRecord("54ter54ertt34tgr", now.minusSeconds(10)),

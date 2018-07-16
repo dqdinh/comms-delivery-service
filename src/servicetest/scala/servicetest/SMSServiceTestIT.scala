@@ -3,6 +3,8 @@ package servicetest
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms._
+import com.ovoenergy.comms.templates.model.template.metadata.{TemplateId, TemplateSummary}
+import com.ovoenergy.delivery.service.ConfigLoader
 import com.ovoenergy.delivery.service.util.{ArbGenerator, LocalDynamoDb}
 import com.typesafe.config.ConfigFactory
 import org.mockserver.client.server.MockServerClient
@@ -12,6 +14,7 @@ import org.mockserver.model.HttpResponse.response
 import org.scalatest._
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
+
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.reflectiveCalls
@@ -35,6 +38,11 @@ class SMSServiceTestIT
   val mockServerClient = new MockServerClient("localhost", 1080)
   val twilioAccountSid = "test_account_SIIID"
 
+  implicit val appConf = ConfigLoader.applicationConfig("servicetest.conf") match {
+    case Left(e)    => log.error(s"Stopping application as config failed to load with error: $e"); sys.exit(1)
+    case Right(res) => res
+  }
+
   private def getFileString(file: String) = {
     Source
       .fromFile(file)
@@ -51,6 +59,10 @@ class SMSServiceTestIT
     createTwilioResponse(401, unauthenticatedResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV4]
+      val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
+      val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
+
+      populateTemplateSummaryTable(templateSummary)
 
       Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent, 10.seconds)
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
@@ -65,6 +77,10 @@ class SMSServiceTestIT
     createTwilioResponse(400, badRequestResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV4]
+      val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
+      val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
+
+      populateTemplateSummaryTable(templateSummary)
 
       Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent, 10.seconds)
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
@@ -80,6 +96,10 @@ class SMSServiceTestIT
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3, Kafka.aiven.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
         val composedSMSEvent = generate[ComposedSMSV4]
+        val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
+        val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
+
+        populateTemplateSummaryTable(templateSummary)
 
         Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
         Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
@@ -103,11 +123,32 @@ class SMSServiceTestIT
     }
   }
 
+  it should "raise failed event when template summary is not found" in {
+    createTwilioResponse(200, validResponse)
+    withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3, Kafka.aiven.failed.v3) {
+      (issuedForDeliveryConsumer, failedConsumer) =>
+        val composedSMSEvent = generate[ComposedSMSV4]
+
+        Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
+
+        val failedEvents = failedConsumer.pollFor(noOfEventsExpected = 1)
+
+        failedEvents.foreach(failedEvent => {
+          failedEvent.metadata.traceToken shouldBe composedSMSEvent.metadata.traceToken
+          failedEvent.internalMetadata.internalTraceToken shouldBe composedSMSEvent.internalMetadata.internalTraceToken
+        })
+    }
+  }
+
   it should "create issued for delivery events when get OK from Twilio" in {
     createTwilioResponse(200, validResponse)
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV4]
+      val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
+      val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
+
+      populateTemplateSummaryTable(templateSummary)
 
       Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent, 10.seconds)
       val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
@@ -128,6 +169,10 @@ class SMSServiceTestIT
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3) { consumer =>
       val composedSMSEvent = generate[ComposedSMSV4]
+      val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
+      val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
+
+      populateTemplateSummaryTable(templateSummary)
 
       Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent, 10.seconds)
       val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)

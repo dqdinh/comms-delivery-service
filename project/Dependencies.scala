@@ -23,10 +23,9 @@ object Dependencies {
   }
 
   object cats {
-    private val catsVersion = "0.9.0"
-
-    val core = "org.typelevel" %% "cats-free"     % catsVersion
-    val mtl  = "org.typelevel" %% "cats-mtl-core" % "0.2.1"
+    val core   = "org.typelevel" %% "cats-core"     % "1.0.1"
+    val effect = "org.typelevel" %% "cats-effect"   % "0.10"
+    val mtl    = "org.typelevel" %% "cats-mtl-core" % "0.2.1"
   }
 
   object circe {
@@ -51,10 +50,12 @@ object Dependencies {
     private val kafkaMessagesVersion      = "1.71"
     private val kafkaHelpersVersion       = "3.16"
     private val commsDockerTestkitVersion = "1.8"
+    private val commsTemplatesVersion     = "0.25"
 
     val commsKafkaMessages    = "com.ovoenergy" %% "comms-kafka-messages"     % kafkaMessagesVersion
     val commsKafkaHelpers     = "com.ovoenergy" %% "comms-kafka-helpers"      % kafkaHelpersVersion
     val commsKafkaTestHelpers = "com.ovoenergy" %% "comms-kafka-test-helpers" % kafkaHelpersVersion
+    val commsTemplates        = "com.ovoenergy" %% "comms-templates"          % commsTemplatesVersion
     val dockerKit             = "com.ovoenergy" %% "comms-docker-testkit"     % commsDockerTestkitVersion
   }
 

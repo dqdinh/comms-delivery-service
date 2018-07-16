@@ -2,7 +2,15 @@ package com.ovoenergy.delivery.service.sms
 
 import java.time.Instant
 
+import cats.data.NonEmptyList
+import cats.data.Validated.{Invalid, Valid}
+import cats.effect.{Async, IO}
+import com.ovoenergy.comms.model.{ErrorCode, TemplateDownloadFailed, TemplateManifest, UnexpectedDeliveryError}
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
+import com.ovoenergy.comms.templates.ErrorsOr
+import com.ovoenergy.comms.templates.model.Brand
+import com.ovoenergy.comms.templates.model.template.metadata.{TemplateId, TemplateSummary}
+import com.ovoenergy.delivery.service.domain
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
@@ -11,7 +19,8 @@ object IssueSMS extends LoggingWithMDC {
 
   def issue(checkBlackWhiteList: (String) => BlackWhiteList.Verdict,
             isExpired: Option[Instant] => Boolean,
-            sendSMS: ComposedSMSV4 => Either[DeliveryError, GatewayComm])(
+            templateMetadataRepo: TemplateId => Option[ErrorsOr[TemplateSummary]],
+            sendSMS: (ComposedSMSV4, Brand) => Either[DeliveryError, GatewayComm])(
       composedSMS: ComposedSMSV4): Either[DeliveryError, GatewayComm] = {
 
     def blackWhiteListCheck: Either[DeliveryError, Unit] = checkBlackWhiteList(composedSMS.recipient) match {
@@ -34,11 +43,20 @@ object IssueSMS extends LoggingWithMDC {
       }
     }
 
-    import cats.syntax.either._
-    for {
-      _           <- blackWhiteListCheck
-      _           <- expiryCheck
-      gatewayComm <- sendSMS(composedSMS)
-    } yield gatewayComm
+    val templateId = TemplateId(composedSMS.metadata.templateManifest.id)
+
+    templateMetadataRepo(templateId)
+      .toRight(TemplateDetailsNotFoundError)
+      .flatMap {
+        case Valid(templateSummary) =>
+          for {
+            _           <- blackWhiteListCheck
+            _           <- expiryCheck
+            gatewayComm <- sendSMS(composedSMS, templateSummary.brand)
+          } yield gatewayComm
+        case Invalid(err) =>
+          logWarn(composedSMS, s"Error while reading template summary from Dynamo. $err")
+          Left(DynamoError(UnexpectedDeliveryError))
+      }
   }
 }
