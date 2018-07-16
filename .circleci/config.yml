@@ -17,7 +17,7 @@ jobs:
 
        - run:
           name: Install awscli and credstash
-          command: sudo pip install awscli credstash --upgrade
+          command: sudo pip install awscli credstash==1.14.0
 
        - run:
            name: Login to AWS as circleci seems to ignore the setting
