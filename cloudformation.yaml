@@ -79,6 +79,17 @@ Resources:
                 - 'dynamodb:DescribeTable'
               Resource:
                 - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${CommRecordTable}*"
+        -
+          PolicyName: read-template-summary-table
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action:
+                - 'dynamodb:Query'
+                - 'dynamodb:Get*'
+              Resource:
+                Fn::ImportValue:
+                  TemplateSummaryTableArn # <- Exported from Template manager cloudformation.yml
 
   CommRecordTable:
     Type: AWS::DynamoDB::Table
