@@ -1,6 +1,7 @@
 package com.ovoenergy.delivery.service.sms.twilio
 
 import java.io.ByteArrayOutputStream
+import java.nio.file.Files
 import java.util.UUID
 
 import com.ovoenergy.comms.model._
@@ -15,7 +16,7 @@ import com.ovoenergy.delivery.service.util.Retry.RetryConfig
 import eu.timepit.refined.numeric.Positive
 import eu.timepit.refined.refineV
 import okhttp3._
-import okio.Okio
+import okio.{Buffer, BufferedSink, Okio}
 import org.scalacheck.Arbitrary
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -31,7 +32,7 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
 
   val composedSMS = generate[ComposedSMSV4]
   val brand       = generate[Brand]
-  implicit def arbTwilioConfig = Arbitrary {
+  implicit val arbTwilioConfig = Arbitrary {
     TwilioAppConfig(
       generate[String],
       generate[String],
@@ -48,6 +49,9 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
   }
 
   implicit val twilioConfig = generate[TwilioAppConfig]
+
+  println(s"Brand: $brand")
+  println(s"Twilio Config: ${twilioConfig.serviceSids}")
 
   private def getFileString(file: String) = {
     Source
@@ -78,8 +82,18 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
   }
 
   it should "Handle valid response from Twilio API" in {
-    val client = httpClient(validResponse, 200, _ => ())
-    val result = TwilioClient.send(client).apply(composedSMS, brand)
+    val sid = TwilioClient.serviceSid(twilioConfig.serviceSids, brand)
+
+    def assertSid(request: Request) = {
+      val buffer = new Buffer()
+      request.body().writeTo(buffer)
+      buffer.readUtf8() should include(sid)
+      ()
+    }
+
+    val client = httpClient(validResponse, 200, assertSid)
+    val result = TwilioClient.send(client)(twilioConfig).apply(composedSMS, brand)
+
     result shouldBe Right(GatewayComm(Twilio, "1234567890", SMS))
   }
 
