@@ -21,7 +21,7 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
   implicit val dynamConf: config.DynamoDbConfig =
     DynamoDbConfig(
       ConstantDelayRetry(refineV[Positive](1).right.get, 1.second),
-      TableNames("commRecord")
+      TableNames("commRecord", "templateSummaryTable")
     )
 
   val keyString   = "asdfghjkl"

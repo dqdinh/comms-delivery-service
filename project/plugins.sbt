@@ -1,4 +1,4 @@
-addSbtPlugin("com.geirsson"   % "sbt-scalafmt" % "0.5.4")
+addSbtPlugin("com.lucidchart" % "sbt-scalafmt" % "1.15")
 addSbtPlugin("com.localytics" % "sbt-dynamodb" % "1.5.3")
 
 resolvers += Resolver.bintrayIvyRepo("ovotech", "sbt-plugins")

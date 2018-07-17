@@ -50,9 +50,6 @@ class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with Eit
 
   implicit val twilioConfig = generate[TwilioAppConfig]
 
-  println(s"Brand: $brand")
-  println(s"Twilio Config: ${twilioConfig.serviceSids}")
-
   private def getFileString(file: String) = {
     Source
       .fromFile(file)

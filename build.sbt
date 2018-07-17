@@ -6,18 +6,19 @@ name := "delivery-service"
 val testReportsDir = sys.env.getOrElse("CI_REPORTS", "target/reports")
 testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oF", "-u", testReportsDir)
 
-lazy val ServiceTest = config("servicetest") extend(Test)
+lazy val ServiceTest = config("servicetest") extend (Test)
 configs(ServiceTest)
 inConfig(ServiceTest)(Defaults.testSettings)
 (test in ServiceTest) := (test in ServiceTest).dependsOn(publishLocal in Docker).value
 inConfig(ServiceTest)(parallelExecution in test := false)
 
 lazy val buildSettings = Seq(
-  name                    := "delivery-service",
-  organization            := "com.ovoenergy",
-  organizationName        := "OVO Energy",
-  organizationHomepage    := Some(url("http://www.ovoenergy.com")),
-  scalaVersion            := "2.12.4",
+  name := "delivery-service",
+  organization := "com.ovoenergy",
+  organizationName := "OVO Energy",
+  organizationHomepage := Some(url("http://www.ovoenergy.com")),
+  scalaVersion := "2.12.4",
+  scalafmtOnCompile := true,
   scalacOptions ++= Seq(
     "-target:jvm-1.8",
     "-deprecation", // Emit warning and location for usages of deprecated APIs.
@@ -29,7 +30,7 @@ lazy val buildSettings = Seq(
     "-language:experimental.macros", // Allow macro definition (besides implementation and application)
     "-language:higherKinds", // Allow higher-kinded types
     "-language:implicitConversions", // Allow definition of implicit functions called views
-    "-unchecked", // Enable additional warnings where generated code depends on assumptions.
+    "-unchecked",  // Enable additional warnings where generated code depends on assumptions.
     "-Xcheckinit", // Wrap field accessors to throw an exception on uninitialized access.
     //      "-Xfatal-warnings",                  // Fail the compilation if there are any warnings.
     "-Xfuture", // Turn on future language features.
@@ -82,7 +83,7 @@ val dependencies = Seq(
   circe.parser,
   ovoEnergy.commsTemplates,
   ovoEnergy.commsKafkaMessages,
-  ovoEnergy.commsKafkaHelpers exclude("com.typesafe.akka", "akka-stream-kafka_2.12"),
+  ovoEnergy.commsKafkaHelpers exclude ("com.typesafe.akka", "akka-stream-kafka_2.12"),
   ovoEnergy.dockerKit,
   kafkaSerialization.cats,
   kafkaSerialization.core,
@@ -96,15 +97,14 @@ val dependencies = Seq(
   scanamo,
   dynamoDbSdk,
   akkaSlf4J,
-
-  scalaCheck.scalacheck % Test,
-  scalaCheck.shapeless % Test,
-  whisk.scalaTest % Test,
-  whisk.javaImpl % Test,
+  scalaCheck.scalacheck           % Test,
+  scalaCheck.shapeless            % Test,
+  whisk.scalaTest                 % Test,
+  whisk.javaImpl                  % Test,
   ovoEnergy.commsKafkaTestHelpers % Test,
-  mockito % Test,
-  scalaTest % Test,
-  mockServer % Test
+  mockito                         % Test,
+  scalaTest                       % Test,
+  mockServer                      % Test
 )
 
 lazy val service = (project in file("."))
@@ -116,19 +116,10 @@ lazy val service = (project in file("."))
     libraryDependencies ++= dependencies,
     commsPackagingHeapSize := 512,
     commsPackagingMaxMetaspaceSize := 128
-  ).enablePlugins(JavaServerAppPackaging, DockerPlugin)
+  )
+  .enablePlugins(JavaServerAppPackaging, DockerPlugin)
 
 startDynamoDBLocal := startDynamoDBLocal.dependsOn(compile in Test).value
 test in Test := (test in Test).dependsOn(startDynamoDBLocal).value
 testOnly in Test := (testOnly in Test).dependsOn(startDynamoDBLocal).evaluated
 testOptions in Test += dynamoDBLocalTestCleanup.value
-
-
-val scalafmtAll = taskKey[Unit]("Run scalafmt in non-interactive mode with no arguments")
-scalafmtAll := {
-  import org.scalafmt.bootstrap.ScalafmtBootstrap
-  streams.value.log.info("Running scalafmt ...")
-  ScalafmtBootstrap.main(Seq("--non-interactive"))
-  streams.value.log.info("Done")
-}
-(compile in Compile) := (compile in Compile).dependsOn(scalafmtAll).value

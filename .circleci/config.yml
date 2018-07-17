@@ -1,75 +1,194 @@
 version: 2
+
 jobs:
+
   build:
-    working_directory: ~/comms-delivery-service
+    working_directory: ~/project/comms-delivery-service
     machine: true
     steps:
-       - checkout
+    - checkout
 
-       # Install credstash
-       - restore_cache:
-           keys:
-             - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-credstash"
+    # Install credstash
+    - restore_cache:
+        keys:
+          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
 
-       - run:
-           name: Install python-dev, pip
-           command: sudo apt-get update && sudo apt-get install -y libpython2.7-dev python-pip
+    - run:
+        name: Install python-dev, pip
+        command: sudo apt-get update && sudo apt-get install -y libpython2.7-dev python-pip
 
-       - run:
-          name: Install awscli and credstash
-          command: sudo pip install awscli credstash==1.14.0
+    - run:
+        name: Install awscli and credstash
+        command: sudo pip install awscli credstash==1.14.0
 
-       - run:
-           name: Login to AWS as circleci seems to ignore the setting
-           command: |
-             mkdir ~/.aws
-             echo "[default]" >> ~/.aws/credentials
-             echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
-             echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
+    - run:
+        name: Login to AWS as circleci seems to ignore the setting
+        command: |
+          mkdir ~/.aws
+          echo "[default]" >> ~/.aws/credentials
+          echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
+          echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
 
-       - save_cache:
-           key: "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-credstash"
-           paths:
-             - /home/circleci/.cache/pip
+    - save_cache:
+        key: "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
+        paths:
+          - /home/circleci/.cache/pip
 
-       - restore_cache:
-           keys:
-             - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
-             - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-master"
-       - run: sbt test:compile
-       - save_cache:
-           key: "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
-           paths:
-             - /home/circleci/.ivy2
-             - /home/circleci/.sbt
-             - /home/circleci/.coursier
-             - project/target/resolution-cache
-             - target/resolution-cache
-             # TODO docker image cache?
-       - run: sbt servicetest:test
-       - store_artifacts:
-           path: /home/circleci/delivery-service/target/integration-test-logs
-       - deploy:
-           name: Deploy if master branch
-           command: |
-             if [ "${CIRCLE_BRANCH}" == "master" -a "${CIRCLE_PROJECT_USERNAME}" == "ovotech" ]; then
-               git clone git@github.com:ovotech/comms-ci-scripts
-               comms-ci-scripts/publish_docker_image.sh
-               comms-ci-scripts/deploy_to_ecs.sh -s delivery UAT aws/container-definition.json
-               git clone git@github.com:ovotech/comms-e2e-tests && cd comms-e2e-tests && sbt test && cd ..
-               comms-ci-scripts/deploy_to_ecs.sh -s delivery PRD aws/container-definition.json
-               comms-ci-scripts/send_librato_deployment_event.sh
-               comms-ci-scripts/comment_on_last_merged_pr.sh
-               comms-ci-scripts/notify_shipit.sh
-             fi
-       - deploy:
-           name: Deploy to UAT only if deploy-to-uat branch
-           command: |
-             if [ "${CIRCLE_BRANCH}" == "deploy-to-uat" -a "${CIRCLE_PROJECT_USERNAME}" == "ovotech" ]; then
-               git clone git@github.com:ovotech/comms-ci-scripts
-               comms-ci-scripts/publish_docker_image.sh
-               comms-ci-scripts/deploy_to_ecs.sh -s delivery UAT aws/container-definition.json
-             fi
+    - restore_cache:
+        keys:
+          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
+          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-master"
+
+    - run:
+        command: sbt scalafmt::test
+        no_output_timeout: 20m
+
+    - run:
+        command: sbt test:scalafmt::test
+        no_output_timeout: 20m
+
+    - run: sbt test:compile
+
+    - save_cache:
+        key: "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
+        paths:
+          - /home/circleci/.ivy2
+          - /home/circleci/.sbt
+          - /home/circleci/.coursier
+          - project/target/resolution-cache
+          - target/resolution-cache
+          # TODO docker image cache?
+
+    - run: sbt servicetest:compile
+
+    - store_artifacts:
+        path: /home/circleci/delivery-service/target/integration-test-logs
+
+    - persist_to_workspace:
+        root: ~/project
+        paths:
+          - "comms-delivery-service"
+
+
+  test:
+    working_directory: ~/project/comms-delivery-service
+    machine: true
+    steps:
+    - attach_workspace:
+        at: ~/project
+
+    - restore_cache:
+        keys:
+          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
+
+    - run: sbt test
+
+
+  servicetest:
+    working_directory: ~/project/comms-delivery-service
+    machine: true
+    steps:
+    - attach_workspace:
+        at: ~/project
+
+    - restore_cache:
+        keys:
+          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
+
+    - run:
+        name: Install python-dev, pip
+        command: sudo apt-get update && sudo apt-get install -y libpython2.7-dev python-pip
+
+    - run:
+        name: Install awscli and credstash
+        command: sudo pip install awscli credstash==1.14.0
+
+    - run:
+        name: Login to AWS as circleci seems to ignore the setting
+        command: |
+          mkdir ~/.aws
+          echo "[default]" >> ~/.aws/credentials
+          echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
+          echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
+
+    - run: sbt servicetest:test
+
+
+  deploy:
+    working_directory: ~/project/comms-delivery-service
+    machine: true
+    steps:
+    - attach_workspace:
+        at: ~/project
+
+    - restore_cache:
+        keys:
+          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
+
+    - run:
+        name: Install python-dev, pip
+        command: sudo apt-get update && sudo apt-get install -y libpython2.7-dev python-pip
+
+    - run:
+        name: Install awscli and credstash
+        command: sudo pip install awscli credstash==1.14.0
+
+    - run:
+        name: Login to AWS as circleci seems to ignore the setting
+        command: |
+          mkdir ~/.aws
+          echo "[default]" >> ~/.aws/credentials
+          echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
+          echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
+
+    - deploy:
+        name: Deploy if master branch
+        command: |
+          if [ "${CIRCLE_BRANCH}" == "master" -a "${CIRCLE_PROJECT_USERNAME}" == "ovotech" ]; then
+            git clone git@github.com:ovotech/comms-ci-scripts
+            comms-ci-scripts/publish_docker_image.sh
+            comms-ci-scripts/deploy_to_ecs.sh -s delivery UAT aws/container-definition.json
+            git clone git@github.com:ovotech/comms-e2e-tests && cd comms-e2e-tests && sbt test && cd ..
+            comms-ci-scripts/deploy_to_ecs.sh -s delivery PRD aws/container-definition.json
+            comms-ci-scripts/send_librato_deployment_event.sh
+            comms-ci-scripts/comment_on_last_merged_pr.sh
+            comms-ci-scripts/notify_shipit.sh
+          fi
+
+    - deploy:
+        name: Deploy to UAT only if deploy-to-uat branch
+        command: |
+          if [ "${CIRCLE_BRANCH}" == "deploy-to-uat" -a "${CIRCLE_PROJECT_USERNAME}" == "ovotech" ]; then
+            git clone git@github.com:ovotech/comms-ci-scripts
+            comms-ci-scripts/publish_docker_image.sh
+            comms-ci-scripts/deploy_to_ecs.sh -s delivery UAT aws/container-definition.json
+          fi
+
+
+workflows:
+  version: 2
+
+  build:
+    jobs:
+    - build
+
+    - test:
+        requires:
+        - build
+
+    - servicetest:
+        requires:
+        - build
+
+    - deploy:
+        requires:
+        - servicetest
+        filters:
+          branches:
+            only:
+              - master
+              - deploy-to-uat
+
 
 experimental:
   notify:

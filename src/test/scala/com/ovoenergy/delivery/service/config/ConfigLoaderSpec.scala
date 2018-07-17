@@ -59,7 +59,7 @@ class ConfigLoaderSpec extends FlatSpec with Matchers {
   val expectedSmsConfig   = SmsAppConfig(List.empty, List.empty)
 
   val testRetry  = ConstantDelayRetry(refineV[Positive](5).right.get, 1.second)
-  val tableNames = TableNames("commRecord")
+  val tableNames = TableNames("commRecord", "templateSummaryTable")
 
   val expectedStannpConfig =
     StannpConfig("https://dash.stannp.com/api/v1/letters/post", "apiKeee", "pass", "GB", true, testRetry)

@@ -27,7 +27,7 @@ package object config {
   case class MailgunAppConfig(host: String, apiKey: String, domain: String, retry: ConstantDelayRetry)
   case class ConstantDelayRetry(attempts: Int Refined Positive, interval: FiniteDuration)
   case class ExponentialDelayRetry(attempts: Int Refined Positive, initialInterval: FiniteDuration, exponent: Double)
-  case class TableNames(commRecord: String)
+  case class TableNames(commRecord: String, templateSummary: String)
   case class DynamoDbConfig(retryConfig: ConstantDelayRetry, tableNames: TableNames)
   case class StannpConfig(url: String,
                           apiKey: String,

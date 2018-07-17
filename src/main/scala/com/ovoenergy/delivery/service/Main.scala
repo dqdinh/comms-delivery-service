@@ -80,14 +80,14 @@ object Main extends StreamApp[IO] with LoggingWithMDC {
   val issuedForDeliveryPublisher: IssuedForDeliveryV3 => IO[RecordMetadata] = issuedForDeliveryProducer.apply[IO]
 
   val isRunningInLocalDocker = sys.env.get("ENV").contains("LOCAL") && sys.env
-      .get("RUNNING_IN_DOCKER")
-      .contains("true")
+    .get("RUNNING_IN_DOCKER")
+    .contains("true")
 
   val dynamoClient = AwsProvider.dynamoClient(isRunningInLocalDocker)
 
   val dynamoPersistence = new DynamoPersistence(dynamoClient)
 
-  val templateMetadataContext = TemplateMetadataContext(dynamoClient, "templateSummaryTable")
+  val templateMetadataContext = TemplateMetadataContext(dynamoClient, appConf.aws.dynamo.tableNames.templateSummary)
   val templateMetadataRepo    = TemplateMetadataRepo.getTemplateSummary(templateMetadataContext, _: TemplateId)
 
   val issueEmailComm: (ComposedEmailV4) => Either[DeliveryError, GatewayComm] = IssueEmail.issue(
