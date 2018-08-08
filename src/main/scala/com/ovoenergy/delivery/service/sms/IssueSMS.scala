@@ -2,22 +2,19 @@ package com.ovoenergy.delivery.service.sms
 
 import java.time.Instant
 
-import cats.data.NonEmptyList
 import cats.data.Validated.{Invalid, Valid}
-import cats.effect.{Async, IO}
-import com.ovoenergy.comms.model.{ErrorCode, TemplateDownloadFailed, TemplateManifest, UnexpectedDeliveryError}
+import com.ovoenergy.comms.model.UnexpectedDeliveryError
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
 import com.ovoenergy.comms.templates.ErrorsOr
 import com.ovoenergy.comms.templates.model.Brand
 import com.ovoenergy.comms.templates.model.template.metadata.{TemplateId, TemplateSummary}
-import com.ovoenergy.delivery.service.domain
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
 
 object IssueSMS extends LoggingWithMDC {
 
-  def issue(checkBlackWhiteList: (String) => BlackWhiteList.Verdict,
+  def issue(checkBlackWhiteList: String => BlackWhiteList.Verdict,
             isExpired: Option[Instant] => Boolean,
             templateMetadataRepo: TemplateId => Option[ErrorsOr[TemplateSummary]],
             sendSMS: (ComposedSMSV4, Brand) => Either[DeliveryError, GatewayComm])(

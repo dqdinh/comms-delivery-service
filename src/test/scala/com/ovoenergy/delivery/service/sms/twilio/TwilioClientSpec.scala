@@ -1,31 +1,22 @@
 package com.ovoenergy.delivery.service.sms.twilio
 
 import java.io.ByteArrayOutputStream
-import java.nio.file.Files
-import java.util.UUID
 
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms._
 import com.ovoenergy.comms.templates.model.Brand
-import com.ovoenergy.comms.templates.model.Brand.Ovo
-import com.ovoenergy.delivery.config
 import com.ovoenergy.delivery.config.{ConstantDelayRetry, TwilioAppConfig, TwilioServiceSids}
 import com.ovoenergy.delivery.service.domain._
-import com.ovoenergy.delivery.service.util.{ArbGenerator, Retry}
-import com.ovoenergy.delivery.service.util.Retry.RetryConfig
-import eu.timepit.refined.numeric.Positive
-import eu.timepit.refined.refineV
+import com.ovoenergy.delivery.service.util.ArbGenerator
 import okhttp3._
-import okio.{Buffer, BufferedSink, Okio}
+import okio.{Buffer, Okio}
 import org.scalacheck.Arbitrary
 import org.scalatest.{FlatSpec, Matchers}
 
-import scala.concurrent.duration.FiniteDuration
 import scala.io.Source
 import scala.util.Try
 
 // Implicits
-import org.scalacheck.Shapeless._
 import org.scalatest.{Failed => _, _}
 
 class TwilioClientSpec extends FlatSpec with Matchers with ArbGenerator with EitherValues {

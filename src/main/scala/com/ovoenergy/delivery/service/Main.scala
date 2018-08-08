@@ -1,62 +1,50 @@
 package com.ovoenergy.delivery.service
 
 import java.nio.file.Paths
-import java.time.{Clock, Duration}
-import java.util.concurrent.TimeUnit
+import java.time.Clock
 
 import akka.actor.ActorSystem
 import cats.effect.{Effect, IO}
 import com.ovoenergy.comms.helpers.{Kafka, KafkaClusterConfig, Topic}
-import com.ovoenergy.comms.model.{FailedV3, IssuedForDeliveryV3}
 import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
+import com.ovoenergy.comms.model.{FailedV3, IssuedForDeliveryV3}
+import com.ovoenergy.comms.templates.model.template.metadata.TemplateId
+import com.ovoenergy.comms.templates.{TemplateMetadataContext, TemplateMetadataRepo}
+import com.ovoenergy.delivery.config._
+import com.ovoenergy.delivery.service.ErrorHandling._
+import com.ovoenergy.delivery.service.domain.{BuilderInstances, DeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.email.IssueEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
-import com.ovoenergy.delivery.service.kafka.{EventProcessor, Producer}
 import com.ovoenergy.delivery.service.kafka.process.{FailedEvent, IssuedForDeliveryEvent}
+import com.ovoenergy.delivery.service.kafka.{EventProcessor, Producer}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
-import com.ovoenergy.delivery.service.sms.IssueSMS
-import com.ovoenergy.delivery.service.sms.twilio.TwilioClient
-import com.ovoenergy.delivery.service.validation.{BlackWhiteList, ExpiryCheck}
-import com.ovoenergy.delivery.config._
-import com.ovoenergy.delivery.service.ErrorHandling._
-import com.ovoenergy.fs2.kafka.{ConsumerSettings, Subscription, consumeProcessAndCommit}
-import com.ovoenergy.kafka.serialization.core.constDeserializer
-
-import scala.language.implicitConversions
-import com.typesafe.config.{Config, ConfigFactory}
-import com.ovoenergy.comms.serialisation.Codecs._
-import com.ovoenergy.comms.templates.model.template.metadata.{TemplateId, TemplateSummary}
-import com.ovoenergy.comms.templates.{ErrorsOr, TemplateMetadataContext, TemplateMetadataRepo}
-import com.ovoenergy.delivery.service.domain.{DeliveryError, GatewayComm}
 import com.ovoenergy.delivery.service.persistence.{AwsProvider, DynamoPersistence, S3PdfRepo}
 import com.ovoenergy.delivery.service.print.IssuePrint
 import com.ovoenergy.delivery.service.print.stannp.StannpClient
+import com.ovoenergy.delivery.service.sms.IssueSMS
+import com.ovoenergy.delivery.service.sms.twilio.TwilioClient
+import com.ovoenergy.delivery.service.validation.{BlackWhiteList, ExpiryCheck}
+import com.ovoenergy.fs2.kafka.{ConsumerSettings, Subscription, consumeProcessAndCommit}
+import com.ovoenergy.kafka.serialization.core.constDeserializer
 import com.sksamuel.avro4s.{FromRecord, SchemaFor, ToRecord}
+import com.typesafe.config.ConfigFactory
 import fs2._
 import org.apache.kafka.clients.CommonClientConfigs
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.config.SslConfigs
-
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.language.reflectiveCalls
-import scala.concurrent.duration.FiniteDuration
+import com.ovoenergy.comms.serialisation.Codecs._
+import scala.concurrent.duration.{FiniteDuration, _}
 import scala.io.Source
+import scala.language.{implicitConversions, reflectiveCalls}
 import scala.reflect.ClassTag
-import scala.concurrent.duration._
 
-object Main extends StreamApp[IO] with LoggingWithMDC {
+object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
 
-  implicit val clock = Clock.systemDefaultZone()
-
-  private implicit class RichDuration(val duration: Duration) extends AnyVal {
-    def toFiniteDuration: FiniteDuration = FiniteDuration.apply(duration.toNanos, TimeUnit.NANOSECONDS)
-  }
-
+  implicit val clock            = Clock.systemDefaultZone()
   implicit val conf             = ConfigFactory.load()
   implicit val actorSystem      = ActorSystem("kafka")
   implicit val executionContext = actorSystem.dispatcher
@@ -71,7 +59,7 @@ object Main extends StreamApp[IO] with LoggingWithMDC {
   val failedProducer = Producer
     .produce[FailedV3](_.metadata.eventId, exitAppOnFailure(Producer(failedTopic), failedTopic.name), failedTopic.name)
   val failedPublisher: FailedV3 => IO[RecordMetadata] = failedProducer.apply[IO]
-
+  // TODO: Create Feedback publisher
   val issuedForDeliveryTopic = Kafka.aiven.issuedForDelivery.v3
   val issuedForDeliveryProducer = Producer.produce[IssuedForDeliveryV3](
     _.metadata.eventId,
@@ -147,9 +135,8 @@ object Main extends StreamApp[IO] with LoggingWithMDC {
 
   type Record[T] = ConsumerRecord[Unit, Option[T]]
 
-  def processEvent[F[_], T: SchemaFor: ToRecord: FromRecord: ClassTag, A](
-      f: Record[T] => F[A],
-      topic: Topic[T])(implicit F: Effect[F], config: Config, ec: ExecutionContext): fs2.Stream[F, A] = {
+  def processEvent[F[_], T: SchemaFor: ToRecord: FromRecord: ClassTag, A](f: Record[T] => F[A], topic: Topic[T])(
+      implicit F: Effect[F]): fs2.Stream[F, A] = {
 
     val valueDeserializer = topic.deserializer.right.get
 
@@ -164,21 +151,21 @@ object Main extends StreamApp[IO] with LoggingWithMDC {
   def emailProcessor =
     EventProcessor[IO, ComposedEmailV4](
       DeliverComm[IO, ComposedEmailV4](dynamoPersistence, issueEmailComm),
-      FailedEvent.email[IO](failedPublisher),
+      FailedEvent.apply[IO, ComposedEmailV4](failedPublisher, ???),
       IssuedForDeliveryEvent.email[IO](issuedForDeliveryPublisher)
     )
 
   def smsProcessor =
     EventProcessor[IO, ComposedSMSV4](
       DeliverComm[IO, ComposedSMSV4](dynamoPersistence, issueSMSComm),
-      FailedEvent.sms[IO](failedPublisher),
+      FailedEvent[IO, ComposedSMSV4](failedPublisher, ???),
       IssuedForDeliveryEvent.sms[IO](issuedForDeliveryPublisher)
     )
 
   def printProcessor =
     EventProcessor[IO, ComposedPrintV2](
       DeliverComm[IO, ComposedPrintV2](dynamoPersistence, issuePrintComm),
-      FailedEvent.print[IO](failedPublisher),
+      FailedEvent[IO, ComposedPrintV2](failedPublisher, ???),
       IssuedForDeliveryEvent.print[IO](issuedForDeliveryPublisher)
     )
 

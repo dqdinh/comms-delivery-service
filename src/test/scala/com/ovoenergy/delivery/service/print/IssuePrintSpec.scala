@@ -2,29 +2,20 @@ package com.ovoenergy.delivery.service.print
 
 import java.time.{Clock, Instant}
 
-import com.amazonaws.auth.BasicAWSCredentials
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.s3.{AmazonS3Client, S3ClientOptions}
 import com.ovoenergy.comms.model.print.ComposedPrintV2
-import com.ovoenergy.delivery.config
-import com.ovoenergy.delivery.config.{AwsConfig, ConstantDelayRetry, DynamoDbConfig, S3Config}
 import com.ovoenergy.delivery.service.domain.{DeliveryError, Expired, GatewayComm}
-import com.ovoenergy.delivery.service.persistence.AwsProvider
-import com.ovoenergy.delivery.service.persistence.AwsProvider.S3Context
 import com.ovoenergy.delivery.service.print.IssuePrint.PdfDocument
 import com.ovoenergy.delivery.service.util.ArbGenerator
-import com.typesafe.config.ConfigFactory
-import eu.timepit.refined.numeric.Positive
-import eu.timepit.refined.refineV
 import org.scalatest.{FlatSpec, Matchers}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalacheck.Shapeless._
-import org.scalatest._
-import org.scalatest.prop._
 
-import scala.concurrent.duration._
-
-class IssuePrintSpec extends FlatSpec with Matchers with ArbGenerator with GeneratorDrivenPropertyChecks {
+class IssuePrintSpec
+    extends FlatSpec
+    with Matchers
+    with ArbGenerator
+    with GeneratorDrivenPropertyChecks
+    with Arbitraries {
 
   implicit val clock = Clock.systemUTC()
 

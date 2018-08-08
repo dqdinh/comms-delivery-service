@@ -22,6 +22,10 @@ object Dependencies {
     lazy val kafkaClient = "com.ovoenergy" %% "fs2-kafka-client" % fs2KafkaClientVersion
   }
 
+  object kafka {
+    "org.apache.kafka" % "kafka-clients" % "2.0.0"
+  }
+
   object cats {
     val core   = "org.typelevel" %% "cats-core"     % "1.0.1"
     val effect = "org.typelevel" %% "cats-effect"   % "0.10"
@@ -47,8 +51,8 @@ object Dependencies {
   }
 
   object ovoEnergy {
-    private val kafkaMessagesVersion      = "1.71"
-    private val kafkaHelpersVersion       = "3.16"
+    private val kafkaMessagesVersion      = "1.73"
+    private val kafkaHelpersVersion       = "3.17"
     private val commsDockerTestkitVersion = "1.8"
     private val commsTemplatesVersion     = "0.25"
 

@@ -34,7 +34,6 @@ object IssueEmail extends LoggingWithMDC {
       }
     }
 
-    import cats.syntax.either._
     for {
       _           <- blackWhiteListCheck
       _           <- expiryCheck

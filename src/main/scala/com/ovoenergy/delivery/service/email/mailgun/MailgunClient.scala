@@ -99,8 +99,8 @@ object MailgunClient extends LoggingWithMDC {
     ).asJson.noSpaces
   }
 
-  private def mapResponseToEither(response: Response, composedEmail: ComposedEmailV4)(
-      implicit clock: Clock): Either[DeliveryError, GatewayComm] = {
+  private def mapResponseToEither(response: Response,
+                                  composedEmail: ComposedEmailV4): Either[DeliveryError, GatewayComm] = {
     case class SendEmailSuccessResponse(id: String, message: String)
     case class SendEmailFailureResponse(message: String)
 
