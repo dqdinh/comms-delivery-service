@@ -8,7 +8,6 @@ object Dependencies {
   val dynamoDbSdk = "com.amazonaws"        % "aws-java-sdk-dynamodb" % "1.11.225"
   val akkaSlf4J   = "com.typesafe.akka"    %% "akka-slf4j"           % "2.4.18"
 
-  val mockito    = "org.mockito"     % "mockito-all"            % "1.10.19"
   val scalaTest  = "org.scalatest"   %% "scalatest"             % "3.0.1"
   val mockServer = "org.mock-server" % "mockserver-client-java" % "3.12"
 
@@ -51,12 +50,14 @@ object Dependencies {
   }
 
   object ovoEnergy {
-    private val kafkaMessagesVersion      = "1.73"
+    private val kafkaMessagesVersion      = "1.74"
     private val kafkaHelpersVersion       = "3.17"
     private val commsDockerTestkitVersion = "1.8"
     private val commsTemplatesVersion     = "0.25"
 
-    val commsKafkaMessages    = "com.ovoenergy" %% "comms-kafka-messages"     % kafkaMessagesVersion
+    val commsKafkaMessages      = "com.ovoenergy" %% "comms-kafka-messages" % kafkaMessagesVersion
+    val commsKafkaMessagesTests = "com.ovoenergy" %% "comms-kafka-messages" % kafkaMessagesVersion classifier "tests"
+
     val commsKafkaHelpers     = "com.ovoenergy" %% "comms-kafka-helpers"      % kafkaHelpersVersion
     val commsKafkaTestHelpers = "com.ovoenergy" %% "comms-kafka-test-helpers" % kafkaHelpersVersion
     val commsTemplates        = "com.ovoenergy" %% "comms-templates"          % commsTemplatesVersion

@@ -22,7 +22,7 @@ object FailedEvent extends LoggingWithMDC {
     val buildFeedback = implicitly[BuildFeedback[Event]]
 
     val legacyFailed = buildFailed.apply(event, deliveryError)
-    val feedback     = buildFeedback.apply(event, deliveryError)
+    val feedback     = buildFeedback.apply(event, Some(deliveryError), FeedbackOptions.Failed)
 
     for {
       record1 <- publishFailedEventLegacy(legacyFailed)

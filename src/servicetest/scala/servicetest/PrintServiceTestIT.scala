@@ -1,34 +1,23 @@
 package servicetest
 
-import java.io.{BufferedReader, File, FileReader}
-import java.nio.file.{Files, Paths}
-
-import com.amazonaws.ClientConfiguration
+import java.io.{File}
 import com.amazonaws.auth.{AWSStaticCredentialsProvider, BasicAWSCredentials}
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.s3.{AmazonS3, AmazonS3Client, AmazonS3ClientBuilder, S3ClientOptions}
+import com.amazonaws.services.s3.{AmazonS3ClientBuilder, S3ClientOptions}
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
-import com.ovoenergy.comms.model.email.ComposedEmailV2
-import com.ovoenergy.comms.model.print.{ComposedPrint, ComposedPrintV2}
+import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.comms.testhelpers.KafkaTestHelpers.withThrowawayConsumerFor
-import com.ovoenergy.delivery.config
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import com.typesafe.config.ConfigFactory
 import org.mockserver.client.server.MockServerClient
 import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse.response
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
-
-import scala.concurrent.Future
-import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 //Implicits
 import com.ovoenergy.comms.serialisation.Codecs._
-import org.scalacheck.Shapeless._
 import scala.concurrent.duration._
 import com.ovoenergy.comms.testhelpers.KafkaTestHelpers._
 
@@ -36,7 +25,7 @@ class PrintServiceTestIT
     extends DockerIntegrationTest
     with FlatSpecLike
     with Matchers
-    with GeneratorDrivenPropertyChecks
+    with Arbitraries
     with ArbGenerator
     with BeforeAndAfterAll {
 
@@ -159,7 +148,7 @@ class PrintServiceTestIT
   }
 
   def arbitraryComposedPrintEvent: ComposedPrintV2 =
-    generate[ComposedPrintV2].copy(pdfIdentifier = "example.pdf")
+    generate[ComposedPrintV2].copy(pdfIdentifier = "example.pdf", expireAt = None)
 
   lazy val s3Client = {
     val creds           = new AWSStaticCredentialsProvider(new BasicAWSCredentials("service-test", "dummy"))

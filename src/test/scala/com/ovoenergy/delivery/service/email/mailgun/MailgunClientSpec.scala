@@ -28,7 +28,7 @@ import org.scalatest.{Failed => _, _}
 import scala.util.Try
 import scala.util.matching.Regex
 import scala.concurrent.duration._
-class MailgunClientSpec extends FlatSpec with Matchers with ArbGenerator with EitherValues {
+class MailgunClientSpec extends FlatSpec with Matchers with Arbitraries with ArbGenerator with EitherValues {
 
   val dateTime = OffsetDateTime.now(ZoneId.of("UTC"))
 

@@ -4,6 +4,7 @@ import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
+import com.ovoenergy.comms.templates.util.Hash
 import com.ovoenergy.kafka.common.event.EventMetadata
 
 trait BuildFailed[T] {
@@ -19,26 +20,21 @@ object BuildFailed {
 }
 
 trait BuildFeedback[T] {
-  def apply(t: T, deliveryError: DeliveryError): Feedback
+  def apply(t: T, deliveryError: Option[DeliveryError], feedbackStatus: FeedbackStatus): Feedback
 }
 
 object BuildFeedback {
-  def instance[T](f: (T, DeliveryError) => Feedback) = {
+  def instance[T](f: (T, Option[DeliveryError], FeedbackStatus) => Feedback) = {
     new BuildFeedback[T] {
-      override def apply(t: T, deliveryError: DeliveryError): Feedback = f(t, deliveryError)
+      override def apply(t: T, deliveryError: Option[DeliveryError], feedbackStatus: FeedbackStatus): Feedback =
+        f(t, deliveryError, feedbackStatus)
     }
   }
 }
 
 trait BuilderInstances {
-  /*
-    TODO: Create deterministic function to generate a new eventId from the previous eventId
 
-    The event id for the new event (Failed or Feedback) should be different to the previous,
-    but deterministic so if duplicates are created accidentally these can be filtered
-   */
-
-  private def extractCustomer(deliverTo: DeliverTo): Option[Customer] = {
+  def extractCustomer(deliverTo: DeliverTo): Option[Customer] = {
     deliverTo match {
       case customer: Customer => Some(customer)
       case _                  => None
@@ -46,43 +42,43 @@ trait BuilderInstances {
   }
 
   implicit val buildfeedbackFromEmail = {
-    BuildFeedback.instance[ComposedEmailV4] { (composedEvent, deliveryError) =>
+    BuildFeedback.instance[ComposedEmailV4] { (composedEvent, deliveryError, feedbackStatus) =>
       Feedback(
         composedEvent.metadata.commId,
         extractCustomer(composedEvent.metadata.deliverTo),
-        FeedbackOptions.Failed,
-        Some(deliveryError.description),
+        feedbackStatus,
+        deliveryError.map(_.description),
         None,
         Some(Email),
-        EventMetadata.fromMetadata(composedEvent.metadata, ???)
+        EventMetadata.fromMetadata(composedEvent.metadata, Hash(composedEvent.metadata.eventId))
       )
     }
   }
 
   implicit val buildfeedbackFromSms = {
-    BuildFeedback.instance[ComposedSMSV4] { (composedEvent, deliveryError) =>
+    BuildFeedback.instance[ComposedSMSV4] { (composedEvent, deliveryError, feedbackStatus) =>
       Feedback(
         composedEvent.metadata.commId,
         extractCustomer(composedEvent.metadata.deliverTo),
-        FeedbackOptions.Failed,
-        Some(deliveryError.description),
+        feedbackStatus,
+        deliveryError.map(_.description),
         None,
         Some(SMS),
-        EventMetadata.fromMetadata(composedEvent.metadata, ???)
+        EventMetadata.fromMetadata(composedEvent.metadata, Hash(composedEvent.metadata.eventId))
       )
     }
   }
 
   implicit val buildfeedbackFromPrint = {
-    BuildFeedback.instance[ComposedPrintV2] { (composedEvent, deliveryError) =>
+    BuildFeedback.instance[ComposedPrintV2] { (composedEvent, deliveryError, feedbackStatus) =>
       Feedback(
         composedEvent.metadata.commId,
         extractCustomer(composedEvent.metadata.deliverTo),
-        FeedbackOptions.Failed,
-        Some(deliveryError.description),
+        feedbackStatus,
+        deliveryError.map(_.description),
         None,
         Some(Print),
-        EventMetadata.fromMetadata(composedEvent.metadata, ???)
+        EventMetadata.fromMetadata(composedEvent.metadata, Hash(composedEvent.metadata.eventId))
       )
     }
   }

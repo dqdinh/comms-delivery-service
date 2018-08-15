@@ -28,14 +28,14 @@ object EventProcessor extends LoggingWithMDC {
   def apply[F[_]: Effect, InEvent <: LoggableEvent: SchemaFor: FromRecord: ClassTag](
       deliverComm: InEvent => F[Either[DeliveryError, GatewayComm]],
       sendFailedEvent: (InEvent, DeliveryError) => F[_],
-      sendIssuedToGatewayEvent: (InEvent, GatewayComm) => F[Unit]): Record[InEvent] => F[Unit] = {
+      sendIssuedToGatewayEvent: (InEvent, GatewayComm) => F[_]): Record[InEvent] => F[Unit] = {
 
     def result: Record[InEvent] => F[Unit] = (record: Record[InEvent]) => {
       Async[F].delay(logInfo(record, s"Consumed ${record.show}")) >> (record.value match {
         case Some(composedEvent) =>
           deliverComm(composedEvent) flatMap {
             case Right(gatewayComm) =>
-              sendIssuedToGatewayEvent(composedEvent, gatewayComm)
+              sendIssuedToGatewayEvent(composedEvent, gatewayComm).void
 
             case Left(error: DynamoError) => {
               logError(composedEvent, "Failed DynamoDB operation, shutting down JVM")
@@ -43,7 +43,7 @@ object EventProcessor extends LoggingWithMDC {
             }
             case Left(deliveryError) =>
               logWarn(composedEvent, s"Unable to send comm due to $deliveryError")
-              sendFailedEvent(composedEvent, deliveryError).as(())
+              sendFailedEvent(composedEvent, deliveryError).void
           }
         case None =>
           log.error(s"Skipping event: ${record.show}, failed to parse")

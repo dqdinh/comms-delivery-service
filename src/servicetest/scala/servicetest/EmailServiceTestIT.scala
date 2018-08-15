@@ -12,12 +12,9 @@ import org.mockserver.model.HttpResponse.response
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest._
-import scala.concurrent.Future
-import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 //Implicits
 import com.ovoenergy.comms.serialisation.Codecs._
-import org.scalacheck.Shapeless._
 import scala.concurrent.duration._
 import com.ovoenergy.comms.testhelpers.KafkaTestHelpers._
 
@@ -26,6 +23,7 @@ class EmailServiceTestIT
     with FlatSpecLike
     with Matchers
     with GeneratorDrivenPropertyChecks
+    with Arbitraries
     with ArbGenerator {
 
   implicit val pConfig: PatienceConfig = PatienceConfig(Span(60, Seconds))
@@ -214,5 +212,5 @@ class EmailServiceTestIT
 
   def arbitraryComposedEmailEvent: ComposedEmailV4 =
     // Make sure the recipient email address is whitelisted
-    generate[ComposedEmailV4].copy(recipient = "foo@ovoenergy.com")
+    generate[ComposedEmailV4].copy(recipient = "foo@ovoenergy.com", expireAt = None)
 }

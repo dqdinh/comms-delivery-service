@@ -9,7 +9,7 @@ import com.ovoenergy.comms.helpers.{Kafka, KafkaClusterConfig, Topic}
 import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
-import com.ovoenergy.comms.model.{FailedV3, IssuedForDeliveryV3}
+import com.ovoenergy.comms.model.{FailedV3, Feedback, IssuedForDeliveryV3}
 import com.ovoenergy.comms.templates.model.template.metadata.TemplateId
 import com.ovoenergy.comms.templates.{TemplateMetadataContext, TemplateMetadataRepo}
 import com.ovoenergy.delivery.config._
@@ -37,9 +37,9 @@ import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.config.SslConfigs
 import com.ovoenergy.comms.serialisation.Codecs._
+import cats.implicits._
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.io.Source
-import scala.language.{implicitConversions, reflectiveCalls}
 import scala.reflect.ClassTag
 
 object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
@@ -55,11 +55,17 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
     case Right(res) => res
   }
 
-  val failedTopic = Kafka.aiven.failed.v3
+  val failedTopic   = Kafka.aiven.failed.v3
+  val feedbackTopic = Kafka.aiven.feedback.v1
   val failedProducer = Producer
     .produce[FailedV3](_.metadata.eventId, exitAppOnFailure(Producer(failedTopic), failedTopic.name), failedTopic.name)
-  val failedPublisher: FailedV3 => IO[RecordMetadata] = failedProducer.apply[IO]
-  // TODO: Create Feedback publisher
+  val feedbackProducer = Producer
+    .produce[Feedback](_.metadata.eventId,
+                       exitAppOnFailure(Producer(feedbackTopic), feedbackTopic.name),
+                       feedbackTopic.name)
+  val failedPublisher: FailedV3 => IO[RecordMetadata]   = failedProducer.apply[IO]
+  val feedbackPublisher: Feedback => IO[RecordMetadata] = feedbackProducer.apply[IO]
+
   val issuedForDeliveryTopic = Kafka.aiven.issuedForDelivery.v3
   val issuedForDeliveryProducer = Producer.produce[IssuedForDeliveryV3](
     _.metadata.eventId,
@@ -151,26 +157,25 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
   def emailProcessor =
     EventProcessor[IO, ComposedEmailV4](
       DeliverComm[IO, ComposedEmailV4](dynamoPersistence, issueEmailComm),
-      FailedEvent.apply[IO, ComposedEmailV4](failedPublisher, ???),
+      FailedEvent.apply[IO, ComposedEmailV4](failedPublisher, feedbackPublisher),
       IssuedForDeliveryEvent.email[IO](issuedForDeliveryPublisher)
     )
 
   def smsProcessor =
     EventProcessor[IO, ComposedSMSV4](
       DeliverComm[IO, ComposedSMSV4](dynamoPersistence, issueSMSComm),
-      FailedEvent[IO, ComposedSMSV4](failedPublisher, ???),
+      FailedEvent[IO, ComposedSMSV4](failedPublisher, feedbackPublisher),
       IssuedForDeliveryEvent.sms[IO](issuedForDeliveryPublisher)
     )
 
   def printProcessor =
     EventProcessor[IO, ComposedPrintV2](
       DeliverComm[IO, ComposedPrintV2](dynamoPersistence, issuePrintComm),
-      FailedEvent[IO, ComposedPrintV2](failedPublisher, ???),
-      IssuedForDeliveryEvent.print[IO](issuedForDeliveryPublisher)
+      FailedEvent[IO, ComposedPrintV2](failedPublisher, feedbackPublisher),
+      IssuedForDeliveryEvent.print[IO](issuedForDeliveryPublisher, feedbackPublisher)
     )
 
   override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, StreamApp.ExitCode] = {
-
     val emailStream: Stream[IO, Unit] =
       processEvent[IO, ComposedEmailV4, Unit](emailProcessor, aivenCluster.composedEmail.v4)
 
@@ -185,7 +190,6 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
       .mergeHaltBoth(printStream)
       .drain
       .covaryOutput[StreamApp.ExitCode] ++ Stream.emit(StreamApp.ExitCode.Error)
-
   }
 
   log.info("Delivery Service started")

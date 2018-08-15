@@ -3,17 +3,15 @@ package com.ovoenergy.delivery.service.kafka.process
 import java.time.Clock
 
 import cats.effect.IO
-import com.ovoenergy.comms.model.IssuedForDeliveryV3
+import com.ovoenergy.comms.model.{Arbitraries, IssuedForDeliveryV3}
 import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.delivery.service.domain.GatewayComm
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.TopicPartition
-import org.scalacheck.Shapeless._
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
-class IssuedForDeliveryEventSpec extends FlatSpec with Matchers with ArbGenerator with GeneratorDrivenPropertyChecks {
+class IssuedForDeliveryEventSpec extends FlatSpec with Matchers with Arbitraries with ArbGenerator {
 
   private implicit val clock = Clock.systemUTC()
 

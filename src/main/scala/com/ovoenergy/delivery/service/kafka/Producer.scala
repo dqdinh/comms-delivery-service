@@ -67,7 +67,6 @@ class Producer[E](getKey: E => String, producer: KafkaProducer[String, E], topic
     )
 
     Async[F].async[RecordMetadata] { cb =>
-      producer.beginTransaction()
       producer.send(
         record,
         new Callback {
@@ -76,7 +75,6 @@ class Producer[E](getKey: E => String, producer: KafkaProducer[String, E], topic
           }
         }
       )
-      producer.commitTransaction()
     }
   }
 

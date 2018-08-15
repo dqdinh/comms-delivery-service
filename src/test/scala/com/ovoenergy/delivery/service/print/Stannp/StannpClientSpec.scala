@@ -29,7 +29,7 @@ import org.scalatest.{Failed => _, _}
 import scala.collection.immutable
 import scala.util.Try
 
-class StannpClientSpec extends FlatSpec with Matchers with ArbGenerator with EitherValues {
+class StannpClientSpec extends FlatSpec with Matchers with Arbitraries with ArbGenerator with EitherValues {
   val dateTime = OffsetDateTime.now(ZoneId.of("UTC"))
 
   val url      = "https://dash.stannp.com"
