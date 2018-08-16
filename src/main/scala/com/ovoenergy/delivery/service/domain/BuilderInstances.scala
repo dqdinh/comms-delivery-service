@@ -4,7 +4,6 @@ import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
-import com.ovoenergy.comms.templates.util.Hash
 import com.ovoenergy.kafka.common.event.EventMetadata
 
 trait BuildFailed[T] {
@@ -50,7 +49,7 @@ trait BuilderInstances {
         deliveryError.map(_.description),
         None,
         Some(Email),
-        EventMetadata.fromMetadata(composedEvent.metadata, Hash(composedEvent.metadata.eventId))
+        EventMetadata.fromMetadata(composedEvent.metadata, s"${composedEvent.metadata.eventId}-feedback")
       )
     }
   }
@@ -64,7 +63,7 @@ trait BuilderInstances {
         deliveryError.map(_.description),
         None,
         Some(SMS),
-        EventMetadata.fromMetadata(composedEvent.metadata, Hash(composedEvent.metadata.eventId))
+        EventMetadata.fromMetadata(composedEvent.metadata, s"${composedEvent.metadata.eventId}-feedback")
       )
     }
   }
@@ -78,7 +77,7 @@ trait BuilderInstances {
         deliveryError.map(_.description),
         None,
         Some(Print),
-        EventMetadata.fromMetadata(composedEvent.metadata, Hash(composedEvent.metadata.eventId))
+        EventMetadata.fromMetadata(composedEvent.metadata, s"${composedEvent.metadata.eventId}-feedback")
       )
     }
   }
@@ -117,4 +116,4 @@ trait BuilderInstances {
   }
 }
 
-object BuilderInstances extends BuilderInstances
+object builders extends BuilderInstances

@@ -65,9 +65,10 @@ object Dependencies {
   }
 
   object logging {
-    val logbackClassic        = "ch.qos.logback"  % "logback-classic"         % "1.1.7"
-    val logbackGelf           = "me.moocar"       % "logback-gelf"            % "0.2"
-    val logzIoLogbackAppender = "io.logz.logback" % "logzio-logback-appender" % "1.0.11"
+    val log4Cats               ="io.chrisdavenport" %% "log4cats-slf4j"         % "0.1.0"
+    val logbackClassic        = "ch.qos.logback"    % "logback-classic"         % "1.1.7"
+    val logbackGelf           = "me.moocar"         % "logback-gelf"            % "0.2"
+    val logzIoLogbackAppender = "io.logz.logback"   % "logzio-logback-appender" % "1.0.11"
   }
 
   object pureConfig {

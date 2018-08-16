@@ -87,6 +87,7 @@ val dependencies = Seq(
   ovoEnergy.dockerKit,
   kafkaSerialization.cats,
   kafkaSerialization.core,
+  logging.log4Cats,
   logging.logbackClassic,
   logging.logbackGelf,
   logging.logzIoLogbackAppender,

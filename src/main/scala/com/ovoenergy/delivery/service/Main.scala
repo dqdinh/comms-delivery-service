@@ -14,7 +14,7 @@ import com.ovoenergy.comms.templates.model.template.metadata.TemplateId
 import com.ovoenergy.comms.templates.{TemplateMetadataContext, TemplateMetadataRepo}
 import com.ovoenergy.delivery.config._
 import com.ovoenergy.delivery.service.ErrorHandling._
-import com.ovoenergy.delivery.service.domain.{BuilderInstances, DeliveryError, GatewayComm}
+import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.email.IssueEmail
 import com.ovoenergy.delivery.service.email.mailgun.MailgunClient
 import com.ovoenergy.delivery.service.http.HttpClient
@@ -38,6 +38,7 @@ import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.config.SslConfigs
 import com.ovoenergy.comms.serialisation.Codecs._
 import cats.implicits._
+
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.io.Source
 import scala.reflect.ClassTag
@@ -63,15 +64,15 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
     .produce[Feedback](_.metadata.eventId,
                        exitAppOnFailure(Producer(feedbackTopic), feedbackTopic.name),
                        feedbackTopic.name)
-  val failedPublisher: FailedV3 => IO[RecordMetadata]   = failedProducer.apply[IO]
-  val feedbackPublisher: Feedback => IO[RecordMetadata] = feedbackProducer.apply[IO]
+  val failedPublisher: FailedV3 => IO[RecordMetadata]   = failedProducer[IO]
+  val feedbackPublisher: Feedback => IO[RecordMetadata] = feedbackProducer[IO]
 
   val issuedForDeliveryTopic = Kafka.aiven.issuedForDelivery.v3
   val issuedForDeliveryProducer = Producer.produce[IssuedForDeliveryV3](
     _.metadata.eventId,
     exitAppOnFailure(Producer(issuedForDeliveryTopic), issuedForDeliveryTopic.name),
     issuedForDeliveryTopic.name)
-  val issuedForDeliveryPublisher: IssuedForDeliveryV3 => IO[RecordMetadata] = issuedForDeliveryProducer.apply[IO]
+  val issuedForDeliveryPublisher: IssuedForDeliveryV3 => IO[RecordMetadata] = issuedForDeliveryProducer[IO]
 
   val isRunningInLocalDocker = sys.env.get("ENV").contains("LOCAL") && sys.env
     .get("RUNNING_IN_DOCKER")
@@ -146,7 +147,7 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
 
     val valueDeserializer = topic.deserializer.right.get
 
-    consumeProcessAndCommit[F].apply(
+    consumeProcessAndCommit[F](
       Subscription.topics(topic.name),
       constDeserializer[Unit](()),
       valueDeserializer,
@@ -154,25 +155,38 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
     )(f)
   }
 
+  def failedEventProcessor[Event: BuildFailed: BuildFeedback]: (Event, DeliveryError) => IO[Unit] = { (event, error) =>
+    FailedEvent[IO, Event](failedPublisher, feedbackPublisher)
+      .apply(event, error)
+      .void
+  }
+
+  def sendIssuedToGatewayPrint: (ComposedPrintV2, GatewayComm) => IO[Unit] = { (composedPrint, gatewayComm) =>
+    IssuedForDeliveryEvent
+      .print[IO](issuedForDeliveryPublisher, feedbackPublisher)
+      .apply(composedPrint, gatewayComm)
+      .void
+  }
+
   def emailProcessor =
     EventProcessor[IO, ComposedEmailV4](
       DeliverComm[IO, ComposedEmailV4](dynamoPersistence, issueEmailComm),
-      FailedEvent.apply[IO, ComposedEmailV4](failedPublisher, feedbackPublisher),
+      failedEventProcessor[ComposedEmailV4],
       IssuedForDeliveryEvent.email[IO](issuedForDeliveryPublisher)
     )
 
   def smsProcessor =
     EventProcessor[IO, ComposedSMSV4](
       DeliverComm[IO, ComposedSMSV4](dynamoPersistence, issueSMSComm),
-      FailedEvent[IO, ComposedSMSV4](failedPublisher, feedbackPublisher),
+      failedEventProcessor[ComposedSMSV4],
       IssuedForDeliveryEvent.sms[IO](issuedForDeliveryPublisher)
     )
 
   def printProcessor =
     EventProcessor[IO, ComposedPrintV2](
       DeliverComm[IO, ComposedPrintV2](dynamoPersistence, issuePrintComm),
-      FailedEvent[IO, ComposedPrintV2](failedPublisher, feedbackPublisher),
-      IssuedForDeliveryEvent.print[IO](issuedForDeliveryPublisher, feedbackPublisher)
+      failedEventProcessor[ComposedPrintV2],
+      sendIssuedToGatewayPrint
     )
 
   override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, StreamApp.ExitCode] = {

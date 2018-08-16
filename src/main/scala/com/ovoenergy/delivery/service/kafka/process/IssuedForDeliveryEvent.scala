@@ -8,7 +8,7 @@ import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
-import com.ovoenergy.delivery.service.domain.{BuilderInstances, GatewayComm}
+import com.ovoenergy.delivery.service.domain.{GatewayComm, builders}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import org.apache.kafka.clients.producer.RecordMetadata
 
@@ -60,7 +60,7 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
         gatewayMessageId = gatewayComm.id
       )
 
-      val feedbackEvent = BuilderInstances.buildfeedbackFromPrint(composedEvent, None, FeedbackOptions.Delivered)
+      val feedbackEvent = builders.buildfeedbackFromPrint(composedEvent, None, FeedbackOptions.Delivered)
 
       for {
         rm1 <- publishIssued(issuedForDeliveryEvent)
