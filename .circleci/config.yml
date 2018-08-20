@@ -182,6 +182,7 @@ workflows:
 
     - deploy:
         requires:
+        - test
         - servicetest
         filters:
           branches:
