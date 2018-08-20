@@ -43,6 +43,7 @@ package object domain {
     val description = s"Email addressed was not whitelisted: $emailAddress"
     val errorCode   = model.EmailAddressBlacklisted
   }
+
   case object Expired extends DeliveryError {
     val description = "Not delivering because the comm has expired"
     val errorCode   = model.CommExpired

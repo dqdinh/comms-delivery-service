@@ -2,19 +2,29 @@ package com.ovoenergy.delivery.service.email
 
 import java.time.{Clock, Instant}
 
+import com.ovoenergy.comms.model.Arbitraries
 import com.ovoenergy.comms.model.email.ComposedEmailV4
-import com.ovoenergy.delivery.service.domain.{DeliveryError, EmailAddressBlacklisted, Expired, GatewayComm}
+import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
-import org.scalacheck.Shapeless._
+import org.scalacheck.Arbitrary
 import org.scalatest._
 import org.scalatest.prop._
 
 import scala.language.postfixOps
 
-class IssueEmailSpec extends FlatSpec with Matchers with ArbGenerator with GeneratorDrivenPropertyChecks {
+class IssueEmailSpec
+    extends FlatSpec
+    with Matchers
+    with Arbitraries
+    with ArbGenerator
+    with GeneratorDrivenPropertyChecks {
 
   private implicit val clock = Clock.systemUTC()
+
+  implicit val arbDeliveryError: Arbitrary[DeliveryError] = Arbitrary {
+    genNonEmptyString.flatMap(DuplicateDeliveryError.apply)
+  }
 
   private val gatewayComm   = generate[GatewayComm]
   private val composedEmail = generate[ComposedEmailV4]

@@ -3,6 +3,7 @@ package servicetest
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms._
+import com.ovoenergy.comms.templates.model.Brand
 import com.ovoenergy.comms.templates.model.template.metadata.{TemplateId, TemplateSummary}
 import com.ovoenergy.delivery.service.ConfigLoader
 import com.ovoenergy.delivery.service.util.{ArbGenerator, LocalDynamoDb}
@@ -11,26 +12,23 @@ import org.mockserver.client.server.MockServerClient
 import org.mockserver.matchers.Times
 import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse.response
+import org.scalacheck.Arbitrary
 import org.scalatest._
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
 
-import scala.concurrent.Future
-import scala.concurrent.duration._
 import scala.language.reflectiveCalls
 import scala.io.Source
 import scala.concurrent.duration._
-
+import org.scalacheck.Arbitrary._
 //implicits
 import com.ovoenergy.comms.serialisation.Codecs._
-import org.scalacheck.Shapeless._
 import com.ovoenergy.comms.testhelpers.KafkaTestHelpers._
 
 class SMSServiceTestIT
     extends DockerIntegrationTest
     with FlatSpecLike
     with Matchers
-    with GeneratorDrivenPropertyChecks
+    with Arbitraries
     with ArbGenerator {
 
   implicit val conf    = ConfigFactory.load("servicetest.conf")
@@ -41,6 +39,16 @@ class SMSServiceTestIT
   implicit val appConf = ConfigLoader.applicationConfig("servicetest.conf") match {
     case Left(e)    => log.error(s"Stopping application as config failed to load with error: $e"); sys.exit(1)
     case Right(res) => res
+  }
+
+  implicit val arbTemplateSummary = Arbitrary {
+    for {
+      tId   <- arbitrary[String]
+      cName <- arbitrary[String]
+      cType <- arbitrary[CommType]
+      brand <- arbitrary[Brand]
+      vers  <- arbitrary[String]
+    } yield TemplateSummary(TemplateId(tId), cName, cType, brand, vers)
   }
 
   private def getFileString(file: String) = {
@@ -76,7 +84,7 @@ class SMSServiceTestIT
   it should "create Failed event when bad request from Twilio" in {
     createTwilioResponse(400, badRequestResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV4]
+      val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
       val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
       val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
 
@@ -95,7 +103,7 @@ class SMSServiceTestIT
     createTwilioResponse(200, validResponse)
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3, Kafka.aiven.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
-        val composedSMSEvent = generate[ComposedSMSV4]
+        val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
         val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
         val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
 
@@ -127,7 +135,7 @@ class SMSServiceTestIT
     createTwilioResponse(200, validResponse)
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3, Kafka.aiven.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
-        val composedSMSEvent = generate[ComposedSMSV4]
+        val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
 
         Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
 
@@ -144,7 +152,7 @@ class SMSServiceTestIT
     createTwilioResponse(200, validResponse)
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV4]
+      val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
       val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
       val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
 
@@ -168,7 +176,7 @@ class SMSServiceTestIT
     createFlakyTwilioResponse()
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV4]
+      val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
       val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
       val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
 
@@ -192,7 +200,7 @@ class SMSServiceTestIT
     LocalDynamoDb.client().deleteTable("commRecord")
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3, Kafka.aiven.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
-        val composedSMSEvent = generate[ComposedSMSV4]
+        val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
 
         Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
         Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)

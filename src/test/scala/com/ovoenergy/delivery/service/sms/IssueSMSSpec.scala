@@ -1,25 +1,26 @@
 package com.ovoenergy.delivery.service.sms
 
 import java.time.{Clock, Instant}
-
 import cats.data.NonEmptyList
 import cats.data.Validated.{Invalid, Valid}
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
 import com.ovoenergy.delivery.service.domain._
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import com.ovoenergy.delivery.service.validation.BlackWhiteList
-import org.scalacheck.Shapeless._
 import org.scalatest.{FlatSpec, Matchers}
-import cats.implicits._
-import com.ovoenergy.comms.model.{CommType, UnexpectedDeliveryError}
+import com.ovoenergy.comms.model.{Arbitraries, CommType, UnexpectedDeliveryError}
 import com.ovoenergy.comms.templates.ErrorsOr
 import com.ovoenergy.comms.templates.model.Brand
-import com.ovoenergy.comms.templates.model.Brand.Ovo
 import com.ovoenergy.comms.templates.model.template.metadata.{TemplateId, TemplateSummary}
+import org.scalacheck.Arbitrary
 
-class IssueSMSSpec extends FlatSpec with Matchers with ArbGenerator {
+class IssueSMSSpec extends FlatSpec with Matchers with Arbitraries with ArbGenerator {
 
   private implicit val clock = Clock.systemUTC()
+
+  implicit val arbDeliveryError: Arbitrary[DeliveryError] = Arbitrary {
+    genNonEmptyString.flatMap(DuplicateDeliveryError.apply)
+  }
 
   private val gatewayComm   = generate[GatewayComm]
   private val composedSMS   = generate[ComposedSMSV4]

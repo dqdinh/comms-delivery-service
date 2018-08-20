@@ -87,6 +87,7 @@ val dependencies = Seq(
   ovoEnergy.dockerKit,
   kafkaSerialization.cats,
   kafkaSerialization.core,
+  logging.log4Cats,
   logging.logbackClassic,
   logging.logbackGelf,
   logging.logzIoLogbackAppender,
@@ -97,14 +98,14 @@ val dependencies = Seq(
   scanamo,
   dynamoDbSdk,
   akkaSlf4J,
-  scalaCheck.scalacheck           % Test,
-  scalaCheck.shapeless            % Test,
-  whisk.scalaTest                 % Test,
-  whisk.javaImpl                  % Test,
-  ovoEnergy.commsKafkaTestHelpers % Test,
-  mockito                         % Test,
-  scalaTest                       % Test,
-  mockServer                      % Test
+  scalaCheck.scalacheck             % Test,
+  scalaCheck.shapeless              % Test,
+  whisk.scalaTest                   % Test,
+  whisk.javaImpl                    % Test,
+  ovoEnergy.commsKafkaTestHelpers   % Test,
+  ovoEnergy.commsKafkaMessagesTests % Test,
+  scalaTest                         % Test,
+  mockServer                        % Test
 )
 
 lazy val service = (project in file("."))
