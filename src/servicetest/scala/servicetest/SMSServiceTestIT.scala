@@ -21,7 +21,6 @@ import scala.io.Source
 import scala.concurrent.duration._
 import org.scalacheck.Arbitrary._
 //implicits
-import com.ovoenergy.comms.serialisation.Codecs._
 import com.ovoenergy.comms.testhelpers.KafkaTestHelpers._
 
 class SMSServiceTestIT

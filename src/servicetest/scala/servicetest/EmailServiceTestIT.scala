@@ -14,7 +14,6 @@ import org.scalatest.time.{Seconds, Span}
 import org.scalatest._
 import scala.language.reflectiveCalls
 //Implicits
-import com.ovoenergy.comms.serialisation.Codecs._
 import scala.concurrent.duration._
 import com.ovoenergy.comms.testhelpers.KafkaTestHelpers._
 

@@ -8,6 +8,7 @@ import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
+import com.ovoenergy.comms.templates.util.Hash
 import com.ovoenergy.delivery.service.domain.{GatewayComm, builders}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import org.apache.kafka.clients.producer.RecordMetadata
@@ -18,7 +19,8 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
       composedEvent: ComposedEmailV4,
       gatewayComm: GatewayComm): F[Unit] = {
     val event = IssuedForDeliveryV3(
-      metadata = MetadataV3.fromSourceMetadata("delivery-service", composedEvent.metadata),
+      metadata =
+        MetadataV3.fromSourceMetadata("delivery-service", composedEvent.metadata, Hash(composedEvent.metadata.eventId)),
       internalMetadata = composedEvent.internalMetadata,
       channel = gatewayComm.channel,
       gateway = gatewayComm.gateway,
@@ -35,7 +37,8 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
   def sms[F[_]: Functor](publishEvent: IssuedForDeliveryV3 => F[RecordMetadata])(composedEvent: ComposedSMSV4,
                                                                                  gatewayComm: GatewayComm): F[Unit] = {
     val event = IssuedForDeliveryV3(
-      metadata = MetadataV3.fromSourceMetadata("delivery-service", composedEvent.metadata),
+      metadata =
+        MetadataV3.fromSourceMetadata("delivery-service", composedEvent.metadata, Hash(composedEvent.metadata.eventId)),
       internalMetadata = composedEvent.internalMetadata,
       channel = gatewayComm.channel,
       gateway = gatewayComm.gateway,
@@ -53,7 +56,9 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
                          publishFeedback: Feedback => F[RecordMetadata]) = {
     (composedEvent: ComposedPrintV2, gatewayComm: GatewayComm) =>
       val issuedForDeliveryEvent = IssuedForDeliveryV3(
-        metadata = MetadataV3.fromSourceMetadata("delivery-service", composedEvent.metadata),
+        metadata = MetadataV3.fromSourceMetadata("delivery-service",
+                                                 composedEvent.metadata,
+                                                 Hash(composedEvent.metadata.eventId)),
         internalMetadata = composedEvent.internalMetadata,
         channel = gatewayComm.channel,
         gateway = gatewayComm.gateway,

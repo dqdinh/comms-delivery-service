@@ -85,7 +85,9 @@ trait BuilderInstances {
   implicit val buildFailedFromEmail = {
     BuildFailed.instance[ComposedEmailV4] { (composedEvent, deliveryError) =>
       FailedV3(
-        metadata = MetadataV3.fromSourceMetadata("delivery-service", composedEvent.metadata),
+        metadata = MetadataV3.fromSourceMetadata("delivery-service",
+                                                 composedEvent.metadata,
+                                                 s"${composedEvent.metadata.eventId}-failed"),
         internalMetadata = composedEvent.internalMetadata,
         reason = deliveryError.description,
         errorCode = deliveryError.errorCode
@@ -96,7 +98,9 @@ trait BuilderInstances {
   implicit val buildfailedFromSms = {
     BuildFailed.instance[ComposedSMSV4] { (composedEvent, deliveryError) =>
       FailedV3(
-        metadata = MetadataV3.fromSourceMetadata("delivery-service", composedEvent.metadata),
+        metadata = MetadataV3.fromSourceMetadata("delivery-service",
+                                                 composedEvent.metadata,
+                                                 s"${composedEvent.metadata.eventId}-failed"),
         internalMetadata = composedEvent.internalMetadata,
         reason = deliveryError.description,
         errorCode = deliveryError.errorCode
@@ -107,7 +111,9 @@ trait BuilderInstances {
   implicit val buildfailedFromPrint = {
     BuildFailed.instance[ComposedPrintV2] { (composedEvent, deliveryError) =>
       FailedV3(
-        metadata = MetadataV3.fromSourceMetadata("delivery-service", composedEvent.metadata),
+        metadata = MetadataV3.fromSourceMetadata("delivery-service",
+                                                 composedEvent.metadata,
+                                                 s"${composedEvent.metadata.eventId}-failed"),
         internalMetadata = composedEvent.internalMetadata,
         reason = deliveryError.description,
         errorCode = deliveryError.errorCode

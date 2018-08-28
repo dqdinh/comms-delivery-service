@@ -6,6 +6,7 @@ import java.time.Clock
 import akka.actor.ActorSystem
 import cats.effect.{Effect, IO}
 import com.ovoenergy.comms.helpers.{Kafka, KafkaClusterConfig, Topic}
+import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
@@ -36,7 +37,6 @@ import org.apache.kafka.clients.CommonClientConfigs
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecord}
 import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.config.SslConfigs
-import com.ovoenergy.comms.serialisation.Codecs._
 import cats.implicits._
 
 import scala.concurrent.duration.{FiniteDuration, _}
