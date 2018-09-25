@@ -36,7 +36,6 @@ The docker-compose.yml file included in the project is used for service testing 
 ### Unit Test
 
 Tests are executed via `sbt test`
-
 ### Service Tests
 
 [Service tests] (https://github.com/ovotech/comms-delivery-service/tree/master/src/servicetest/scala/servicetest) execute the service as a 'black box' using docker-compose, as described above.
