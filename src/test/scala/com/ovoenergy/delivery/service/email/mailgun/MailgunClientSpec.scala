@@ -3,16 +3,17 @@ package com.ovoenergy.delivery.service.email.mailgun
 import java.io.ByteArrayOutputStream
 import java.net.URLDecoder
 import java.time._
-import java.time.format.DateTimeFormatter
 
-import akka.Done
+import cats.effect.IO
+import cats.implicits._
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email._
 import com.ovoenergy.delivery.config
 import com.ovoenergy.delivery.config.MailgunAppConfig
+import com.ovoenergy.delivery.service.domain
+import com.ovoenergy.delivery.service.domain.Content.CustomFormData
 import com.ovoenergy.delivery.service.domain._
-import com.ovoenergy.delivery.service.email.mailgun.MailgunClient.CustomFormData
-import com.ovoenergy.delivery.service.util.{ArbGenerator, Retry}
+import com.ovoenergy.delivery.service.util.ArbGenerator
 import eu.timepit.refined._
 import eu.timepit.refined.numeric.Positive
 import io.circe
@@ -22,13 +23,21 @@ import io.circe.generic.auto._
 import io.circe.Decoder
 import okhttp3._
 import okio.Okio
-import org.scalacheck.Shapeless._
 import org.scalatest.{Failed => _, _}
 
 import scala.util.Try
 import scala.util.matching.Regex
 import scala.concurrent.duration._
-class MailgunClientSpec extends FlatSpec with Matchers with Arbitraries with ArbGenerator with EitherValues {
+import org.scalacheck.Shapeless._
+import org.scalatest.concurrent.ScalaFutures
+
+class MailgunClientSpec
+    extends AsyncFlatSpec
+    with Matchers
+    with Arbitraries
+    with ArbGenerator
+    with EitherValues
+    with ScalaFutures {
 
   val dateTime = OffsetDateTime.now(ZoneId.of("UTC"))
 
@@ -46,14 +55,12 @@ class MailgunClientSpec extends FlatSpec with Matchers with Arbitraries with Arb
 
   val successResponse = "{\n  \"id\": \"" + gatewayId + "\",\n  \"message\": \"Queued. Thank you.\"\n}"
 
-  val composedEmail = generate[ComposedEmailV4]
-  val emailSentRes  = generate[Done]
-  val deliveryError = generate[DeliveryError]
+  val composedContent = generate[Content.Email]
 
   behavior of "The Mailgun Client"
 
   it should "Send correct request to Mailgun API when only HTML present" in {
-    val composedNoText = composedEmail.copy(textBody = None)
+    val composedNoText = composedContent.copy(textBody = None)
     val okResponse = (request: Request) => {
       request.header("Authorization") shouldBe "Basic YXBpOmRmc2ZzZmRzZmRzZnM="
       request.url.toString shouldBe s"https://api.mailgun.net/v3/$mailgunDomain/messages"
@@ -74,13 +81,16 @@ class MailgunClientSpec extends FlatSpec with Matchers with Arbitraries with Arb
       }
     }
 
-    val result = MailgunClient.sendEmail(okResponse).apply(composedNoText)
-    result shouldBe Right(GatewayComm(gateway = Mailgun, id = gatewayId, channel = Email))
+    MailgunClient
+      .sendEmail[IO](okResponse)
+      .apply(composedNoText)
+      .unsafeToFuture
+      .map(_ shouldBe GatewayComm(gateway = Mailgun, id = gatewayId, channel = Email))
   }
 
   it should "Send correct request to Mailgun API when both text and HTML present" in {
-    val textBody              = Some("textBody")
-    val composedEmailWithText = composedEmail.copy(textBody = textBody)
+    val textBody                = Some(Content.TextBody("textBody"))
+    val composedContentWithText = composedContent.copy(textBody = textBody)
     val okResponse = (request: Request) => {
       request.header("Authorization") shouldBe "Basic YXBpOmRmc2ZzZmRzZmRzZnM="
       request.url.toString shouldBe s"https://api.mailgun.net/v3/$mailgunDomain/messages"
@@ -101,8 +111,11 @@ class MailgunClientSpec extends FlatSpec with Matchers with Arbitraries with Arb
       }
     }
 
-    val result = MailgunClient.sendEmail(okResponse).apply(composedEmailWithText)
-    result shouldBe Right(GatewayComm(gateway = Mailgun, id = gatewayId, channel = Email))
+    MailgunClient
+      .sendEmail[IO](okResponse)
+      .apply(composedContentWithText)
+      .unsafeToFuture
+      .map(_ shouldBe GatewayComm(gateway = Mailgun, id = gatewayId, channel = Email))
   }
 
   it should "Generate correct failure when an exception is thrown in the http client" in {
@@ -112,9 +125,16 @@ class MailgunClientSpec extends FlatSpec with Matchers with Arbitraries with Arb
       }
     }
 
-    val result = MailgunClient.sendEmail(badResponse).apply(composedEmail)
+    val res = MailgunClient
+      .sendEmail[IO](badResponse)
+      .apply(composedContent)
+      .unsafeToFuture()
+      .failed
+      .futureValue
 
-    result shouldBe Left(ExceptionOccurred(EmailGatewayError))
+    val ExceptionOccurred(code, _) = res
+
+    code shouldBe EmailGatewayError
   }
 
   it should "Generate correct failure for a 'bad request' response from Mailgun API" in {
@@ -128,13 +148,20 @@ class MailgunClientSpec extends FlatSpec with Matchers with Arbitraries with Arb
           .build()
       }
     }
-    val result = MailgunClient.sendEmail(badResponse).apply(composedEmail)
 
-    result shouldBe Left(APIGatewayBadRequest(EmailGatewayError))
+    val res = MailgunClient
+      .sendEmail[IO](badResponse)
+      .apply(composedContent)
+      .unsafeToFuture()
+      .failed
+      .futureValue
+
+    val APIGatewayBadRequest(code, _) = res
+    code shouldBe EmailGatewayError
   }
 
   it should "Generate correct failure for a '5xx' responses from Mailgun API" in {
-    for (responseCode <- 500 to 511) {
+    val f: List[IO[Either[Throwable, domain.GatewayComm]]] = (500 to 511).map { responseCode =>
       val badResponse = (request: Request) => {
         Try[Response] {
           new Response.Builder()
@@ -145,10 +172,25 @@ class MailgunClientSpec extends FlatSpec with Matchers with Arbitraries with Arb
             .build()
         }
       }
-      val result = MailgunClient.sendEmail(badResponse).apply(composedEmail)
+      MailgunClient
+        .sendEmail[IO](badResponse)
+        .apply(composedContent)
+        .attempt
+    }.toList
 
-      result shouldBe Left(APIGatewayInternalServerError(EmailGatewayError))
-    }
+//    // TODO: Better way of doing this
+    f.sequence
+      .unsafeToFuture()
+      .map { results: List[Either[Throwable, domain.GatewayComm]] =>
+        val apiErrors = results.flatMap {
+          case Left(err: APIGatewayInternalServerError) => Some(err)
+          case _                                        => None
+        }
+        apiErrors.size shouldBe f.size
+        val distinctErrorCodes = apiErrors.map(_.error).distinct
+        distinctErrorCodes.size shouldBe 1
+        distinctErrorCodes.head shouldBe EmailGatewayError
+      }
   }
 
   it should "Generate correct failure for a 'authorization error' response from Mailgun API" in {
@@ -162,9 +204,15 @@ class MailgunClientSpec extends FlatSpec with Matchers with Arbitraries with Arb
           .build()
       }
     }
-    val result = MailgunClient.sendEmail(badResponse).apply(composedEmail)
-
-    result shouldBe Left(APIGatewayAuthenticationError(EmailGatewayError))
+    MailgunClient
+      .sendEmail[IO](badResponse)
+      .apply(composedContent)
+      .unsafeToFuture()
+      .failed
+      .map { res =>
+        val APIGatewayAuthenticationError(code, _) = res
+        code shouldBe EmailGatewayError
+      }
   }
 
   it should "Generate correct failure for any other response from Mailgun API" in {
@@ -178,18 +226,24 @@ class MailgunClientSpec extends FlatSpec with Matchers with Arbitraries with Arb
           .build()
       }
     }
-    val result = MailgunClient.sendEmail(badResponse).apply(composedEmail)
-
-    result shouldBe Left(APIGatewayUnspecifiedError(EmailGatewayError))
+    MailgunClient
+      .sendEmail[IO](badResponse)
+      .apply(composedContent)
+      .unsafeToFuture()
+      .failed
+      .map { res =>
+        val APIGatewayUnspecifiedError(code, _) = res
+        code shouldBe EmailGatewayError
+      }
   }
 
   private def assertFormData(out: ByteArrayOutputStream, textIncluded: Boolean) = {
     val formData = out.toString("UTF-8").split("&").map(formEntry => URLDecoder.decode(formEntry, "UTF-8"))
 
-    formData should contain(s"from=${composedEmail.sender}")
-    formData should contain(s"to=${composedEmail.recipient}")
-    formData should contain(s"subject=${composedEmail.subject}")
-    formData should contain(s"html=${composedEmail.htmlBody}")
+    formData should contain(s"from=${composedContent.sender.value}")
+    formData should contain(s"to=${composedContent.recipient.value}")
+    formData should contain(s"subject=${composedContent.subject.value}")
+    formData should contain(s"html=${composedContent.htmlBody.value}")
 
     if (textIncluded) formData should contain(s"text=textBody")
 
@@ -200,23 +254,9 @@ class MailgunClientSpec extends FlatSpec with Matchers with Arbitraries with Arb
         case regex(customJson) => decode[CustomFormData](customJson)
       }
       .getOrElse(fail())
-
     data match {
-      case Left(error) => fail
-      case Right(customJson) => {
-
-        customJson.createdAt shouldBe dateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        composedEmail.metadata.deliverTo match {
-          case Customer(customerId) => customJson.customerId shouldBe Some(customerId)
-          case _                    => customJson.customerId shouldBe None
-        }
-        customJson.traceToken shouldBe composedEmail.metadata.traceToken
-        customJson.canary shouldBe composedEmail.metadata.canary
-        customJson.internalTraceToken shouldBe composedEmail.internalMetadata.internalTraceToken
-        customJson.triggerSource shouldBe composedEmail.metadata.triggerSource
-        customJson.friendlyDescription shouldBe composedEmail.metadata.friendlyDescription
-        customJson.templateManifest.version shouldBe composedEmail.metadata.templateManifest.version
-      }
+      case Left(_)                           => fail
+      case Right(customJson: CustomFormData) => customJson shouldBe composedContent.customFormData
     }
   }
 }

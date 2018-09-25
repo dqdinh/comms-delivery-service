@@ -29,7 +29,7 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
   val localDynamo = LocalDynamoDb.client()
   val tableName   = "commRecord"
   val dynamoPersistence =
-    new DynamoPersistence(localDynamo)
+    new DynamoPersistence[IO](localDynamo)
 
   val commRecords = List(
     CommRecord("54ter54ertt34tgr", now.minusSeconds(10)),
@@ -40,24 +40,22 @@ class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAl
   override def beforeAll() = {
     LocalDynamoDb.withTable(localDynamo)(tableName)('hashedComm -> ScalarAttributeType.S) {
       commRecords.foreach(commRecord => {
-        println("Before all....")
-        dynamoPersistence.persistHashedComm[IO](commRecord).unsafeRunSync() shouldBe Right(true)
-        println("Finish before all")
+        dynamoPersistence.persistHashedComm(commRecord).unsafeRunSync() should be(())
       })
     }
   }
 
   it should "retrieve commRecord which is already stored at Dynamo" in {
     LocalDynamoDb.withTable(localDynamo)(tableName)('hashedComm -> ScalarAttributeType.S) {
-      commRecords.map(dynamoPersistence.persistHashedComm[IO]).sequence.unsafeRunSync()
-      dynamoPersistence.exists[IO](CommRecord(keyString, now.plusSeconds(10))).unsafeRunSync() shouldBe Right(true)
+      commRecords.map(dynamoPersistence.persistHashedComm).sequence.unsafeRunSync()
+      dynamoPersistence.exists(CommRecord(keyString, now.plusSeconds(10))).unsafeRunSync() shouldBe true
     }
 
   }
 
   it should "return Right(commRecord) if the call is successful but the record does not exist" in {
     LocalDynamoDb.withTable(localDynamo)(tableName)('hashedComm -> ScalarAttributeType.S) {
-      dynamoPersistence.exists[IO](CommRecord("nonExistingKey", now)).unsafeRunSync() shouldBe Right(false)
+      dynamoPersistence.exists(CommRecord("nonExistingKey", now)).unsafeRunSync() shouldBe false
     }
   }
 

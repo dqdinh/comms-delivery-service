@@ -1,8 +1,9 @@
 package com.ovoenergy.delivery.service.logging
 
 import cats.{Contravariant, Show, Traverse}
-import cats.syntax.all._
+import cats.implicits._
 import com.ovoenergy.comms.model.LoggableEvent
+import com.ovoenergy.delivery.service.domain.Content
 import org.slf4j.{Logger, LoggerFactory, MDC}
 
 import scala.language.higherKinds
@@ -144,6 +145,11 @@ object Loggable {
         Map(k -> v.show)
     }
 
+  implicit def optionLoggable[A](implicit loggableA: Loggable[A]): Loggable[Option[A]] = instance[Option[A]] {
+    case Some(a) => loggableA.mdcMap(a)
+    case None    => Map.empty
+  }
+
   implicit def mapLoggable[A, B](implicit abLoggable: Loggable[(A, B)]): Loggable[Map[A, B]] = instance { xs =>
     xs.foldLeft(Map.empty[String, String]) { (s, x) =>
       s ++ abLoggable.mdcMap(x)
@@ -207,5 +213,9 @@ object Loggable {
     }
 
   implicit def loggableEventLoggable[A <: LoggableEvent]: Loggable[A] = Loggable.instance(_.mdcMap)
+
+  implicit def loggableEmailContent: Loggable[Content.Email] = Loggable.instance[Content.Email](_ => Map.empty)
+  implicit def loggableSMSContent: Loggable[Content.SMS]     = Loggable.instance[Content.SMS](_ => Map.empty)
+  implicit def loggablePrintContent: Loggable[Content.Print] = Loggable.instance[Content.Print](_ => Map.empty)
 
 }

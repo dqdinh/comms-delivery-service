@@ -1,7 +1,7 @@
 package com.ovoenergy.delivery.service
 
 import java.nio.file.Paths
-import java.time.Clock
+import java.time.{Clock, ZonedDateTime}
 
 import akka.actor.ActorSystem
 import cats.effect.{Effect, IO}
@@ -11,8 +11,7 @@ import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
 import com.ovoenergy.comms.model.{FailedV3, Feedback, IssuedForDeliveryV3}
-import com.ovoenergy.comms.templates.model.template.metadata.TemplateId
-import com.ovoenergy.comms.templates.{TemplateMetadataContext, TemplateMetadataRepo}
+import com.ovoenergy.comms.templates.TemplateMetadataContext
 import com.ovoenergy.delivery.config._
 import com.ovoenergy.delivery.service.ErrorHandling._
 import com.ovoenergy.delivery.service.domain._
@@ -22,7 +21,7 @@ import com.ovoenergy.delivery.service.http.HttpClient
 import com.ovoenergy.delivery.service.kafka.process.{FailedEvent, IssuedForDeliveryEvent}
 import com.ovoenergy.delivery.service.kafka.{EventProcessor, Producer}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
-import com.ovoenergy.delivery.service.persistence.{AwsProvider, DynamoPersistence, S3PdfRepo}
+import com.ovoenergy.delivery.service.persistence._
 import com.ovoenergy.delivery.service.print.IssuePrint
 import com.ovoenergy.delivery.service.print.stannp.StannpClient
 import com.ovoenergy.delivery.service.sms.IssueSMS
@@ -30,6 +29,8 @@ import com.ovoenergy.delivery.service.sms.twilio.TwilioClient
 import com.ovoenergy.delivery.service.validation.{BlackWhiteList, ExpiryCheck}
 import com.ovoenergy.fs2.kafka.{ConsumerSettings, Subscription, consumeProcessAndCommit}
 import com.ovoenergy.kafka.serialization.core.constDeserializer
+
+import scala.language.reflectiveCalls
 import com.sksamuel.avro4s.{FromRecord, SchemaFor, ToRecord}
 import com.typesafe.config.ConfigFactory
 import fs2._
@@ -46,6 +47,7 @@ import scala.reflect.ClassTag
 object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
 
   implicit val clock            = Clock.systemDefaultZone()
+  implicit val dt               = IO(ZonedDateTime.now)
   implicit val conf             = ConfigFactory.load()
   implicit val actorSystem      = ActorSystem("kafka")
   implicit val executionContext = actorSystem.dispatcher
@@ -80,28 +82,37 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
 
   val dynamoClient = AwsProvider.dynamoClient(isRunningInLocalDocker)
 
-  val dynamoPersistence = new DynamoPersistence(dynamoClient)
+  val dynamoPersistence = new DynamoPersistence[IO](dynamoClient)
 
   val templateMetadataContext = TemplateMetadataContext(dynamoClient, appConf.aws.dynamo.tableNames.templateSummary)
-  val templateMetadataRepo    = TemplateMetadataRepo.getTemplateSummary(templateMetadataContext, _: TemplateId)
+  val templateMetadataRepo    = TemplateMetadataRepo[IO](templateMetadataContext)
 
-  val issueEmailComm: (ComposedEmailV4) => Either[DeliveryError, GatewayComm] = IssueEmail.issue(
+  val s3Repo = S3Repo.apply[IO] {
+    AwsProvider.getS3Context(isRunningInLocalDocker)
+  }
+
+  val commContent = CommContent.apply[IO](s3Repo)
+
+  val issueEmailComm: (ComposedEmailV4) => IO[GatewayComm] = IssueEmail.issue[IO](
     checkBlackWhiteList = BlackWhiteList.buildForEmail,
     isExpired = ExpiryCheck.isExpired,
-    sendEmail = MailgunClient.sendEmail(HttpClient.apply)
+    sendEmail = MailgunClient.sendEmail[IO](HttpClient.apply),
+    content = commContent
   )
 
-  val issueSMSComm: (ComposedSMSV4) => Either[DeliveryError, GatewayComm] = IssueSMS.issue(
-    checkBlackWhiteList = BlackWhiteList.buildForSms,
-    isExpired = ExpiryCheck.isExpired,
-    templateMetadataRepo = templateMetadataRepo,
-    sendSMS = TwilioClient.send(HttpClient.apply)
-  )
+  val issueSMSComm = IssueSMS
+    .issue[IO](
+      checkBlackWhiteList = BlackWhiteList.buildForSms,
+      isExpired = ExpiryCheck.isExpired,
+      templateMetadataRepo = templateMetadataRepo,
+      sendSMS = TwilioClient.send[IO](HttpClient.apply),
+      content = commContent
+    )
 
-  val issuePrintComm: (ComposedPrintV2) => Either[DeliveryError, GatewayComm] = IssuePrint.issue(
+  val issuePrintComm: (ComposedPrintV2) => IO[GatewayComm] = IssuePrint.issue[IO](
     isExpired = ExpiryCheck.isExpired,
-    getPdf = S3PdfRepo.getPdfDocument(AwsProvider.getS3Context(isRunningInLocalDocker)),
-    sendPrint = StannpClient.send(HttpClient.apply)
+    content = commContent,
+    sendPrint = StannpClient.send[IO](HttpClient.apply)
   )
 
   for (line <- Source.fromFile("./banner.txt").getLines) {

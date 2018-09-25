@@ -25,7 +25,7 @@ class FailedEventSpec extends FlatSpec with Matchers with Arbitraries with ArbGe
     val composedEmail = generate[ComposedEmailV4]
     val rms = FailedEvent
       .apply[IO, ComposedEmailV4](publishLegacyFailed, publishFeedback)
-      .apply(composedEmail, APIGatewayUnspecifiedError(EmailGatewayError))
+      .apply(composedEmail, APIGatewayUnspecifiedError(EmailGatewayError, "Something went wrong"))
       .unsafeRunSync()
 
     rms should contain theSameElementsAs Seq(feedbackRm, failedRm)
@@ -35,7 +35,7 @@ class FailedEventSpec extends FlatSpec with Matchers with Arbitraries with ArbGe
     val composedSms = generate[ComposedSMSV4]
     val rms = FailedEvent
       .apply[IO, ComposedSMSV4](publishLegacyFailed, publishFeedback)
-      .apply(composedSms, APIGatewayUnspecifiedError(EmailGatewayError))
+      .apply(composedSms, APIGatewayUnspecifiedError(EmailGatewayError, "Something went wrong"))
       .unsafeRunSync()
 
     rms should contain theSameElementsAs Seq(feedbackRm, failedRm)
@@ -45,7 +45,7 @@ class FailedEventSpec extends FlatSpec with Matchers with Arbitraries with ArbGe
     val composedPrint = generate[ComposedPrintV2]
     val rms = FailedEvent
       .apply[IO, ComposedPrintV2](publishLegacyFailed, publishFeedback)
-      .apply(composedPrint, APIGatewayUnspecifiedError(EmailGatewayError))
+      .apply(composedPrint, APIGatewayUnspecifiedError(EmailGatewayError, "Something went wrong"))
       .unsafeRunSync()
 
     rms should contain theSameElementsAs Seq(feedbackRm, failedRm)

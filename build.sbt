@@ -120,7 +120,9 @@ lazy val service = (project in file("."))
   )
   .enablePlugins(JavaServerAppPackaging, DockerPlugin)
 
-startDynamoDBLocal := startDynamoDBLocal.dependsOn(compile in Test).value
+startDynamoDBLocal := startDynamoDBLocal
+  .dependsOn(compile in Test)
+  .value // TODO: Only start up for tests which need it!
 test in Test := (test in Test).dependsOn(startDynamoDBLocal).value
 testOnly in Test := (testOnly in Test).dependsOn(startDynamoDBLocal).evaluated
 testOptions in Test += dynamoDBLocalTestCleanup.value

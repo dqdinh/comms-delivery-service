@@ -65,7 +65,7 @@ class SMSServiceTestIT
   it should "create Failed event when authentication fails with Twilio" in {
     createTwilioResponse(401, unauthenticatedResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV4]
+      val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
       val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
       val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
 

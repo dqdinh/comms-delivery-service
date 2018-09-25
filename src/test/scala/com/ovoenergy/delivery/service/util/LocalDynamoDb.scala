@@ -16,7 +16,6 @@ object LocalDynamoDb {
   println("In LocalDynamoDb")
 
   def client(endPoint: String = s"http://localhost:8000") = {
-    println("In method Client")
     AmazonDynamoDBAsyncClientBuilder
       .standard()
       .withCredentials(creds)

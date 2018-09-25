@@ -1,11 +1,10 @@
 package com.ovoenergy.delivery.service.print.stannp
 
-import java.time.Clock
-
+import cats.effect.Sync
+import cats.implicits._
 import com.ovoenergy.comms.model.{Print, PrintGatewayError, Stannp, UnexpectedDeliveryError}
 import com.ovoenergy.delivery.config.StannpConfig
 import com.ovoenergy.delivery.service.domain._
-import com.ovoenergy.delivery.service.print.IssuePrint.PdfDocument
 import com.ovoenergy.delivery.service.util.Retry
 import okhttp3._
 import cats.syntax.either._
@@ -19,10 +18,10 @@ import scala.util.{Failure, Success, Try}
 
 object StannpClient extends LoggingWithMDC {
 
-  def send(httpClient: (Request) => Try[Response])(
+  def send[F[_]](httpClient: (Request) => Try[Response])(
       implicit stannpConfig: StannpConfig,
-      clock: Clock): (PdfDocument, ComposedPrintV2) => Either[DeliveryError, GatewayComm] =
-    (pdf: PdfDocument, event: ComposedPrintV2) => {
+      F: Sync[F]): (Content.Print, ComposedPrintV2) => F[GatewayComm] =
+    (content: Content.Print, event: ComposedPrintV2) => {
 
       val credentials = Credentials.basic(stannpConfig.apiKey, stannpConfig.password)
 
@@ -35,50 +34,56 @@ object StannpClient extends LoggingWithMDC {
       val request = new Request.Builder()
         .header("Authorization", credentials)
         .url(s"${stannpConfig.url}/api/v1/letters/post")
-        .post(buildSendEmailForm(pdf, stannpConfig, testDocument))
+        .post(buildSendPrintForm(content, stannpConfig, testDocument))
         .build()
 
-      val result = Retry.retry[DeliveryError, GatewayComm](Retry.constantDelay(stannpConfig.retry), _ => ()) { () =>
-        httpClient(request) match {
-          case Success(response) => handleStannpResponse(response, event)
-          case Failure(e) => {
-            logWarn(event, "Request to Stannp failed", e)
-            Left(StannpConnectionError(UnexpectedDeliveryError))
+      val r: F[Either[Throwable, GatewayComm]] = F.delay {
+        val result = Retry.retry[DeliveryError, GatewayComm](Retry.constantDelay(stannpConfig.retry), _ => ()) { () =>
+          httpClient(request) match {
+            case Success(response) => handleStannpResponse(response)
+            case Failure(e) => {
+              Left(StannpConnectionError(UnexpectedDeliveryError, s"Request to Stannp failed: ${e.getMessage}"))
+            }
           }
         }
-      }
 
-      result
-        .leftMap(failed => failed.finalFailure)
-        .map(succeeded => succeeded.result)
+        result
+          .leftMap(failed => failed.finalFailure)
+          .map(succeeded => succeeded.result)
+      }
+      r.rethrow
     }
 
   case class Data(id: String)
   case class SendPrintSuccessResponse(success: Boolean, data: Data)
   case class SendPrintFailureResponse(success: Boolean, error: String)
 
-  private def handleStannpResponse(response: Response, event: ComposedPrintV2): Either[DeliveryError, GatewayComm] = {
+  private def handleStannpResponse(response: Response): Either[DeliveryError, GatewayComm] = {
 
     val responseBody = response.body().string()
 
     def handleFailedResponse(errorCode: Int) = errorCode match {
       case 401 => {
-        logWarn(event, "Error sending print via Stannp API, authorization with Stannp API failed")
-        Left(APIGatewayAuthenticationError(PrintGatewayError))
+        Left(
+          APIGatewayAuthenticationError(PrintGatewayError,
+                                        "Error sending print via Stannp API, authorization with Stannp API failed"))
       }
       case 500 => {
         val error = parseResponse[SendPrintFailureResponse](responseBody)
           .map("- " + _.error)
           .getOrElse("Failed to parse error response from Stannp")
-        logWarn(event, s"Error sending print via Stannp API, Stannp API internal error: ${response.code} - $error")
-        Left(APIGatewayInternalServerError(PrintGatewayError))
+        Left(
+          APIGatewayInternalServerError(
+            PrintGatewayError,
+            s"Error sending print via Stannp API, Stannp API internal error: ${response.code} - $error"))
       }
       case _ => {
         val error = parseResponse[SendPrintFailureResponse](responseBody)
           .map("- " + _.error)
           .getOrElse("Failed to parse error response from Stannp")
-        logWarn(event, s"Error sending print via Stannp API, Stannp error code: $errorCode - $error")
-        Left(StannpConnectionError(PrintGatewayError))
+        Left(
+          StannpConnectionError(PrintGatewayError,
+                                s"Error sending print via Stannp API, Stannp error code: $errorCode - $error"))
       }
     }
 
@@ -91,13 +96,12 @@ object StannpClient extends LoggingWithMDC {
     }
   }
 
-  private def buildSendEmailForm(pdfDocument: PdfDocument, stannpConfig: StannpConfig, test: String)(
-      implicit clock: Clock) = {
+  private def buildSendPrintForm(content: Content.Print, stannpConfig: StannpConfig, test: String) = {
     new MultipartBody.Builder()
       .setType(MultipartBody.FORM)
       .addFormDataPart("test", test)
       .addFormDataPart("country", stannpConfig.country)
-      .addFormDataPart("pdf", "pdf", RequestBody.create(MediaType.parse("application/pdf"), pdfDocument))
+      .addFormDataPart("pdf", "pdf", RequestBody.create(MediaType.parse("application/pdf"), content.value))
       .build()
   }
 

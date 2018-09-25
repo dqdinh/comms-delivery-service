@@ -2,24 +2,26 @@ package com.ovoenergy.delivery.service.sms.twilio
 
 import java.io.ByteArrayOutputStream
 
+import cats.effect.IO
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms._
 import com.ovoenergy.comms.templates.model.Brand
 import com.ovoenergy.delivery.config.{ConstantDelayRetry, TwilioAppConfig, TwilioServiceSids}
 import com.ovoenergy.delivery.service.domain._
+import com.ovoenergy.delivery.service.sms.twilio.TwilioClient.TwilioData
 import com.ovoenergy.delivery.service.util.ArbGenerator
 import okhttp3._
-import okio.{Buffer, Okio}
-import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.{FlatSpec, Matchers}
+import okio.Okio
+import org.scalacheck.Arbitrary
+import org.scalatest.Matchers
 
 import scala.io.Source
 import scala.util.Try
 
-// Implicits
+import org.scalacheck.Shapeless._
 import org.scalatest.{Failed => _, _}
 
-class TwilioClientSpec extends FlatSpec with Matchers with Arbitraries with ArbGenerator with EitherValues {
+class TwilioClientSpec extends AsyncFlatSpec with Matchers with Arbitraries with ArbGenerator with EitherValues {
 
   implicit val arbTwilioConfig: Arbitrary[TwilioAppConfig] = Arbitrary {
     TwilioAppConfig(
@@ -37,8 +39,8 @@ class TwilioClientSpec extends FlatSpec with Matchers with Arbitraries with ArbG
     )
   }
 
-  val composedSMS = generate[ComposedSMSV4]
-  val brand       = generate[Brand]
+  val twilioData = generate[TwilioData]
+  val brand      = generate[Brand]
 
   private def getFileString(file: String) = {
     Source
@@ -50,13 +52,12 @@ class TwilioClientSpec extends FlatSpec with Matchers with Arbitraries with ArbG
   val unauthenticatedResponse = getFileString("src/test/resources/FailedTwilioResponse.json")
   val badRequestResponse      = getFileString("src/test/resources/BadRequestTwilioResponse.json")
 
-  def httpClient(responseBody: String, responseStatusCode: Int, assertions: Request => Unit) = (request: Request) => {
+  def httpClient(responseBody: String, responseStatusCode: Int) = (request: Request) => {
 
     val out    = new ByteArrayOutputStream
     val buffer = Okio.buffer(Okio.sink(out))
     request.body().writeTo(buffer)
     buffer.flush()
-    assertions(request)
 
     Try[Response] {
       new Response.Builder()
@@ -70,33 +71,40 @@ class TwilioClientSpec extends FlatSpec with Matchers with Arbitraries with ArbG
 
   it should "Handle valid response from Twilio API" in {
     implicit val twilioConfig = generate[TwilioAppConfig]
-    val sid                   = TwilioClient.serviceSid(twilioConfig.serviceSids, brand)
-
-    def assertSid(request: Request) = {
-      val buffer = new Buffer()
-      request.body().writeTo(buffer)
-      buffer.readUtf8() should include(sid)
-      ()
-    }
-
-    val client = httpClient(validResponse, 200, assertSid)
-    val result = TwilioClient.send(client)(twilioConfig).apply(composedSMS, brand)
-
-    result shouldBe Right(GatewayComm(Twilio, "1234567890", SMS))
+    val client                = httpClient(validResponse, 200)
+    TwilioClient
+      .send[IO](client)
+      .apply(twilioData)
+      .unsafeToFuture()
+      .map(_ shouldBe GatewayComm(Twilio, "1234567890", SMS))
   }
 
   it should "Handle 401 Not Authenticated responses" in {
     implicit val twilioConfig = generate[TwilioAppConfig]
-    val client                = httpClient(unauthenticatedResponse, 401, _ => ())
-    val result                = TwilioClient.send(client).apply(composedSMS, brand)
+    val client                = httpClient(unauthenticatedResponse, 401)
 
-    result shouldBe Left(APIGatewayAuthenticationError(SMSGatewayError))
+    TwilioClient
+      .send[IO](client)
+      .apply(twilioData)
+      .unsafeToFuture()
+      .failed
+      .map { res =>
+        val APIGatewayAuthenticationError(code, _) = res
+        code shouldBe SMSGatewayError
+      }
   }
 
   it should "Handle Bad request responses" in {
     implicit val twilioConfig = generate[TwilioAppConfig]
-    val client                = httpClient(badRequestResponse, 400, _ => ())
-    val result                = TwilioClient.send(client).apply(composedSMS, brand)
-    result shouldBe Left(APIGatewayBadRequest(SMSGatewayError))
+    val client                = httpClient(badRequestResponse, 400)
+    TwilioClient
+      .send[IO](client)
+      .apply(twilioData)
+      .unsafeToFuture()
+      .failed
+      .map { res =>
+        val APIGatewayBadRequest(code, _) = res
+        code shouldBe SMSGatewayError
+      }
   }
 }

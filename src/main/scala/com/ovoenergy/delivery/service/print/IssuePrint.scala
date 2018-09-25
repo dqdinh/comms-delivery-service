@@ -2,35 +2,29 @@ package com.ovoenergy.delivery.service.print
 
 import java.time.Instant
 
+import cats.effect.Sync
+import cats.implicits._
 import com.ovoenergy.comms.model.print.ComposedPrintV2
-import com.ovoenergy.delivery.service.domain.{DeliveryError, Expired, GatewayComm}
+import com.ovoenergy.delivery.service.domain.{Content, Expired, GatewayComm}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
-import com.ovoenergy.delivery.service.persistence.AwsProvider.S3Context
-import com.ovoenergy.delivery.service.persistence.S3PdfRepo
+import com.ovoenergy.delivery.service.persistence.{CommContent}
 
 object IssuePrint extends LoggingWithMDC {
-
-  type PdfDocument = Array[Byte]
-
-  def issue(isExpired: Option[Instant] => Boolean,
-            getPdf: ComposedPrintV2 => Either[DeliveryError, PdfDocument],
-            sendPrint: (PdfDocument, ComposedPrintV2) => Either[DeliveryError, GatewayComm])(
-      composedPrint: ComposedPrintV2): Either[DeliveryError, GatewayComm] = {
-
-    def expiryCheck: Either[DeliveryError, Unit] = {
-      if (isExpired(composedPrint.expireAt)) {
-        logInfo(composedPrint, s"Comm was expired")
-        Left(Expired)
-      } else {
-        Right(())
-      }
+  def issue[F[_]](isExpired: Option[Instant] => Boolean,
+                  content: CommContent[F],
+                  sendPrint: (Content.Print, ComposedPrintV2) => F[GatewayComm])(
+      implicit F: Sync[F]): ComposedPrintV2 => F[GatewayComm] = { composedPrint: ComposedPrintV2 =>
+    def expiryCheck: F[Unit] = {
+      if (isExpired(composedPrint.expireAt))
+        F.delay(logInfo(composedPrint, s"Comm was expired")) >> F.raiseError(Expired)
+      else
+        F.unit
     }
 
-    import cats.syntax.either._
     for {
-      _           <- expiryCheck
-      pdf         <- getPdf(composedPrint)
-      gatewayComm <- sendPrint(pdf, composedPrint)
+      _            <- expiryCheck
+      printContent <- content.getPrintContent(composedPrint)
+      gatewayComm  <- sendPrint(printContent, composedPrint)
     } yield gatewayComm
   }
 }

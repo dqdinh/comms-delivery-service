@@ -90,6 +90,16 @@ Resources:
               Resource:
                 Fn::ImportValue:
                   TemplateSummaryTableArn # <- Exported from Template manager cloudformation.yml
+        -
+          PolicyName: read-comms-content
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action:
+                - "s3:Get*"
+                - "s3:List*"
+              Resource:
+                - !Sub "arn:aws:s3:::ovo-comms-rendered-content-${Environment}"
 
   CommRecordTable:
     Type: AWS::DynamoDB::Table
