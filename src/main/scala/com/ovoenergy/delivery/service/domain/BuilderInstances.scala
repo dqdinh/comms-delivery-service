@@ -49,6 +49,7 @@ trait BuilderInstances {
         deliveryError.map(_.description),
         None,
         Some(Email),
+        Some(composedEvent.metadata.templateManifest),
         EventMetadata.fromMetadata(composedEvent.metadata, s"${composedEvent.metadata.eventId}-feedback")
       )
     }
@@ -63,6 +64,7 @@ trait BuilderInstances {
         deliveryError.map(_.description),
         None,
         Some(SMS),
+        Some(composedEvent.metadata.templateManifest),
         EventMetadata.fromMetadata(composedEvent.metadata, s"${composedEvent.metadata.eventId}-feedback")
       )
     }
@@ -77,6 +79,7 @@ trait BuilderInstances {
         deliveryError.map(_.description),
         None,
         Some(Print),
+        Some(composedEvent.metadata.templateManifest),
         EventMetadata.fromMetadata(composedEvent.metadata, s"${composedEvent.metadata.eventId}-feedback")
       )
     }
