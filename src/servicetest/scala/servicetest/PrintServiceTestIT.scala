@@ -117,7 +117,7 @@ class PrintServiceTestIT
       failedEvents.size shouldBe 1
       failedEvents.foreach(failed => {
         failed.reason shouldBe "Key i-dont-exist.pdf does not exist in bucket dev-ovo-comms-pdfs."
-        failed.errorCode shouldBe TemplateDownloadFailed
+        failed.errorCode shouldBe UnexpectedDeliveryError
       })
     }
   }

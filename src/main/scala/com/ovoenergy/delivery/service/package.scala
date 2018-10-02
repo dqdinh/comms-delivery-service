@@ -35,7 +35,7 @@ package object config {
                           country: String,
                           test: Boolean,
                           retry: ConstantDelayRetry)
-  case class S3Config(printPdfBucketName: String, ovoCommsRenderedContent: String, retryConfig: ConstantDelayRetry)
+  case class S3Config(printPdfBucketName: String, retryConfig: ConstantDelayRetry)
   case class AwsConfig(region: String, dynamo: DynamoDbConfig, s3: S3Config) {
     def buildRegion = Regions.fromName(region)
   }

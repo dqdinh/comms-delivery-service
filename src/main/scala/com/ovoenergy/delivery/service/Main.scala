@@ -91,7 +91,7 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
     AwsProvider.getS3Context(isRunningInLocalDocker)
   }
 
-  val commContent = CommContent.apply[IO](s3Repo)
+  val commContent = CommContent.apply[IO](s3Repo, appConf.aws.s3)
 
   val issueEmailComm: (ComposedEmailV4) => IO[GatewayComm] = IssueEmail.issue[IO](
     checkBlackWhiteList = BlackWhiteList.buildForEmail,

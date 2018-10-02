@@ -2,27 +2,27 @@ package com.ovoenergy.delivery.service.persistence
 
 import java.io.IOException
 
-import cats.effect.Sync
+import cats.effect.{Async, Sync}
 import com.amazonaws.services.s3.model.AmazonS3Exception
 import com.amazonaws.util.IOUtils
-import com.ovoenergy.comms.model.TemplateDownloadFailed
+import com.ovoenergy.comms.model.UnexpectedDeliveryError
 import com.ovoenergy.delivery.service.domain.{AmazonS3Error, DeliveryError, S3ConnectionError}
 import com.ovoenergy.delivery.service.logging.LoggingWithMDC
 import com.ovoenergy.delivery.service.persistence.AwsProvider.S3Context
 import com.ovoenergy.delivery.service.util.Retry
 import cats.implicits._
-import com.ovoenergy.delivery.service.persistence.S3Repo.Key
+import com.ovoenergy.delivery.service.persistence.S3Repo.{Bucket, Key}
 
 trait S3Repo[F[_]] {
-  def getDocument(key: Key): F[Array[Byte]]
+  def getDocument(key: Key, bucket: Bucket): F[Array[Byte]]
 }
 
 object S3Repo extends LoggingWithMDC {
 
   // TODO: Change to use https://github.com/ovotech/comms-aws
 
-  def apply[F[_]](s3Context: S3Context)(implicit F: Sync[F]) = new S3Repo[F]() {
-    def getDocument(key: Key): F[Array[Byte]] = {
+  def apply[F[_]](s3Context: S3Context)(implicit F: Async[F]) = new S3Repo[F]() {
+    def getDocument(key: Key, bucket: Bucket): F[Array[Byte]] = {
       val s3Config = s3Context.s3Config
       val s3Client = s3Context.s3Client
 
@@ -33,29 +33,21 @@ object S3Repo extends LoggingWithMDC {
       F.delay {
         Retry
           .retry[DeliveryError, Array[Byte]](Retry.constantDelay(s3Config.retryConfig), onFailure) { () =>
-            {
-              def loadContent(bucket: String): Either[DeliveryError, Array[Byte]] = {
-                try {
-                  val document = s3Client.getObject(bucket, key.value)
-                  Right(IOUtils.toByteArray(document.getObjectContent))
-                } catch {
-                  case e: IOException => {
-                    Left(S3ConnectionError(TemplateDownloadFailed, bucket, s"Failed to connect to S3: ${e.getMessage}"))
-                  }
-                  case e: AmazonS3Exception => {
-                    if (s3Config.printPdfBucketName != bucket) {
-                      return loadContent(s3Config.printPdfBucketName)
-                    } else {
-                      Left(
-                        AmazonS3Error(TemplateDownloadFailed,
-                                      bucket,
-                                      key.value,
-                                      s"Key ${key.value} does not exist in bucket ${bucket}"))
-                    }
-                  }
-                }
+            try {
+              val document = s3Client.getObject(bucket.value, key.value)
+              Right(IOUtils.toByteArray(document.getObjectContent))
+            } catch {
+              case e: IOException => {
+                Left(
+                  S3ConnectionError(UnexpectedDeliveryError, bucket.value, s"Failed to connect to S3: ${e.getMessage}"))
               }
-              loadContent(s3Config.ovoCommsRenderedContent)
+              case e: AmazonS3Exception => {
+                Left(
+                  AmazonS3Error(UnexpectedDeliveryError,
+                                bucket.value,
+                                key.value,
+                                s"Key ${key.value} does not exist in bucket ${bucket.value}"))
+              }
             }
           }
           .leftMap(_.finalFailure: Throwable)
@@ -64,5 +56,5 @@ object S3Repo extends LoggingWithMDC {
     }
   }
   case class Key(value: String)
-
+  case class Bucket(value: String)
 }
