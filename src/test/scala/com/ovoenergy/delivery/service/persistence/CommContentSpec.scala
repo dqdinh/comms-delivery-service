@@ -7,17 +7,28 @@ import cats.effect.IO
 import com.ovoenergy.comms.model.Arbitraries
 import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.comms.model.print.ComposedPrintV2
-import com.ovoenergy.delivery.service.util.ArbGenerator
+import com.ovoenergy.delivery.service.util.{ArbGenerator, Retry}
 import org.scalacheck.Arbitrary
 import org.scalatest.{AsyncFlatSpec, Matchers, OptionValues}
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
+import com.ovoenergy.delivery.config.{ConstantDelayRetry, S3Config}
+import com.ovoenergy.delivery.service.ConfigLoader
 import com.ovoenergy.delivery.service.domain.Content
+import com.ovoenergy.delivery.service.persistence.S3Repo.Bucket
+import eu.timepit.refined.numeric.Positive
+import eu.timepit.refined._
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.auto._
+import eu.timepit.refined.numeric._
+
+import scala.concurrent.duration._
 
 class CommContentSpec extends AsyncFlatSpec with Matchers with Arbitraries with ArbGenerator with OptionValues {
 
   behavior of "getEmailContent"
 
   implicit val time = IO(ZonedDateTime.now())
+  val s3Config      = S3Config("dev-ovo-comms-pdfs", ConstantDelayRetry(3, 3 seconds))
 
   it should "fetch the body of a comm from s3 if the content is a link" in {
     val composedEmailUrls: Arbitrary[ComposedEmailV4] = {
@@ -35,8 +46,8 @@ class CommContentSpec extends AsyncFlatSpec with Matchers with Arbitraries with 
             internalMetadata,
             sender,
             recipient,
-            s"https://s3.eu-west-2.amazonaws.com/${randomString}/subject",
-            s"https://s3.eu-west-2.amazonaws.com/${randomString}/htmlBody",
+            s"https://bucketName.s3-eu-west-2.amazonaws.com/${randomString}/subject",
+            s"https://bucketName.s3-eu-west-2.amazonaws.com/${randomString}/htmlBody",
             hashedComm,
             None,
             None
@@ -52,10 +63,11 @@ class CommContentSpec extends AsyncFlatSpec with Matchers with Arbitraries with 
     val expectedResultStrings = expectedResultBytes.mapValues(new String(_, StandardCharsets.UTF_8))
 
     val s3Repo = new S3Repo[IO] {
-      override def getDocument(key: S3Repo.Key): IO[Array[Byte]] = IO(expectedResultBytes.get(key.value).value)
+      override def getDocument(key: S3Repo.Key, bucket: Bucket): IO[Array[Byte]] =
+        IO(expectedResultBytes.get(s"https://bucketName.s3-eu-west-2.amazonaws.com/${key.value}").value)
     }
 
-    val commContent = CommContent.apply[IO](s3Repo)
+    val commContent = CommContent.apply[IO](s3Repo, s3Config)
     commContent
       .getEmailContent(composedEmailV4)
       .unsafeToFuture()
@@ -73,11 +85,11 @@ class CommContentSpec extends AsyncFlatSpec with Matchers with Arbitraries with 
   it should "pass through the comm body if the content is passed in the event" in {
     val composedEmailV4 = generate[ComposedEmailV4]
     val s3Repo = new S3Repo[IO] {
-      override def getDocument(key: S3Repo.Key): IO[Array[Byte]] =
+      override def getDocument(key: S3Repo.Key, bucket: Bucket): IO[Array[Byte]] =
         IO.raiseError(fail("S3 invoked where comm contents were not a link"))
     }
 
-    val commContent = CommContent.apply[IO](s3Repo)
+    val commContent = CommContent.apply[IO](s3Repo, s3Config)
     commContent
       .getEmailContent(composedEmailV4)
       .unsafeToFuture()
@@ -116,10 +128,10 @@ class CommContentSpec extends AsyncFlatSpec with Matchers with Arbitraries with 
     val expectedResultString = new String(expectedResultBytes, StandardCharsets.UTF_8)
 
     val s3Repo = new S3Repo[IO] {
-      override def getDocument(key: S3Repo.Key): IO[Array[Byte]] = IO(expectedResultBytes)
+      override def getDocument(key: S3Repo.Key, bucket: Bucket): IO[Array[Byte]] = IO(expectedResultBytes)
     }
 
-    val commContent = CommContent.apply[IO](s3Repo)
+    val commContent = CommContent.apply[IO](s3Repo, s3Config)
     commContent
       .getSMSContent(composedSMS)
       .unsafeToFuture()
@@ -131,12 +143,12 @@ class CommContentSpec extends AsyncFlatSpec with Matchers with Arbitraries with 
   it should "pass through the comm body if the content is passed in the event" in {
     val composedSMS = generate[ComposedSMSV4]
     val s3Repo = new S3Repo[IO] {
-      override def getDocument(key: S3Repo.Key): IO[Array[Byte]] =
+      override def getDocument(key: S3Repo.Key, bucket: Bucket): IO[Array[Byte]] =
         IO.raiseError(fail("S3 invoked where comm contents were not a link"))
     }
 
     CommContent
-      .apply[IO](s3Repo)
+      .apply[IO](s3Repo, s3Config)
       .getSMSContent(composedSMS)
       .unsafeToFuture()
       .map(_.textBody.value shouldBe composedSMS.textBody)
@@ -149,12 +161,50 @@ class CommContentSpec extends AsyncFlatSpec with Matchers with Arbitraries with 
     val expectedResult = generate[Array[Byte]]
 
     val s3Repo = new S3Repo[IO] {
-      override def getDocument(key: S3Repo.Key): IO[Array[Byte]] =
-        IO(expectedResult)
+      override def getDocument(key: S3Repo.Key, bucket: Bucket): IO[Array[Byte]] =
+        if (bucket.value == "dev-ovo-comms-pdfs")
+          IO(expectedResult)
+        else
+          IO.raiseError(new Exception("Incorrect bucket name"))
     }
 
     CommContent
-      .apply[IO](s3Repo)
+      .apply[IO](s3Repo, s3Config)
+      .getPrintContent(composedPrint)
+      .unsafeToFuture
+      .map(_.value shouldBe expectedResult)
+  }
+
+  it should "fetch the body of a comm from S3 with full URI" in {
+    val arbComposedPrint: Arbitrary[ComposedPrintV2] = Arbitrary(
+      for {
+        metadata         <- arbMetadataV3.arbitrary
+        internalMetadata <- arbInternalMetadata.arbitrary
+        hashedComm       <- arbString.arbitrary
+        randomString     <- genNonEmptyString
+      } yield
+        ComposedPrintV2(
+          metadata,
+          internalMetadata,
+          s"https://bucketName.s3-eu-west-2.amazonaws.com/${randomString}",
+          hashedComm,
+          None
+        )
+    )
+
+    val composedPrint  = generate[ComposedPrintV2](arbComposedPrint)
+    val expectedResult = generate[Array[Byte]]
+
+    val s3Repo = new S3Repo[IO] {
+      override def getDocument(key: S3Repo.Key, bucket: Bucket): IO[Array[Byte]] =
+        if (bucket.value == "bucketName")
+          IO(expectedResult)
+        else
+          IO.raiseError(new Exception("Incorrect bucket name"))
+    }
+
+    CommContent
+      .apply[IO](s3Repo, s3Config)
       .getPrintContent(composedPrint)
       .unsafeToFuture
       .map(_.value shouldBe expectedResult)
