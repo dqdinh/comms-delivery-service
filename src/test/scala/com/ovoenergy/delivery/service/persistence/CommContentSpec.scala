@@ -162,7 +162,45 @@ class CommContentSpec extends AsyncFlatSpec with Matchers with Arbitraries with 
 
     val s3Repo = new S3Repo[IO] {
       override def getDocument(key: S3Repo.Key, bucket: Bucket): IO[Array[Byte]] =
-        IO(expectedResult)
+        if (bucket.value == "dev-ovo-comms-pdfs")
+          IO(expectedResult)
+        else
+          IO.raiseError(new Exception("Incorrect bucket name"))
+    }
+
+    CommContent
+      .apply[IO](s3Repo, s3Config)
+      .getPrintContent(composedPrint)
+      .unsafeToFuture
+      .map(_.value shouldBe expectedResult)
+  }
+
+  it should "fetch the body of a comm from S3 with full URI" in {
+    val arbComposedPrint: Arbitrary[ComposedPrintV2] = Arbitrary(
+      for {
+        metadata         <- arbMetadataV3.arbitrary
+        internalMetadata <- arbInternalMetadata.arbitrary
+        hashedComm       <- arbString.arbitrary
+        randomString     <- genNonEmptyString
+      } yield
+        ComposedPrintV2(
+          metadata,
+          internalMetadata,
+          s"https://bucketName.s3-eu-west-2.amazonaws.com/${randomString}",
+          hashedComm,
+          None
+        )
+    )
+
+    val composedPrint  = generate[ComposedPrintV2](arbComposedPrint)
+    val expectedResult = generate[Array[Byte]]
+
+    val s3Repo = new S3Repo[IO] {
+      override def getDocument(key: S3Repo.Key, bucket: Bucket): IO[Array[Byte]] =
+        if (bucket.value == "bucketName")
+          IO(expectedResult)
+        else
+          IO.raiseError(new Exception("Incorrect bucket name"))
     }
 
     CommContent
