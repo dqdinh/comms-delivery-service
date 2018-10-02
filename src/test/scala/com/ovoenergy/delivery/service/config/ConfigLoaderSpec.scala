@@ -65,7 +65,9 @@ class ConfigLoaderSpec extends FlatSpec with Matchers {
     StannpConfig("https://dash.stannp.com/api/v1/letters/post", "apiKeee", "pass", "GB", true, testRetry)
 
   val expectedAwsConfig =
-    AwsConfig("eu-west-1", DynamoDbConfig(testRetry, tableNames), S3Config("dev-ovo-comms-pdfs", testRetry))
+    AwsConfig("eu-west-1",
+              DynamoDbConfig(testRetry, tableNames),
+              S3Config("dev-ovo-comms-pdfs", "ovo-comms-rendered-content", testRetry))
 
   it should "load the configuration file" in {
 

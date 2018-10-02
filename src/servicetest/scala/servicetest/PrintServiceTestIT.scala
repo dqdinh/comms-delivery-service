@@ -70,10 +70,28 @@ class PrintServiceTestIT
     }
   }
 
-  it should "create a IssuedForDelivery event when Stannp returns a 200 response" in {
+  it should "create a IssuedForDelivery event when Stannp returns a 200 response (old bucket)" in {
     val composedPrintEvent = arbitraryComposedPrintEvent
     createOKStannpResponse()
     uploadTestPdf(composedPrintEvent.pdfIdentifier)
+
+    withThrowawayConsumerFor(topics.issuedForDelivery.v3) { consumer =>
+      topics.composedPrint.v2.publishOnce(composedPrintEvent, 10.seconds)
+      val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
+      issuedForDeliveryEvents.foreach(issuedForDelivery => {
+        issuedForDelivery.gatewayMessageId shouldBe "1234"
+        issuedForDelivery.gateway shouldBe Stannp
+        issuedForDelivery.channel shouldBe Print
+        issuedForDelivery.metadata.traceToken shouldBe composedPrintEvent.metadata.traceToken
+        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedPrintEvent.internalMetadata.internalTraceToken
+      })
+    }
+  }
+
+  it should "create a IssuedForDelivery event when Stannp returns a 200 response (new bucket)" in {
+    val composedPrintEvent = arbitraryComposedPrintEvent
+    createOKStannpResponse()
+    uploadToNewBucket(composedPrintEvent.pdfIdentifier)
 
     withThrowawayConsumerFor(topics.issuedForDelivery.v3) { consumer =>
       topics.composedPrint.v2.publishOnce(composedPrintEvent, 10.seconds)
@@ -95,7 +113,7 @@ class PrintServiceTestIT
     withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
       topics.composedPrint.v2.publishOnce(composedPrintEvent, 10.seconds)
 
-      val failedEvents = consumer.pollFor(noOfEventsExpected = 1)
+      val failedEvents = consumer.pollFor(noOfEventsExpected = 1, pollTime = 180.seconds)
       failedEvents.size shouldBe 1
       failedEvents.foreach(failed => {
         failed.reason shouldBe "Key i-dont-exist.pdf does not exist in bucket dev-ovo-comms-pdfs."
@@ -167,5 +185,11 @@ class PrintServiceTestIT
     s3Client.createBucket("dev-ovo-comms-pdfs")
     val f = new File("result.pdf")
     s3Client.putObject("dev-ovo-comms-pdfs", pdfIdentifier, f)
+  }
+
+  def uploadToNewBucket(pdfIdentifier: String) = {
+    s3Client.createBucket("ovo-comms-rendered-content")
+    val f = new File("result.pdf")
+    s3Client.putObject("ovo-comms-rendered-content", pdfIdentifier, f)
   }
 }
