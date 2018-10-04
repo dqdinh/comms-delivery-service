@@ -3,10 +3,9 @@ package servicetest.dynamo
 import com.amazonaws.services.dynamodbv2.model.AmazonDynamoDBException
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType._
 import com.gu.scanamo.{Scanamo, Table}
-import com.ovoenergy.comms.model.{CommManifest, Service, TemplateManifest}
+import com.ovoenergy.comms.model.{Service, TemplateManifest}
 import com.ovoenergy.comms.templates.model.Brand
 import com.ovoenergy.comms.templates.model.template.metadata.{TemplateId, TemplateSummary}
-import com.ovoenergy.comms.templates.util.Hash
 import com.ovoenergy.delivery.service.util.LocalDynamoDb
 
 trait DynamoTesting extends DynamoFormats {
@@ -27,17 +26,6 @@ trait DynamoTesting extends DynamoFormats {
       Service,
       Brand.Ovo,
       templateManifest.version
-    )
-    Scanamo.exec(dynamoClient)(templateSummaryTable.put(ts))
-  }
-
-  def populateTemplateSummaryTable(commManifest: CommManifest) = {
-    val ts = TemplateSummary(
-      TemplateId(Hash(commManifest.name)),
-      "blah blah blah",
-      Service,
-      Brand.Ovo,
-      commManifest.version
     )
     Scanamo.exec(dynamoClient)(templateSummaryTable.put(ts))
   }
