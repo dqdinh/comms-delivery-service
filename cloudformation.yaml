@@ -6,6 +6,9 @@ Parameters:
   Environment:
     Type: String
     AllowedValues: [ uat, prd ]
+  UpperCaseEnvironment:
+    Type: String
+    AllowedValues: [ UAT, PRD ]
 
 Conditions:
   IsProd: !Equals [ !Ref Environment, "prd" ]
@@ -96,10 +99,17 @@ Resources:
             Statement:
             - Effect: Allow
               Action:
-                - "s3:Get*"
-                - "s3:List*"
+                - "s3:GetObject"
+                - "s3:GetObjectVersion"
+                - "s3:ListBucket"
               Resource:
-                - !Sub "arn:aws:s3:::ovo-comms-rendered-content-${Environment}"
+              - Fn::ImportValue:
+                  !Sub "${UpperCaseEnvironment}-RenderedContent-Arn"
+              - Fn::Sub:
+                - "${BucketArn}/*"
+                - BucketArn:
+                    Fn::ImportValue:
+                      !Sub "${UpperCaseEnvironment}-RenderedContent-Arn"
 
   CommRecordTable:
     Type: AWS::DynamoDB::Table
