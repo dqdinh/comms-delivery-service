@@ -44,6 +44,7 @@ trait BuilderInstances {
     BuildFeedback.instance[ComposedEmailV4] { (composedEvent, deliveryError, feedbackStatus) =>
       Feedback(
         composedEvent.metadata.commId,
+        Some(composedEvent.metadata.friendlyDescription),
         extractCustomer(composedEvent.metadata.deliverTo),
         feedbackStatus,
         deliveryError.map(_.description),
@@ -59,6 +60,7 @@ trait BuilderInstances {
     BuildFeedback.instance[ComposedSMSV4] { (composedEvent, deliveryError, feedbackStatus) =>
       Feedback(
         composedEvent.metadata.commId,
+        Some(composedEvent.metadata.friendlyDescription),
         extractCustomer(composedEvent.metadata.deliverTo),
         feedbackStatus,
         deliveryError.map(_.description),
@@ -74,6 +76,7 @@ trait BuilderInstances {
     BuildFeedback.instance[ComposedPrintV2] { (composedEvent, deliveryError, feedbackStatus) =>
       Feedback(
         composedEvent.metadata.commId,
+        Some(composedEvent.metadata.friendlyDescription),
         extractCustomer(composedEvent.metadata.deliverTo),
         feedbackStatus,
         deliveryError.map(_.description),
