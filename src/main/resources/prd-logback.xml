@@ -7,7 +7,7 @@
         <additionalFields>service=delivery-service;environment=${ENV}</additionalFields>
     </appender>
     <appender name="GELF UDP APPENDER" class="me.moocar.logbackgelf.GelfUDPAppender">
-        <remoteHost>@@{prd.graylog_host}</remoteHost>
+        <remoteHost>log.ovoenergy.com</remoteHost>
         <port>12201</port>
         <encoder class="me.moocar.logbackgelf.GZIPEncoder">
             <layout class="me.moocar.logbackgelf.GelfLayout">
