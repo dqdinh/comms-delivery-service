@@ -50,7 +50,7 @@ object Dependencies {
   }
 
   object ovoEnergy {
-    private val kafkaMessagesVersion      = "1.79"
+    private val kafkaMessagesVersion      = "1.79.3"
     private val kafkaHelpersVersion       = "3.18"
     private val commsDockerTestkitVersion = "1.8"
     private val commsTemplatesVersion     = "0.25"
