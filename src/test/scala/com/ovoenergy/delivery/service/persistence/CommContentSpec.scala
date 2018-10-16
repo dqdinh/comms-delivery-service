@@ -82,24 +82,6 @@ class CommContentSpec extends AsyncFlatSpec with Matchers with Arbitraries with 
       }
   }
 
-  it should "pass through the comm body if the content is passed in the event" in {
-    val composedEmailV4 = generate[ComposedEmailV4]
-    val s3Repo = new S3Repo[IO] {
-      override def getDocument(key: S3Repo.Key, bucket: Bucket): IO[Array[Byte]] =
-        IO.raiseError(fail("S3 invoked where comm contents were not a link"))
-    }
-
-    val commContent = CommContent.apply[IO](s3Repo, s3Config)
-    commContent
-      .getEmailContent(composedEmailV4)
-      .unsafeToFuture()
-      .map { content =>
-        content.subject.value shouldBe composedEmailV4.subject
-        content.htmlBody.value shouldBe composedEmailV4.htmlBody
-        content.textBody.map(_.value) shouldBe composedEmailV4.textBody
-      }
-  }
-
   behavior of "getSmsContent"
 
   it should "fetch the body of a comm from s3 if the content is a link" in {
@@ -140,40 +122,7 @@ class CommContentSpec extends AsyncFlatSpec with Matchers with Arbitraries with 
       }
   }
 
-  it should "pass through the comm body if the content is passed in the event" in {
-    val composedSMS = generate[ComposedSMSV4]
-    val s3Repo = new S3Repo[IO] {
-      override def getDocument(key: S3Repo.Key, bucket: Bucket): IO[Array[Byte]] =
-        IO.raiseError(fail("S3 invoked where comm contents were not a link"))
-    }
-
-    CommContent
-      .apply[IO](s3Repo, s3Config)
-      .getSMSContent(composedSMS)
-      .unsafeToFuture()
-      .map(_.textBody.value shouldBe composedSMS.textBody)
-  }
-
   behavior of "getPrintContent"
-
-  it should "fetch the body of a comm from S3" in {
-    val composedPrint  = generate[ComposedPrintV2]
-    val expectedResult = generate[Array[Byte]]
-
-    val s3Repo = new S3Repo[IO] {
-      override def getDocument(key: S3Repo.Key, bucket: Bucket): IO[Array[Byte]] =
-        if (bucket.value == "dev-ovo-comms-pdfs")
-          IO(expectedResult)
-        else
-          IO.raiseError(new Exception("Incorrect bucket name"))
-    }
-
-    CommContent
-      .apply[IO](s3Repo, s3Config)
-      .getPrintContent(composedPrint)
-      .unsafeToFuture
-      .map(_.value shouldBe expectedResult)
-  }
 
   it should "fetch the body of a comm from S3 with full URI" in {
     val arbComposedPrint: Arbitrary[ComposedPrintV2] = Arbitrary(
