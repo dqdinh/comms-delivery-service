@@ -1,7 +1,8 @@
 package servicetest
 
-import java.io.{File}
-import com.amazonaws.auth.{AWSStaticCredentialsProvider, BasicAWSCredentials}
+import java.io.File
+
+import com.amazonaws.auth.{AWSStaticCredentialsProvider, BasicAWSCredentials, DefaultAWSCredentialsProviderChain}
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.s3.{AmazonS3ClientBuilder, S3ClientOptions}
 import com.ovoenergy.comms.helpers.Kafka
@@ -15,6 +16,7 @@ import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse.response
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.scalatest.time.{Seconds, Span}
+
 import scala.language.reflectiveCalls
 //Implicits
 import scala.concurrent.duration._
@@ -33,7 +35,11 @@ class PrintServiceTestIT
 
   val mockServerClient = new MockServerClient("localhost", 1080)
   val topics           = Kafka.aiven
+  val bucketName = "ovo-comms-test"
+  val url = s"s3-${conf.getString("aws.region")}.amazonaws.com"
+  val testFile = "delivery-service/test.pdf"
 
+  //https://ovo-comms-test.s3-eu-west-1.amazonaws.com/delivery-service/test.pdf
   behavior of "Print Delivery"
 
   it should "create failed event when authentication fails with Stannp" in {
@@ -107,7 +113,7 @@ class PrintServiceTestIT
   }
 
   it should "create a failed event when cannot retrieve pdf from S3" in {
-    val composedPrintEvent = arbitraryComposedPrintEvent.copy(pdfIdentifier = "i-dont-exist.pdf")
+    val composedPrintEvent = arbitraryComposedPrintEvent.copy(pdfIdentifier = s"https://${bucketName}.$url/i-dont-exist.pdf")
     createOKStannpResponse()
 
     withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
@@ -116,7 +122,7 @@ class PrintServiceTestIT
       val failedEvents = consumer.pollFor(noOfEventsExpected = 1, pollTime = 180.seconds)
       failedEvents.size shouldBe 1
       failedEvents.foreach(failed => {
-        failed.reason shouldBe "Key i-dont-exist.pdf does not exist in bucket dev-ovo-comms-pdfs."
+        failed.reason shouldBe s"Key i-dont-exist.pdf does not exist in bucket ${bucketName}."
         failed.errorCode shouldBe UnexpectedDeliveryError
       })
     }
@@ -165,11 +171,11 @@ class PrintServiceTestIT
   }
 
   def arbitraryComposedPrintEvent: ComposedPrintV2 =
-    generate[ComposedPrintV2].copy(pdfIdentifier = "example.pdf", expireAt = None)
+    generate[ComposedPrintV2].copy(pdfIdentifier = s"https://${bucketName}.$url/${testFile}", expireAt = None)
 
   lazy val s3Client = {
-    val creds           = new AWSStaticCredentialsProvider(new BasicAWSCredentials("service-test", "dummy"))
-    val ep              = new EndpointConfiguration("http://localhost:4569", conf.getString("aws.region"))
+    val creds           = new DefaultAWSCredentialsProviderChain()
+    val ep              = new EndpointConfiguration(url, conf.getString("aws.region"))
     val s3clientOptions = S3ClientOptions.builder().setPathStyleAccess(true).disableChunkedEncoding().build()
 
     AmazonS3ClientBuilder
@@ -182,14 +188,12 @@ class PrintServiceTestIT
   }
 
   def uploadTestPdf(pdfIdentifier: String) = {
-    s3Client.createBucket("dev-ovo-comms-pdfs")
-    val f = new File("result.pdf")
-    s3Client.putObject("dev-ovo-comms-pdfs", pdfIdentifier, f)
+    val f = new File("test.pdf")
+    s3Client.putObject(bucketName, testFile, f)
   }
 
   def uploadToNewBucket(pdfIdentifier: String) = {
-    s3Client.createBucket("ovo-comms-rendered-content")
-    val f = new File("result.pdf")
-    s3Client.putObject("ovo-comms-rendered-content", pdfIdentifier, f)
+    val f = new File("test.pdf")
+    s3Client.putObject(bucketName, testFile, f)
   }
 }

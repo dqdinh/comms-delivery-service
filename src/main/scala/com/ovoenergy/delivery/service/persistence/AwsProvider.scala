@@ -46,16 +46,11 @@ object AwsProvider {
 
   def getS3Context(isRunningInLocalDocker: Boolean)(implicit awsConfig: AwsConfig) = {
 
+    /* Real S3 is used it service test */
     val s3Client: AmazonS3Client = {
-      val region = awsConfig.buildRegion
-      if (isRunningInLocalDocker) {
-        System.setProperty("com.amazonaws.sdk.disableCertChecking", "true")
-        val awsCreds = new AWSStaticCredentialsProvider(new BasicAWSCredentials("key", "secret"))
-        new AmazonS3Client(awsCreds).withRegion(region)
-      } else {
-        val awsCreds = getCreds(isRunningInLocalDocker, region)
-        new AmazonS3Client(awsCreds).withRegion(region)
-      }
+      val region   = awsConfig.buildRegion
+      val awsCreds = getCreds(false, region)
+      new AmazonS3Client(awsCreds).withRegion(region)
     }
 
     S3Context(s3Client, awsConfig.s3)

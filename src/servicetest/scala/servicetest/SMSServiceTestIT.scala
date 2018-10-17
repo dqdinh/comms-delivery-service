@@ -1,5 +1,9 @@
 package servicetest
 
+import java.io.File
+
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.sms._
@@ -35,6 +39,15 @@ class SMSServiceTestIT
   val mockServerClient = new MockServerClient("localhost", 1080)
   val twilioAccountSid = "test_account_SIIID"
 
+  val bucketName = "ovo-comms-test"
+  val testFile = "delivery-service/test.txt"
+  val url = s"s3-${conf.getString("aws.region")}.amazonaws.com"
+
+  override def beforeAll() = {
+    super.beforeAll()
+    uploadToNewBucket()
+  }
+
   implicit val appConf = ConfigLoader.applicationConfig("servicetest.conf") match {
     case Left(e)    => log.error(s"Stopping application as config failed to load with error: $e"); sys.exit(1)
     case Right(res) => res
@@ -60,12 +73,16 @@ class SMSServiceTestIT
   val unauthenticatedResponse = getFileString("src/test/resources/FailedTwilioResponse.json")
   val badRequestResponse      = getFileString("src/test/resources/BadRequestTwilioResponse.json")
 
+  def buildComposedSMS(composedSMS: ComposedSMSV4) = {
+    composedSMS.copy(textBody = s"https://${bucketName}.s3-eu-west-1.amazonaws.com/${testFile}")
+  }
   behavior of "SMS Delivery"
 
   it should "create Failed event when authentication fails with Twilio" in {
     createTwilioResponse(401, unauthenticatedResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
+      val event = generate[ComposedSMSV4].copy(expireAt = None)
+      val composedSMSEvent = buildComposedSMS(event)
       val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
       val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
 
@@ -83,7 +100,8 @@ class SMSServiceTestIT
   it should "create Failed event when bad request from Twilio" in {
     createTwilioResponse(400, badRequestResponse)
     withThrowawayConsumerFor(Kafka.aiven.failed.v3) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
+      val event = generate[ComposedSMSV4].copy(expireAt = None)
+      val composedSMSEvent = buildComposedSMS(event)
       val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
       val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
 
@@ -102,7 +120,8 @@ class SMSServiceTestIT
     createTwilioResponse(200, validResponse)
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3, Kafka.aiven.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
-        val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
+        val event = generate[ComposedSMSV4].copy(expireAt = None)
+        val composedSMSEvent = buildComposedSMS(event)
         val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
         val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
 
@@ -134,7 +153,8 @@ class SMSServiceTestIT
     createTwilioResponse(200, validResponse)
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3, Kafka.aiven.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
-        val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
+        val event = generate[ComposedSMSV4].copy(expireAt = None)
+        val composedSMSEvent = buildComposedSMS(event)
 
         Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
 
@@ -151,7 +171,8 @@ class SMSServiceTestIT
     createTwilioResponse(200, validResponse)
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
+      val event = generate[ComposedSMSV4].copy(expireAt = None)
+      val composedSMSEvent = buildComposedSMS(event)
       val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
       val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
 
@@ -175,7 +196,8 @@ class SMSServiceTestIT
     createFlakyTwilioResponse()
 
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3) { consumer =>
-      val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
+      val event = generate[ComposedSMSV4].copy(expireAt = None)
+      val composedSMSEvent = buildComposedSMS(event)
       val templateId       = TemplateId(composedSMSEvent.metadata.templateManifest.id)
       val templateSummary  = generate[TemplateSummary].copy(templateId = templateId)
 
@@ -199,7 +221,8 @@ class SMSServiceTestIT
     LocalDynamoDb.client().deleteTable("commRecord")
     withThrowawayConsumerFor(Kafka.aiven.issuedForDelivery.v3, Kafka.aiven.failed.v3) {
       (issuedForDeliveryConsumer, failedConsumer) =>
-        val composedSMSEvent = generate[ComposedSMSV4].copy(expireAt = None)
+        val event = generate[ComposedSMSV4].copy(expireAt = None)
+        val composedSMSEvent = buildComposedSMS(event)
 
         Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
         Kafka.aiven.composedSms.v4.publishOnce(composedSMSEvent)
@@ -248,4 +271,16 @@ class SMSServiceTestIT
       )
   }
 
+  lazy val s3Client = {
+    val creds           = new DefaultAWSCredentialsProviderChain()
+    AmazonS3ClientBuilder
+      .standard()
+      .withCredentials(creds)
+      .build()
+  }
+
+  def uploadToNewBucket() = {
+    val f = new File("test.txt")
+    s3Client.putObject(bucketName, testFile, f)
+  }
 }

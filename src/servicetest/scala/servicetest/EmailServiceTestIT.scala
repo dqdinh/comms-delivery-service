@@ -1,5 +1,10 @@
 package servicetest
 
+import java.io.File
+
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
+import com.amazonaws.services.s3.{AmazonS3ClientBuilder, S3ClientOptions}
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email._
@@ -12,6 +17,7 @@ import org.mockserver.model.HttpResponse.response
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest._
+
 import scala.language.reflectiveCalls
 //Implicits
 import scala.concurrent.duration._
@@ -30,6 +36,15 @@ class EmailServiceTestIT
 
   val mockServerClient = new MockServerClient("localhost", 1080)
   val topics           = Kafka.aiven
+
+  val bucketName = "ovo-comms-test"
+  val testFile = "delivery-service/test.txt"
+  val url = s"s3-${conf.getString("aws.region")}.amazonaws.com"
+
+  override def beforeAll() = {
+    super.beforeAll()
+    uploadToNewBucket()
+  }
 
   behavior of "Email Delivery"
 
@@ -209,7 +224,29 @@ class EmailServiceTestIT
       )
   }
 
-  def arbitraryComposedEmailEvent: ComposedEmailV4 =
+  def arbitraryComposedEmailEvent: ComposedEmailV4 = {
     // Make sure the recipient email address is whitelisted
-    generate[ComposedEmailV4].copy(recipient = "foo@ovoenergy.com", expireAt = None)
+    val event = generate[ComposedEmailV4]
+    event.copy(
+      recipient = "foo@ovoenergy.com",
+      expireAt = None,
+      subject = s"https://${bucketName}.s3-eu-west-1.amazonaws.com/${testFile}",
+      htmlBody = s"https://${bucketName}.s3-eu-west-1.amazonaws.com/${testFile}",
+      textBody = Some(s"https://${bucketName}.s3-eu-west-1.amazonaws.com/${testFile}"),
+      sender = s"https://${bucketName}.s3-eu-west-1.amazonaws.com/${testFile}",
+    )
+  }
+
+  lazy val s3Client = {
+    val creds           = new DefaultAWSCredentialsProviderChain()
+    AmazonS3ClientBuilder
+      .standard()
+      .withCredentials(creds)
+      .build()
+  }
+
+  def uploadToNewBucket() = {
+    val f = new File("test.txt")
+    s3Client.putObject(bucketName, testFile, f)
+  }
 }

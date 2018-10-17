@@ -27,7 +27,8 @@ object S3Repo extends LoggingWithMDC {
       val s3Client = s3Context.s3Client
 
       val onFailure = { (e: DeliveryError) =>
-        log.warn(s"Failed to retrieve communication content with key ${key.value}. ${e.description}")
+        log.warn(
+          s"Failed to retrieve communication content with key ${key.value}, from bucket: ${bucket.value} ${e.description}")
       }
 
       F.delay {
