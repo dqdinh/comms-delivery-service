@@ -163,7 +163,6 @@ trait DockerIntegrationTest
       .withLinks(
         ContainerLink(schemaRegistryContainer, "schema-registry"),
         ContainerLink(dynamodb, "dynamodb"),
-        ContainerLink(fakes3ssl, "dev-ovo-comms-pdfs.s3.eu-west-1.amazonaws.com"),
         ContainerLink(mockServers, "api.mailgun.net"),
         ContainerLink(mockServers, "api.twilio.com"),
         ContainerLink(mockServers, "dash.stannp.com")
@@ -171,24 +170,6 @@ trait DockerIntegrationTest
       .withEnv(envVars: _*)
       .withVolumes(List(VolumeMapping(host = s"${sys.env("HOME")}/.aws", container = "/sbin/.aws"))) // share AWS creds so that credstash works
       .withLogWritingAndReadyChecker("Delivery Service started", "delivery-service") // TODO check topics/consumers in the app and output a log when properly ready
-  }
-
-  // TODO The fake s3 does not have a specific tag, so we have to go with latest
-  lazy val fakes3 = {
-    DockerContainer("lphoward/fake-s3:latest", name = Some("fakes3"))
-      .withPorts(4569 -> Some(4569))
-      .withLogWritingAndReadyChecker("WEBrick::HTTPServer#start", "fakes3")
-  }
-
-  lazy val fakes3ssl = {
-    DockerContainer("cbachich/ssl-proxy:latest", name = Some("fakes3ssl"))
-      .withPorts(443 -> Some(443))
-      .withLinks(ContainerLink(fakes3, "proxyapp"))
-      .withEnv(
-        "PORT=443",
-        "TARGET_PORT=4569"
-      )
-      .withLogWritingAndReadyChecker("Starting Proxy: 443", "fakes3ssl")
   }
 
   lazy val dynamodb = DockerContainer("forty8bit/dynamodb-local:latest", name = Some("dynamodb"))
@@ -210,8 +191,6 @@ trait DockerIntegrationTest
          kafkaContainer,
          dynamodb,
          schemaRegistryContainer,
-         fakes3,
-         fakes3ssl,
          mockServers,
          deliveryService)
 

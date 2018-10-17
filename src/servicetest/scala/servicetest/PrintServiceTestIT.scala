@@ -94,24 +94,6 @@ class PrintServiceTestIT
     }
   }
 
-  it should "create a IssuedForDelivery event when Stannp returns a 200 response (new bucket)" in {
-    val composedPrintEvent = arbitraryComposedPrintEvent
-    createOKStannpResponse()
-    uploadToNewBucket(composedPrintEvent.pdfIdentifier)
-
-    withThrowawayConsumerFor(topics.issuedForDelivery.v3) { consumer =>
-      topics.composedPrint.v2.publishOnce(composedPrintEvent, 10.seconds)
-      val issuedForDeliveryEvents = consumer.pollFor(noOfEventsExpected = 1)
-      issuedForDeliveryEvents.foreach(issuedForDelivery => {
-        issuedForDelivery.gatewayMessageId shouldBe "1234"
-        issuedForDelivery.gateway shouldBe Stannp
-        issuedForDelivery.channel shouldBe Print
-        issuedForDelivery.metadata.traceToken shouldBe composedPrintEvent.metadata.traceToken
-        issuedForDelivery.internalMetadata.internalTraceToken shouldBe composedPrintEvent.internalMetadata.internalTraceToken
-      })
-    }
-  }
-
   it should "create a failed event when cannot retrieve pdf from S3" in {
     val composedPrintEvent = arbitraryComposedPrintEvent.copy(pdfIdentifier = s"https://${bucketName}.$url/i-dont-exist.pdf")
     createOKStannpResponse()
@@ -188,11 +170,6 @@ class PrintServiceTestIT
   }
 
   def uploadTestPdf(pdfIdentifier: String) = {
-    val f = new File("test.pdf")
-    s3Client.putObject(bucketName, testFile, f)
-  }
-
-  def uploadToNewBucket(pdfIdentifier: String) = {
     val f = new File("test.pdf")
     s3Client.putObject(bucketName, testFile, f)
   }
