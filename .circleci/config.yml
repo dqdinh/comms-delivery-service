@@ -7,7 +7,7 @@ defaults:
 
 - &save_dependencies_cache
   save_cache:
-    key: dependencies-cache-{{ .Branch }}
+    key: dependencies-{{ .Branch }}
     paths:
     - /home/circleci/.ivy2
     - /home/circleci/.sbt
@@ -23,7 +23,7 @@ defaults:
 
 - &save_pip_cache
   save_cache:
-    key: pip-cache-{{ .Branch }}
+    key: pip-{{ .Branch }}
     paths:
     - /home/circleci/.cache/pip
 
