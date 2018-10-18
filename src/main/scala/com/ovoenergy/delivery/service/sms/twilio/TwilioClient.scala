@@ -107,10 +107,14 @@ object TwilioClient extends LoggingWithMDC {
   }
 
   private[twilio] def serviceSid(sids: TwilioServiceSids, brand: Brand) = brand match {
-    case Ovo   => sids.ovo
-    case Boost => sids.boost
-    case Corgi => sids.corgi
-    case Lumo  => sids.lumo
-    case Vnet  => sids.vnet
+    case Ovo                => sids.ovo
+    case Boost              => sids.boost
+    case Corgi              => sids.corgi
+    case Lumo               => sids.lumo
+    case Vnet               => sids.vnet
+    case EnergySW           => sids.energySw
+    case Fairerpower        => sids.fairerpower
+    case PeterboroughEnergy => sids.peterboroughEnergy
+    case SouthendEnergy     => sids.southendEnergy
   }
 }

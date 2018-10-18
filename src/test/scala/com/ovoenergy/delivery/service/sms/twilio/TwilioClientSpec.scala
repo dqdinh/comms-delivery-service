@@ -32,7 +32,11 @@ class TwilioClientSpec extends AsyncFlatSpec with Matchers with Arbitraries with
         generate[String],
         generate[String],
         generate[String],
-        generate[String]
+        generate[String],
+        generate[String],
+        generate[String],
+        generate[String],
+        generate[String],
       ),
       "https://test.com",
       generate[ConstantDelayRetry]
