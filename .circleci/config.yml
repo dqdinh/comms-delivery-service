@@ -137,6 +137,9 @@ jobs:
 
     - run: sbt servicetest:test
 
+    - store_artifacts:
+        path: target/integration-test-logs
+
     - store_test_results:
         path: target/service-reports
 
