@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -e
+
+credstash put uat.twilio.service_sid.energy_sw MG665c75567687673591e8f174286a3034
+credstash put uat.twilio.service_sid.fairerpower MGd16128dbf2e81ae360628557c6fe7ab2
+credstash put uat.twilio.service_sid.peterborough_energy MG081eb01a2702dc47bfd226dfd15f87b5
+credstash put uat.twilio.service_sid.southend_energy MGf07e14dad11c3100bc84859c2b85618a
+
+credstash put prd.twilio.service_sid.energy_sw MG15690a1e06f2064fe636579d7e03af3a
+credstash put prd.twilio.service_sid.fairerpower MG5df1878c7dcc5c2fb21b0c4a167c95fa
+credstash put prd.twilio.service_sid.peterborough_energy MG9e8058bca01ac665eb69e6a88a49a666
+credstash put prd.twilio.service_sid.southend_energy MG7f8d8d626ad151ce3a975182a3a84838

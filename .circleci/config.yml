@@ -1,145 +1,168 @@
 version: 2
 
+defaults:
+- &executor
+  docker:
+  - image: circleci/openjdk:8-jdk
+
+- &save_dependencies_cache
+  save_cache:
+    key: dependencies-cache-{{ .Branch }}
+    paths:
+    - /home/circleci/.ivy2
+    - /home/circleci/.sbt
+    - project/target/resolution-cache
+    - target/resolution-cache
+
+
+- &restore_dependencies_cache
+  restore_cache:
+    keys:
+    - dependencies-{{ .Branch }}
+    - dependencies
+
+- &save_pip_cache
+  save_cache:
+    key: pip-cache-{{ .Branch }}
+    paths:
+    - /home/circleci/.cache/pip
+
+- &restore_pip_cache
+  restore_cache:
+    keys:
+    - pip-{{ .Branch }}
+    - pip
+
+- &install_python_pip
+  run:
+    name: Install python-dev, pip
+    command: sudo apt-get update && sudo apt-get install -y libpython2.7-dev python-pip
+
+- &install_awscli_credstash
+  run:
+    name: Install awscli and credstash
+    command: sudo pip install awscli credstash==1.14.0
+
+- &create_aws_credentials
+  run:
+    name: Login to AWS as circleci seems to ignore the setting
+    command: |
+      mkdir ~/.aws
+      echo "[default]" >> ~/.aws/credentials
+      echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
+      echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
+
+- &attach_workspace
+  attach_workspace:
+    at: .
+
+
+
 jobs:
 
   build:
-    working_directory: ~/project/comms-delivery-service
-    machine: true
+
+    <<: *executor
+
     steps:
     - checkout
 
-    # Install credstash
-    - restore_cache:
-        keys:
-          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
+    - *restore_pip_cache
 
-    - run:
-        name: Install python-dev, pip
-        command: sudo apt-get update && sudo apt-get install -y libpython2.7-dev python-pip
+    - *install_python_pip
 
-    - run:
-        name: Install awscli and credstash
-        command: sudo pip install awscli credstash==1.14.0
+    - *install_awscli_credstash
 
-    - run:
-        name: Login to AWS as circleci seems to ignore the setting
-        command: |
-          mkdir ~/.aws
-          echo "[default]" >> ~/.aws/credentials
-          echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
-          echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
+    - *create_aws_credentials
 
-    - save_cache:
-        key: "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
-        paths:
-          - /home/circleci/.cache/pip
+    - *save_pip_cache
 
-    - restore_cache:
-        keys:
-          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
-          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-master"
+    - *restore_dependencies_cache
 
-    - run:
-        command: sbt scalafmt::test
-        no_output_timeout: 20m
+    - run: sbt update
 
-    - run:
-        command: sbt test:scalafmt::test
-        no_output_timeout: 20m
+    - *save_dependencies_cache
+
+    - run: sbt scalafmt::test
+
+    - run: sbt test:scalafmt::test
 
     - run: sbt test:compile
 
-    - save_cache:
-        key: "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
-        paths:
-          - /home/circleci/.ivy2
-          - /home/circleci/.sbt
-          - /home/circleci/.coursier
-          - project/target/resolution-cache
-          - target/resolution-cache
-          # TODO docker image cache?
-
     - run: sbt servicetest:compile
 
-    - store_artifacts:
-        path: /home/circleci/delivery-service/target/integration-test-logs
-
     - persist_to_workspace:
-        root: ~/project
+        root: .
         paths:
-          - "comms-delivery-service"
+          - target
 
 
   test:
-    working_directory: ~/project/comms-delivery-service
-    machine: true
-    steps:
-    - attach_workspace:
-        at: ~/project
 
-    - restore_cache:
-        keys:
-          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
+    <<: *executor
+
+    steps:
+
+    - checkout
+
+    - *attach_workspace
+
+    - *restore_dependencies_cache
 
     - run: sbt test
 
+    - store_test_results:
+        path: target/test-reports
+
 
   servicetest:
-    working_directory: ~/project/comms-delivery-service
+
     machine: true
+
     steps:
-    - attach_workspace:
-        at: ~/project
 
-    - restore_cache:
-        keys:
-          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
+    - checkout
 
-    - run:
-        name: Install python-dev, pip
-        command: sudo apt-get update && sudo apt-get install -y libpython2.7-dev python-pip
+    - *attach_workspace
 
-    - run:
-        name: Install awscli and credstash
-        command: sudo pip install awscli credstash==1.14.0
+    - *restore_pip_cache
 
-    - run:
-        name: Login to AWS as circleci seems to ignore the setting
-        command: |
-          mkdir ~/.aws
-          echo "[default]" >> ~/.aws/credentials
-          echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
-          echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
+    - *install_python_pip
+
+    - *install_awscli_credstash
+
+    - *save_pip_cache
+
+    - *create_aws_credentials
 
     - run: sbt servicetest:test
 
+    - store_test_results:
+        path: target/service-reports
+
 
   deploy:
-    working_directory: ~/project/comms-delivery-service
-    machine: true
+
+    <<: *executor
+
     steps:
-    - attach_workspace:
-        at: ~/project
 
-    - restore_cache:
-        keys:
-          - "{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ .Branch }}"
+    - setup_remote_docker:
+        docker_layer_caching: true
 
-    - run:
-        name: Install python-dev, pip
-        command: sudo apt-get update && sudo apt-get install -y libpython2.7-dev python-pip
+    - checkout
 
-    - run:
-        name: Install awscli and credstash
-        command: sudo pip install awscli credstash==1.14.0
+    - *attach_workspace
 
-    - run:
-        name: Login to AWS as circleci seems to ignore the setting
-        command: |
-          mkdir ~/.aws
-          echo "[default]" >> ~/.aws/credentials
-          echo "aws_access_key_id = $AWS_ACCESS_KEY_ID" >> ~/.aws/credentials
-          echo "aws_secret_access_key = $AWS_SECRET_ACCESS_KEY" >> ~/.aws/credentials
+    - *restore_pip_cache
+
+    - *install_python_pip
+
+    - *install_awscli_credstash
+
+    - *save_pip_cache
+
+    - *create_aws_credentials
 
     - deploy:
         name: Deploy if master branch
