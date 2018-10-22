@@ -33,14 +33,14 @@ class SMSServiceTestIT
     with FlatSpecLike
     with Matchers
     with S3Client
+    with MockServer
     with Arbitraries
     with ArbGenerator {
 
   implicit val conf    = ConfigFactory.load("servicetest.conf")
   implicit val pConfig = PatienceConfig(Span(60, Seconds))
-  val mockServerClient = new MockServerClient("localhost", 1080)
-  val twilioAccountSid = "test_account_SIIID"
 
+  val twilioAccountSid = "test_account_SIIID"
   val bucketName = "ovo-comms-test"
   val testFile = "delivery-service/test.txt"
   val url = s"s3-${conf.getString("aws.region")}.amazonaws.com"

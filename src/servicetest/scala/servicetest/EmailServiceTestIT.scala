@@ -26,6 +26,7 @@ class EmailServiceTestIT
     extends DockerIntegrationTest
     with FlatSpecLike
     with S3Client
+    with MockServer
     with Matchers
     with GeneratorDrivenPropertyChecks
     with Arbitraries
@@ -34,7 +35,6 @@ class EmailServiceTestIT
   implicit val pConfig: PatienceConfig = PatienceConfig(Span(60, Seconds))
   implicit val conf                    = ConfigFactory.load("servicetest.conf")
 
-  val mockServerClient = new MockServerClient("localhost", 1080)
   val topics           = Kafka.aiven
 
   val bucketName = "ovo-comms-test"

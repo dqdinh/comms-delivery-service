@@ -27,6 +27,7 @@ class PrintServiceTestIT
     extends DockerIntegrationTest
     with FlatSpecLike
     with S3Client
+    with MockServer
     with Matchers
     with Arbitraries
     with ArbGenerator
@@ -35,7 +36,6 @@ class PrintServiceTestIT
   implicit val pConfig: PatienceConfig = PatienceConfig(Span(60, Seconds))
   implicit val conf                    = ConfigFactory.load("servicetest.conf")
 
-  val mockServerClient = new MockServerClient("localhost", 1080)
   val topics           = Kafka.aiven
   val bucketName = "ovo-comms-test"
   val url = s"s3-${conf.getString("aws.region")}.amazonaws.com"
