@@ -4,7 +4,7 @@ import java.io.File
 
 import com.amazonaws.auth.{AWSStaticCredentialsProvider, BasicAWSCredentials, DefaultAWSCredentialsProviderChain}
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
-import com.amazonaws.services.s3.{AmazonS3ClientBuilder, S3ClientOptions}
+import com.amazonaws.services.s3.{AmazonS3, AmazonS3Client, AmazonS3ClientBuilder, S3ClientOptions}
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.print.ComposedPrintV2
@@ -16,6 +16,7 @@ import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse.response
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.scalatest.time.{Seconds, Span}
+import servicetest.aws.S3Client
 
 import scala.language.reflectiveCalls
 //Implicits
@@ -25,6 +26,7 @@ import com.ovoenergy.comms.testhelpers.KafkaTestHelpers._
 class PrintServiceTestIT
     extends DockerIntegrationTest
     with FlatSpecLike
+    with S3Client
     with Matchers
     with Arbitraries
     with ArbGenerator
@@ -154,20 +156,6 @@ class PrintServiceTestIT
 
   def arbitraryComposedPrintEvent: ComposedPrintV2 =
     generate[ComposedPrintV2].copy(pdfIdentifier = s"https://${bucketName}.$url/${testFile}", expireAt = None)
-
-  lazy val s3Client = {
-    val creds           = new DefaultAWSCredentialsProviderChain()
-    val ep              = new EndpointConfiguration(url, conf.getString("aws.region"))
-    val s3clientOptions = S3ClientOptions.builder().setPathStyleAccess(true).disableChunkedEncoding().build()
-
-    AmazonS3ClientBuilder
-      .standard()
-      .withCredentials(creds)
-      .withEndpointConfiguration(ep)
-      .withPathStyleAccessEnabled(true)
-      .withChunkedEncodingDisabled(true)
-      .build()
-  }
 
   def uploadTestPdf(pdfIdentifier: String) = {
     val f = new File("test.pdf")

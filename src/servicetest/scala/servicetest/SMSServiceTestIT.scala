@@ -24,6 +24,7 @@ import scala.language.reflectiveCalls
 import scala.io.Source
 import scala.concurrent.duration._
 import org.scalacheck.Arbitrary._
+import servicetest.aws.S3Client
 //implicits
 import com.ovoenergy.comms.testhelpers.KafkaTestHelpers._
 
@@ -31,6 +32,7 @@ class SMSServiceTestIT
     extends DockerIntegrationTest
     with FlatSpecLike
     with Matchers
+    with S3Client
     with Arbitraries
     with ArbGenerator {
 
@@ -269,14 +271,6 @@ class SMSServiceTestIT
         response(validResponse)
           .withStatusCode(200)
       )
-  }
-
-  lazy val s3Client = {
-    val creds           = new DefaultAWSCredentialsProviderChain()
-    AmazonS3ClientBuilder
-      .standard()
-      .withCredentials(creds)
-      .build()
   }
 
   def uploadToNewBucket() = {

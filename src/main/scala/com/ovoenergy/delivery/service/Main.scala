@@ -88,7 +88,7 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
   val templateMetadataRepo    = TemplateMetadataRepo[IO](templateMetadataContext)
 
   val s3Repo = S3Repo.apply[IO] {
-    AwsProvider.getS3Context(isRunningInLocalDocker)
+    AwsProvider.getS3Context
   }
 
   val commContent = CommContent[IO](s3Repo, appConf.aws.s3)

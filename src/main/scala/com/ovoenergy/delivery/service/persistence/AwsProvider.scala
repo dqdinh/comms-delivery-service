@@ -5,7 +5,7 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder, AmazonDynamoDBClient}
-import com.amazonaws.services.s3.AmazonS3Client
+import com.amazonaws.services.s3.{AmazonS3, AmazonS3Client, AmazonS3ClientBuilder}
 import com.ovoenergy.delivery.config.{AwsConfig, S3Config}
 import org.slf4j.LoggerFactory
 
@@ -36,22 +36,17 @@ object AwsProvider {
     if (isRunningInLocalDocker)
       new AWSStaticCredentialsProvider(new BasicAWSCredentials("key", "secret"))
     else
-      new AWSCredentialsProviderChain(
-        new ContainerCredentialsProvider(),
-        new ProfileCredentialsProvider()
-      )
+      new DefaultAWSCredentialsProviderChain()
   }
 
-  case class S3Context(s3Client: AmazonS3Client, s3Config: S3Config)
+  case class S3Context(s3Client: AmazonS3, s3Config: S3Config)
 
-  def getS3Context(isRunningInLocalDocker: Boolean)(implicit awsConfig: AwsConfig) = {
+  def getS3Context(implicit awsConfig: AwsConfig) = {
 
-    /* Real S3 is used it service test */
-    val s3Client: AmazonS3Client = {
-      val region   = awsConfig.buildRegion
-      val awsCreds = getCreds(false, region)
-      new AmazonS3Client(awsCreds).withRegion(region)
-    }
+    val s3Client: AmazonS3 =
+      AmazonS3ClientBuilder
+        .standard()
+        .build()
 
     S3Context(s3Client, awsConfig.s3)
   }

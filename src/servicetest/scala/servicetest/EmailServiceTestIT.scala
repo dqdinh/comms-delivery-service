@@ -2,9 +2,7 @@ package servicetest
 
 import java.io.File
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
-import com.amazonaws.services.s3.{AmazonS3ClientBuilder, S3ClientOptions}
+import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.ovoenergy.comms.helpers.Kafka
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email._
@@ -17,6 +15,7 @@ import org.mockserver.model.HttpResponse.response
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest._
+import servicetest.aws.S3Client
 
 import scala.language.reflectiveCalls
 //Implicits
@@ -26,6 +25,7 @@ import com.ovoenergy.comms.testhelpers.KafkaTestHelpers._
 class EmailServiceTestIT
     extends DockerIntegrationTest
     with FlatSpecLike
+    with S3Client
     with Matchers
     with GeneratorDrivenPropertyChecks
     with Arbitraries
@@ -235,14 +235,6 @@ class EmailServiceTestIT
       textBody = Some(s"https://${bucketName}.s3-eu-west-1.amazonaws.com/${testFile}"),
       sender = s"https://${bucketName}.s3-eu-west-1.amazonaws.com/${testFile}",
     )
-  }
-
-  lazy val s3Client = {
-    val creds           = new DefaultAWSCredentialsProviderChain()
-    AmazonS3ClientBuilder
-      .standard()
-      .withCredentials(creds)
-      .build()
   }
 
   def uploadToNewBucket() = {

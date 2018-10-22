@@ -1,4 +1,4 @@
-package servicetest.dynamo
+package servicetest.aws
 
 import java.time.{DateTimeException, Instant}
 import java.util.UUID

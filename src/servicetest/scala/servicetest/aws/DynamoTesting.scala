@@ -1,4 +1,4 @@
-package servicetest.dynamo
+package servicetest.aws
 
 import com.amazonaws.services.dynamodbv2.model.AmazonDynamoDBException
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType._

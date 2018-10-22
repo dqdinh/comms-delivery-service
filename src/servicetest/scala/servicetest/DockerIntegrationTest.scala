@@ -36,7 +36,7 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.scalatest._
 import org.scalatest.concurrent.{Eventually, PatienceConfiguration, ScalaFutures}
 import org.scalatest.time.{Seconds, Span}
-import servicetest.dynamo.DynamoTesting
+import servicetest.aws.DynamoTesting
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
