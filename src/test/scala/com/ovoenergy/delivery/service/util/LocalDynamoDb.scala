@@ -13,8 +13,6 @@ object LocalDynamoDb {
 
   val creds = new AWSStaticCredentialsProvider(new BasicAWSCredentials("key", "secret"))
 
-  println("In LocalDynamoDb")
-
   def client(endPoint: String = s"http://localhost:8000") = {
     AmazonDynamoDBAsyncClientBuilder
       .standard()

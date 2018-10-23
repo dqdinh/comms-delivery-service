@@ -151,7 +151,8 @@ trait DockerIntegrationTest
       Some("STANNP_PASSWORD=stannp_password"),
       sys.env.get("AWS_ACCESS_KEY_ID").map(envVar => s"AWS_ACCESS_KEY_ID=$envVar"),
       sys.env.get("AWS_ACCOUNT_ID").map(envVar => s"AWS_ACCOUNT_ID=$envVar"),
-      sys.env.get("AWS_SECRET_ACCESS_KEY").map(envVar => s"AWS_SECRET_ACCESS_KEY=$envVar")
+      sys.env.get("AWS_SECRET_ACCESS_KEY").map(envVar => s"AWS_SECRET_ACCESS_KEY=$envVar"),
+      sys.env.get("AWS_REGION").map(envVars => s"AWS_REGION=$envVars")
     ).flatten
 
     val awsAccountId = sys.env.getOrElse(
