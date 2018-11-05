@@ -43,6 +43,7 @@ class ConfigLoaderSpec extends FlatSpec with Matchers {
         "test_service_SIIID_fairerpower",
         "test_service_SIIID_peterboroughEnergy",
         "test_service_SIIID_southendEnergy",
+        "test_service_SIIID_chargedEv"
       ),
       "twilio_url_test",
       ConstantDelayRetry(refineV[Positive](5).right.get, 1.second)
