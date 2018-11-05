@@ -53,7 +53,7 @@ object Dependencies {
     private val kafkaMessagesVersion      = "1.79.3"
     private val kafkaHelpersVersion       = "3.18"
     private val commsDockerTestkitVersion = "1.8"
-    private val commsTemplatesVersion     = "0.29"
+    private val commsTemplatesVersion     = "0.30"
 
     val commsKafkaMessages      = "com.ovoenergy" %% "comms-kafka-messages" % kafkaMessagesVersion
     val commsKafkaMessagesTests = "com.ovoenergy" %% "comms-kafka-messages" % kafkaMessagesVersion classifier "tests"

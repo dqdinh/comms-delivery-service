@@ -116,5 +116,6 @@ object TwilioClient extends LoggingWithMDC {
     case Fairerpower        => sids.fairerpower
     case PeterboroughEnergy => sids.peterboroughEnergy
     case SouthendEnergy     => sids.southendEnergy
+    case ChargedEv          => sids.chargedEv
   }
 }

@@ -26,7 +26,8 @@ package object config {
                                energySw: String,
                                fairerpower: String,
                                peterboroughEnergy: String,
-                               southendEnergy: String)
+                               southendEnergy: String,
+                               chargedEv: String)
   case class TwilioAppConfig(accountSid: String,
                              authToken: String,
                              serviceSids: TwilioServiceSids,
