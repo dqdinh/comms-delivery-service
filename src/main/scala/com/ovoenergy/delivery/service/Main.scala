@@ -61,17 +61,15 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
   val failedTopic   = Kafka.aiven.failed.v3
   val feedbackTopic = Kafka.aiven.feedback.v1
   val failedProducer = Producer
-    .produce[FailedV3](_.metadata.eventId, exitAppOnFailure(Producer(failedTopic), failedTopic.name), failedTopic.name)
+    .produce[FailedV3](_.metadata.commId, exitAppOnFailure(Producer(failedTopic), failedTopic.name), failedTopic.name)
   val feedbackProducer = Producer
-    .produce[Feedback](_.metadata.eventId,
-                       exitAppOnFailure(Producer(feedbackTopic), feedbackTopic.name),
-                       feedbackTopic.name)
+    .produce[Feedback](_.commId, exitAppOnFailure(Producer(feedbackTopic), feedbackTopic.name), feedbackTopic.name)
   val failedPublisher: FailedV3 => IO[RecordMetadata]   = failedProducer[IO]
   val feedbackPublisher: Feedback => IO[RecordMetadata] = feedbackProducer[IO]
 
   val issuedForDeliveryTopic = Kafka.aiven.issuedForDelivery.v3
   val issuedForDeliveryProducer = Producer.produce[IssuedForDeliveryV3](
-    _.metadata.eventId,
+    _.metadata.commId,
     exitAppOnFailure(Producer(issuedForDeliveryTopic), issuedForDeliveryTopic.name),
     issuedForDeliveryTopic.name)
   val issuedForDeliveryPublisher: IssuedForDeliveryV3 => IO[RecordMetadata] = issuedForDeliveryProducer[IO]

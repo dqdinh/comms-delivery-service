@@ -4,6 +4,7 @@ import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email.ComposedEmailV4
 import com.ovoenergy.comms.model.print.ComposedPrintV2
 import com.ovoenergy.comms.model.sms.ComposedSMSV4
+import com.ovoenergy.comms.templates.util.Hash
 import com.ovoenergy.kafka.common.event.EventMetadata
 
 trait BuildFailed[T] {
@@ -40,7 +41,7 @@ trait BuilderInstances {
     }
   }
 
-  implicit val buildfeedbackFromEmail = {
+  implicit val buildFeedbackFromEmail: BuildFeedback[ComposedEmailV4] = {
     BuildFeedback.instance[ComposedEmailV4] { (composedEvent, deliveryError, feedbackStatus) =>
       Feedback(
         composedEvent.metadata.commId,
@@ -51,12 +52,12 @@ trait BuilderInstances {
         None,
         Some(Email),
         Some(composedEvent.metadata.templateManifest),
-        EventMetadata.fromMetadata(composedEvent.metadata, s"${composedEvent.metadata.eventId}-feedback")
+        EventMetadata.fromMetadata(composedEvent.metadata, Hash(composedEvent.metadata.eventId ++ "-delivery-feedback"))
       )
     }
   }
 
-  implicit val buildfeedbackFromSms = {
+  implicit val buildFeedbackFromSms: BuildFeedback[ComposedSMSV4] = {
     BuildFeedback.instance[ComposedSMSV4] { (composedEvent, deliveryError, feedbackStatus) =>
       Feedback(
         composedEvent.metadata.commId,
@@ -67,12 +68,12 @@ trait BuilderInstances {
         None,
         Some(SMS),
         Some(composedEvent.metadata.templateManifest),
-        EventMetadata.fromMetadata(composedEvent.metadata, s"${composedEvent.metadata.eventId}-feedback")
+        EventMetadata.fromMetadata(composedEvent.metadata, Hash(composedEvent.metadata.eventId ++ "-delivery-feedback"))
       )
     }
   }
 
-  implicit val buildfeedbackFromPrint = {
+  implicit val buildFeedbackFromPrint: BuildFeedback[ComposedPrintV2] = {
     BuildFeedback.instance[ComposedPrintV2] { (composedEvent, deliveryError, feedbackStatus) =>
       Feedback(
         composedEvent.metadata.commId,
@@ -83,17 +84,17 @@ trait BuilderInstances {
         None,
         Some(Print),
         Some(composedEvent.metadata.templateManifest),
-        EventMetadata.fromMetadata(composedEvent.metadata, s"${composedEvent.metadata.eventId}-feedback")
+        EventMetadata.fromMetadata(composedEvent.metadata, Hash(composedEvent.metadata.eventId ++ "-delivery-feedback"))
       )
     }
   }
 
-  implicit val buildFailedFromEmail = {
+  implicit val buildFailedFromEmail: BuildFailed[ComposedEmailV4] = {
     BuildFailed.instance[ComposedEmailV4] { (composedEvent, deliveryError) =>
       FailedV3(
         metadata = MetadataV3.fromSourceMetadata("delivery-service",
                                                  composedEvent.metadata,
-                                                 s"${composedEvent.metadata.eventId}-failed"),
+                                                 Hash(composedEvent.metadata.eventId ++ "-delivery-failed")),
         internalMetadata = composedEvent.internalMetadata,
         reason = deliveryError.description,
         errorCode = deliveryError.errorCode
@@ -101,12 +102,12 @@ trait BuilderInstances {
     }
   }
 
-  implicit val buildfailedFromSms = {
+  implicit val buildFailedFromSms: BuildFailed[ComposedSMSV4] = {
     BuildFailed.instance[ComposedSMSV4] { (composedEvent, deliveryError) =>
       FailedV3(
         metadata = MetadataV3.fromSourceMetadata("delivery-service",
                                                  composedEvent.metadata,
-                                                 s"${composedEvent.metadata.eventId}-failed"),
+                                                 Hash(composedEvent.metadata.eventId ++ "-delivery-failed")),
         internalMetadata = composedEvent.internalMetadata,
         reason = deliveryError.description,
         errorCode = deliveryError.errorCode
@@ -114,12 +115,12 @@ trait BuilderInstances {
     }
   }
 
-  implicit val buildfailedFromPrint = {
+  implicit val buildFailedFromPrint: BuildFailed[ComposedPrintV2] = {
     BuildFailed.instance[ComposedPrintV2] { (composedEvent, deliveryError) =>
       FailedV3(
         metadata = MetadataV3.fromSourceMetadata("delivery-service",
                                                  composedEvent.metadata,
-                                                 s"${composedEvent.metadata.eventId}-failed"),
+                                                 Hash(composedEvent.metadata.eventId ++ "-delivery-failed")),
         internalMetadata = composedEvent.internalMetadata,
         reason = deliveryError.description,
         errorCode = deliveryError.errorCode

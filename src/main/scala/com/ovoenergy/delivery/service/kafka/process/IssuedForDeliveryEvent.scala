@@ -65,7 +65,7 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
         gatewayMessageId = gatewayComm.id
       )
 
-      val feedbackEvent = builders.buildfeedbackFromPrint(composedEvent, None, FeedbackOptions.Delivered)
+      val feedbackEvent = builders.buildFeedbackFromPrint(composedEvent, None, FeedbackOptions.Delivered)
 
       for {
         rm1 <- publishIssued(issuedForDeliveryEvent)
