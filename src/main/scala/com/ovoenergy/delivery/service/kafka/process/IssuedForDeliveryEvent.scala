@@ -19,8 +19,9 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
       composedEvent: ComposedEmailV4,
       gatewayComm: GatewayComm): F[Unit] = {
     val event = IssuedForDeliveryV3(
-      metadata =
-        MetadataV3.fromSourceMetadata("delivery-service", composedEvent.metadata, Hash(composedEvent.metadata.eventId)),
+      metadata = MetadataV3.fromSourceMetadata("delivery-service",
+                                               composedEvent.metadata,
+                                               composedEvent.metadata.commId ++ "-issue-for-delivery"),
       internalMetadata = composedEvent.internalMetadata,
       channel = gatewayComm.channel,
       gateway = gatewayComm.gateway,
@@ -37,8 +38,9 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
   def sms[F[_]: Functor](publishEvent: IssuedForDeliveryV3 => F[RecordMetadata])(composedEvent: ComposedSMSV4,
                                                                                  gatewayComm: GatewayComm): F[Unit] = {
     val event = IssuedForDeliveryV3(
-      metadata =
-        MetadataV3.fromSourceMetadata("delivery-service", composedEvent.metadata, Hash(composedEvent.metadata.eventId)),
+      metadata = MetadataV3.fromSourceMetadata("delivery-service",
+                                               composedEvent.metadata,
+                                               composedEvent.metadata.commId ++ "-issue-for-delivery"),
       internalMetadata = composedEvent.internalMetadata,
       channel = gatewayComm.channel,
       gateway = gatewayComm.gateway,
@@ -58,7 +60,7 @@ object IssuedForDeliveryEvent extends LoggingWithMDC {
       val issuedForDeliveryEvent = IssuedForDeliveryV3(
         metadata = MetadataV3.fromSourceMetadata("delivery-service",
                                                  composedEvent.metadata,
-                                                 Hash(composedEvent.metadata.eventId)),
+                                                 composedEvent.metadata.commId ++ "-issue-for-delivery"),
         internalMetadata = composedEvent.internalMetadata,
         channel = gatewayComm.channel,
         gateway = gatewayComm.gateway,
