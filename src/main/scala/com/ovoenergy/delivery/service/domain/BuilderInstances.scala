@@ -41,12 +41,12 @@ trait BuilderInstances {
   }
 
   def eventIdSuffix(feedbackStatus: FeedbackStatus) = feedbackStatus match {
-    case FeedbackOptions.Scheduled => "-scheduled"
-    case FeedbackOptions.Pending   => "-pending"
-    case FeedbackOptions.Delivered => "-delivered"
-    case FeedbackOptions.Failed    => "-failed"
-    case FeedbackOptions.Cancelled => "-cancelled"
-    case FeedbackOptions.Expired   => "-expired"
+    case FeedbackOptions.Scheduled => "-feedback-scheduled"
+    case FeedbackOptions.Pending   => "-feedback-pending"
+    case FeedbackOptions.Delivered => "-feedback-delivered"
+    case FeedbackOptions.Failed    => "-feedback-failed"
+    case FeedbackOptions.Cancelled => "-feedback-cancelled"
+    case FeedbackOptions.Expired   => "-feedback-expired"
   }
 
   implicit val buildFeedbackFromEmail: BuildFeedback[ComposedEmailV4] = {
