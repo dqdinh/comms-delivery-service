@@ -2,7 +2,7 @@ package com.ovoenergy.delivery.service.persistence
 
 import java.time.Instant
 
-import cats.effect.Async
+import cats.effect._
 import cats.implicits._
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
 import com.amazonaws.services.dynamodbv2.model.{AmazonDynamoDBException, ProvisionedThroughputExceededException}
@@ -20,7 +20,9 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 
-class DynamoPersistence[F[_]](dbClient: AmazonDynamoDBAsync)(implicit config: DynamoDbConfig, F: Async[F])
+class DynamoPersistence[F[_]](dbClient: AmazonDynamoDBAsync)(implicit config: DynamoDbConfig,
+                                                             F: Concurrent[F],
+                                                             T: Timer[F])
     extends LoggingWithMDC {
 
   implicit def commRecordLoggable: Loggable[CommRecord] =

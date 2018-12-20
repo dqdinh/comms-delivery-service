@@ -18,6 +18,10 @@ import com.ovoenergy.delivery.config
 
 class DynamoPersistenceSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
 
+  val ec             = scala.concurrent.ExecutionContext.global
+  implicit val timer = IO.timer(ec)
+  implicit val ctx   = IO.contextShift(ec)
+
   implicit val dynamConf: config.DynamoDbConfig =
     DynamoDbConfig(
       ConstantDelayRetry(refineV[Positive](1).right.get, 1.second),

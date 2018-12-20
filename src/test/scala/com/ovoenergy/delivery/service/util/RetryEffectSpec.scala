@@ -2,8 +2,8 @@ package com.ovoenergy.delivery.service.util
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import cats.effect.IO
-import fs2.Scheduler
+import cats.effect._
+import fs2._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 
@@ -14,10 +14,9 @@ class RetryEffectSpec extends WordSpec with Matchers with ScalaFutures with Befo
 
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(timeout = 5.seconds)
 
-  val (scheduler, shutDownScheduler) = Scheduler.allocate[IO](5).unsafeToFuture().futureValue
-
-  implicit val ec: ExecutionContext         = ExecutionContext.global
-  implicit val implicitScheduler: Scheduler = scheduler
+  implicit val ec: ExecutionContext = ExecutionContext.global
+  implicit val timer                = IO.timer(ec)
+  implicit val ctx                  = IO.contextShift(ec)
 
   "retry" when {
 
@@ -91,10 +90,5 @@ class RetryEffectSpec extends WordSpec with Matchers with ScalaFutures with Befo
         }
       }
     }
-  }
-
-  override protected def afterAll(): Unit = {
-    shutDownScheduler.unsafeToFuture().futureValue
-    super.afterAll()
   }
 }
