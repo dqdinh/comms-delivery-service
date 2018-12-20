@@ -149,17 +149,10 @@ trait DockerIntegrationTest
       Some(s"STANNP_URL=http://dash.stannp.com:$MockserverPort"),
       Some("STANNP_API_KEY=stannp_api_key"),
       Some("STANNP_PASSWORD=stannp_password"),
-      sys.env.get("AWS_ACCESS_KEY_ID").map(envVar => s"AWS_ACCESS_KEY_ID=$envVar"),
-      sys.env.get("AWS_ACCOUNT_ID").map(envVar => s"AWS_ACCOUNT_ID=$envVar"),
-      sys.env.get("AWS_SECRET_ACCESS_KEY").map(envVar => s"AWS_SECRET_ACCESS_KEY=$envVar"),
-      sys.env.get("AWS_REGION").map(envVars => s"AWS_REGION=$envVars")
+      Some("AWS_REGION=eu-west-1")
     ).flatten
 
-    val awsAccountId = sys.env.getOrElse(
-      "AWS_ACCOUNT_ID",
-      sys.error("Environment variable AWS_ACCOUNT_ID must be set in order to run the integration tests"))
-
-    DockerContainer(s"$awsAccountId.dkr.ecr.eu-west-1.amazonaws.com/delivery-service:0.1-SNAPSHOT",
+    DockerContainer(s"852955754882.dkr.ecr.eu-west-1.amazonaws.com/delivery-service:0.1-SNAPSHOT",
                     name = Some("delivery-service"))
       .withLinks(
         ContainerLink(schemaRegistryContainer, "schema-registry"),

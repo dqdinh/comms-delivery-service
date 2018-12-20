@@ -126,3 +126,5 @@ startDynamoDBLocal := startDynamoDBLocal
 test in Test := (test in Test).dependsOn(startDynamoDBLocal).value
 testOnly in Test := (testOnly in Test).dependsOn(startDynamoDBLocal).evaluated
 testOptions in Test += dynamoDBLocalTestCleanup.value
+
+commsPackagingAwsAccountId := "852955754882"
