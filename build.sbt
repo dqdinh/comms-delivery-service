@@ -76,7 +76,6 @@ val dependencies = Seq(
   fs2.kafkaClient,
   cats.core,
   cats.effect,
-  cats.mtl,
   circe.core,
   circe.generic,
   circe.genericExtras,

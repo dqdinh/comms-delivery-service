@@ -4,7 +4,7 @@ import java.nio.file.Paths
 import java.time.{Clock, ZonedDateTime}
 
 import akka.actor.ActorSystem
-import cats.effect.{Effect, IO}
+import cats.effect._
 import com.ovoenergy.comms.helpers.{Kafka, KafkaClusterConfig, Topic}
 import com.ovoenergy.comms.model._
 import com.ovoenergy.comms.model.email.ComposedEmailV4
@@ -44,7 +44,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.io.Source
 import scala.reflect.ClassTag
 
-object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
+object Main extends IOApp with LoggingWithMDC with BuilderInstances {
 
   implicit val clock            = Clock.systemDefaultZone()
   implicit val dt               = IO(ZonedDateTime.now)
@@ -198,7 +198,7 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
       sendIssuedToGatewayPrint
     )
 
-  override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, StreamApp.ExitCode] = {
+  override def run(args: List[String]): IO[ExitCode] = {
     val emailStream: Stream[IO, Unit] =
       processEvent[IO, ComposedEmailV4, Unit](emailProcessor, aivenCluster.composedEmail.v4)
 
@@ -208,11 +208,11 @@ object Main extends StreamApp[IO] with LoggingWithMDC with BuilderInstances {
     val printStream: Stream[IO, Unit] =
       processEvent[IO, ComposedPrintV2, Unit](printProcessor, aivenCluster.composedPrint.v2)
 
-    emailStream
-      .mergeHaltBoth(smsStream)
-      .mergeHaltBoth(printStream)
-      .drain
-      .covaryOutput[StreamApp.ExitCode] ++ Stream.emit(StreamApp.ExitCode.Error)
+    Stream(
+      emailStream,
+      smsStream,
+      printStream
+    ).parJoinUnbounded.compile.drain.as(ExitCode.Success)
   }
 
   log.info("Delivery Service started")

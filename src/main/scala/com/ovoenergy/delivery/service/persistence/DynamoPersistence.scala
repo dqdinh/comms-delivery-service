@@ -14,7 +14,7 @@ import com.ovoenergy.delivery.service.domain.{CommRecord, DynamoError}
 import com.ovoenergy.delivery.service.logging.{Loggable, LoggingWithMDC}
 import com.ovoenergy.delivery.service.persistence.DynamoPersistence._
 import com.ovoenergy.delivery.service.util.RetryEffect
-import fs2.internal.NonFatal
+import scala.util.control.NonFatal
 
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -60,10 +60,10 @@ class DynamoPersistence[F[_]](dbClient: AmazonDynamoDBAsync)(implicit config: Dy
           cb(Left(DynamoError(UnexpectedDeliveryError, "Comm hash persisted already exists in DB and is a duplicate.")))
         }
         case Success(Some(Left(_))) => {
-          cb(Left(DynamoError(UnexpectedDeliveryError, "Failed to save commRecord $commRecord to DynamoDB.")))
+          cb(Left(DynamoError(UnexpectedDeliveryError, s"Failed to save commRecord $commRecord to DynamoDB.")))
         }
         case Failure(error) => {
-          cb(Left(DynamoError(UnexpectedDeliveryError, "Failed to save commRecord $commRecord to DynamoDB.")))
+          cb(Left(DynamoError(UnexpectedDeliveryError, s"Failed to save commRecord $commRecord to DynamoDB.")))
         }
       }
     }

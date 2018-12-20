@@ -12,7 +12,7 @@ object Dependencies {
   val mockServer = "org.mock-server" % "mockserver-client-java" % "3.12"
 
   object fs2 {
-    private val fs2Version            = "0.10.2"
+    private val fs2Version            = "1.0.2"
     private val fs2KafkaClientVersion = "0.1.9"
 
     lazy val core = "co.fs2" %% "fs2-core" % fs2Version
@@ -26,9 +26,8 @@ object Dependencies {
   }
 
   object cats {
-    val core   = "org.typelevel" %% "cats-core"     % "1.0.1"
-    val effect = "org.typelevel" %% "cats-effect"   % "0.10"
-    val mtl    = "org.typelevel" %% "cats-mtl-core" % "0.2.1"
+    val core   = "org.typelevel" %% "cats-core"     % "1.0.5"
+    val effect = "org.typelevel" %% "cats-effect"   % "1.1.0"
   }
 
   object circe {
