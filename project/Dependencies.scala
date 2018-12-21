@@ -13,7 +13,7 @@ object Dependencies {
 
   object fs2 {
     private val fs2Version            = "1.0.2"
-    private val fs2KafkaClientVersion = "0.1.9"
+    private val fs2KafkaClientVersion = "0.2.5"
 
     lazy val core = "co.fs2" %% "fs2-core" % fs2Version
     lazy val io   = "co.fs2" %% "fs2-io"   % fs2Version
@@ -64,7 +64,7 @@ object Dependencies {
   }
 
   object logging {
-    val log4Cats               ="io.chrisdavenport" %% "log4cats-slf4j"         % "0.1.0"
+    val log4Cats               ="io.chrisdavenport" %% "log4cats-slf4j"         % "0.2.0"
     val logbackClassic        = "ch.qos.logback"    % "logback-classic"         % "1.1.7"
     val logbackGelf           = "me.moocar"         % "logback-gelf"            % "0.2"
     val logzIoLogbackAppender = "io.logz.logback"   % "logzio-logback-appender" % "1.0.11"

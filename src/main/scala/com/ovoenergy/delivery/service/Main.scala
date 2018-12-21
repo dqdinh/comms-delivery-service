@@ -152,7 +152,7 @@ object Main extends IOApp with LoggingWithMDC with BuilderInstances {
   type Record[T] = ConsumerRecord[Unit, Option[T]]
 
   def processEvent[F[_], T: SchemaFor: ToRecord: FromRecord: ClassTag, A](f: Record[T] => F[A], topic: Topic[T])(
-      implicit F: Effect[F]): fs2.Stream[F, A] = {
+      implicit F: Concurrent[F]): fs2.Stream[F, A] = {
 
     val valueDeserializer = topic.deserializer.right.get
 
